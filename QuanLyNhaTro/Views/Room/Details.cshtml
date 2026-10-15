@@ -1,0 +1,47 @@
+@model QuanLyNhaTro.Models.Room
+
+@{
+    ViewData["Title"] = "Chi tiết phòng";
+    var statusText = Model.Status switch
+    {
+        "Available" => "Trống",
+        "Occupied" => "Đang thuê",
+        "Maintenance" => "Bảo trì",
+        "Reserved" => "Đã đặt trước",
+        _ => Model.Status
+    };
+}
+
+<h1>Chi tiết phòng</h1>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-4">Tòa nhà</dt>
+            <dd class="col-sm-8">@Model.Building.BuildingName</dd>
+
+            <dt class="col-sm-4">Mã phòng</dt>
+            <dd class="col-sm-8">@Model.RoomCode</dd>
+
+            <dt class="col-sm-4">Diện tích</dt>
+            <dd class="col-sm-8">@Model.Area.ToString("N2") m²</dd>
+
+            <dt class="col-sm-4">Giá thuê hàng tháng</dt>
+            <dd class="col-sm-8">@Model.MonthlyRent.ToString("N0")</dd>
+
+            <dt class="col-sm-4">Số người tối đa</dt>
+            <dd class="col-sm-8">@Model.MaxOccupants</dd>
+
+            <dt class="col-sm-4">Trạng thái</dt>
+            <dd class="col-sm-8">@statusText</dd>
+
+            <dt class="col-sm-4">Mô tả</dt>
+            <dd class="col-sm-8">@(string.IsNullOrWhiteSpace(Model.Description) ? "Chưa có" : Model.Description)</dd>
+        </dl>
+    </div>
+</div>
+
+<div>
+    <a asp-action="Edit" asp-route-id="@Model.RoomId" class="btn btn-primary">Sửa</a>
+    <a asp-action="Index" class="btn btn-secondary">Quay lại danh sách</a>
+</div>

@@ -1,0 +1,69 @@
+@model IEnumerable<QuanLyNhaTro.Models.Room>
+
+@{
+    ViewData["Title"] = "Quản lý phòng";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>Quản lý phòng</h1>
+    <a asp-action="Create" class="btn btn-primary">Thêm phòng</a>
+</div>
+
+@if (TempData["SuccessMessage"] is string successMessage)
+{
+    <div class="alert alert-success" role="alert">@successMessage</div>
+}
+
+@if (TempData["ErrorMessage"] is string errorMessage)
+{
+    <div class="alert alert-danger" role="alert">@errorMessage</div>
+}
+
+@if (!Model.Any())
+{
+    <div class="alert alert-info">Chưa có phòng nào.</div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped table-bordered align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Tòa nhà</th>
+                    <th>Mã phòng</th>
+                    <th>Diện tích (m²)</th>
+                    <th>Giá thuê/tháng</th>
+                    <th>Số người tối đa</th>
+                    <th>Trạng thái</th>
+                    <th class="text-end">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var room in Model)
+            {
+                var statusText = room.Status switch
+                {
+                    "Available" => "Trống",
+                    "Occupied" => "Đang thuê",
+                    "Maintenance" => "Bảo trì",
+                    "Reserved" => "Đã đặt trước",
+                    _ => room.Status
+                };
+                <tr>
+                    <td>@room.Building.BuildingName</td>
+                    <td>@room.RoomCode</td>
+                    <td>@room.Area.ToString("N2")</td>
+                    <td>@room.MonthlyRent.ToString("N0")</td>
+                    <td>@room.MaxOccupants</td>
+                    <td>@statusText</td>
+                    <td class="text-end">
+                        <a asp-action="Details" asp-route-id="@room.RoomId" class="btn btn-sm btn-outline-info">Chi tiết</a>
+                        <a asp-action="Edit" asp-route-id="@room.RoomId" class="btn btn-sm btn-outline-primary">Sửa</a>
+                        <a asp-action="Delete" asp-route-id="@room.RoomId" class="btn btn-sm btn-outline-danger">Xóa</a>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}

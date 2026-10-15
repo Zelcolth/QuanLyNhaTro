@@ -1,0 +1,63 @@
+@model QuanLyNhaTro.Models.Room
+
+@{
+    ViewData["Title"] = "Sửa phòng";
+}
+
+<h1>Sửa phòng</h1>
+
+<form asp-action="Edit" method="post">
+    <input type="hidden" asp-for="RoomId" />
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+    <div class="mb-3">
+        <label asp-for="BuildingId" class="form-label">Tòa nhà</label>
+        <select asp-for="BuildingId" asp-items="ViewBag.Buildings" class="form-select">
+            <option value="">-- Chọn tòa nhà --</option>
+        </select>
+        <span asp-validation-for="BuildingId" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="RoomCode" class="form-label">Mã phòng</label>
+        <input asp-for="RoomCode" class="form-control" />
+        <span asp-validation-for="RoomCode" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Area" class="form-label">Diện tích (m²)</label>
+        <input asp-for="Area" type="number" min="0.01" step="0.01" class="form-control" />
+        <span asp-validation-for="Area" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="MonthlyRent" class="form-label">Giá thuê hàng tháng</label>
+        <input asp-for="MonthlyRent" type="number" min="0" step="0.01" class="form-control" />
+        <span asp-validation-for="MonthlyRent" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="MaxOccupants" class="form-label">Số người tối đa</label>
+        <input asp-for="MaxOccupants" type="number" min="1" class="form-control" />
+        <span asp-validation-for="MaxOccupants" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Status" class="form-label">Trạng thái</label>
+        <select asp-for="Status" asp-items="ViewBag.Statuses" class="form-select"></select>
+        <span asp-validation-for="Status" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Description" class="form-label">Mô tả</label>
+        <textarea asp-for="Description" class="form-control" rows="4"></textarea>
+        <span asp-validation-for="Description" class="text-danger"></span>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Lưu thay đổi</button>
+    <a asp-action="Index" class="btn btn-secondary">Hủy</a>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
