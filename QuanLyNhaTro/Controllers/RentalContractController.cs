@@ -365,6 +365,11 @@ public class RentalContractController : Controller
             return;
         }
 
+        if (room.Status is "Maintenance" or "Reserved")
+        {
+            return;
+        }
+
         var today = DateTime.Today;
         var hasCurrentActiveContract = await _context.RentalContracts.AnyAsync(contract =>
             contract.RoomId == roomId
@@ -376,7 +381,7 @@ public class RentalContractController : Controller
         {
             room.Status = "Occupied";
         }
-        else if (room.Status is not ("Maintenance" or "Reserved"))
+        else
         {
             room.Status = "Available";
         }

@@ -268,6 +268,24 @@ public class RoomController : Controller
                 ModelState.AddModelError(nameof(Room.RoomCode), "Mã phòng đã tồn tại trong tòa nhà đã chọn.");
             }
         }
+
+        if (room.RoomId > 0
+            && room.Status == "Available"
+            && await HasCurrentActiveContractAsync(room.RoomId))
+        {
+            ModelState.AddModelError(nameof(Room.Status), "Không thể đặt phòng là Trống vì phòng đang có hợp đồng hiệu lực.");
+        }
+    }
+
+    private async Task<bool> HasCurrentActiveContractAsync(int roomId)
+    {
+        var today = DateTime.Today;
+
+        return await _context.RentalContracts.AnyAsync(contract =>
+            contract.RoomId == roomId
+            && contract.Status == "Active"
+            && contract.StartDate.Date <= today
+            && contract.EndDate.Date >= today);
     }
 
     private async Task PopulateFormOptionsAsync(int? selectedBuildingId = null, string? selectedStatus = null)
