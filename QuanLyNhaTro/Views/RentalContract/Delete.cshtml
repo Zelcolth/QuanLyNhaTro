@@ -1,0 +1,40 @@
+@model QuanLyNhaTro.Models.RentalContract
+
+@{
+    ViewData["Title"] = "Xóa hợp đồng thuê";
+}
+
+<h1>Xóa hợp đồng thuê</h1>
+
+@if (TempData["ErrorMessage"] is string errorMessage)
+{
+    <div class="alert alert-danger" role="alert">@errorMessage</div>
+}
+
+<div class="alert alert-warning" role="alert">
+    Chỉ có thể xóa hợp đồng ở trạng thái Bản nháp hoặc Đã hủy. Không thể xóa hợp đồng đang hiệu lực hoặc đã hoàn thành.
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-4">Mã hợp đồng</dt>
+            <dd class="col-sm-8">@Model.ContractCode</dd>
+
+            <dt class="col-sm-4">Phòng</dt>
+            <dd class="col-sm-8">@Model.Room.Building.BuildingName - @Model.Room.RoomCode</dd>
+
+            <dt class="col-sm-4">Người thuê</dt>
+            <dd class="col-sm-8">@Model.Tenant.FullName</dd>
+
+            <dt class="col-sm-4">Trạng thái</dt>
+            <dd class="col-sm-8">@Model.Status</dd>
+        </dl>
+    </div>
+</div>
+
+<form asp-action="Delete" method="post">
+    <input type="hidden" asp-for="ContractId" />
+    <button type="submit" class="btn btn-danger">Xác nhận xóa</button>
+    <a asp-action="Index" class="btn btn-secondary">Hủy</a>
+</form>

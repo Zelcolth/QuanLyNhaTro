@@ -1,0 +1,69 @@
+@model IEnumerable<QuanLyNhaTro.Models.RentalContract>
+
+@{
+    ViewData["Title"] = "Quản lý hợp đồng thuê";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>Quản lý hợp đồng thuê</h1>
+    <a asp-action="Create" class="btn btn-primary">Thêm hợp đồng</a>
+</div>
+
+@if (TempData["SuccessMessage"] is string successMessage)
+{
+    <div class="alert alert-success" role="alert">@successMessage</div>
+}
+
+@if (TempData["ErrorMessage"] is string errorMessage)
+{
+    <div class="alert alert-danger" role="alert">@errorMessage</div>
+}
+
+@if (!Model.Any())
+{
+    <div class="alert alert-info">Chưa có hợp đồng thuê nào.</div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped table-bordered align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Mã hợp đồng</th>
+                    <th>Phòng</th>
+                    <th>Người thuê</th>
+                    <th>Thời hạn</th>
+                    <th>Giá thuê</th>
+                    <th>Trạng thái</th>
+                    <th class="text-end">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var contract in Model)
+            {
+                var statusText = contract.Status switch
+                {
+                    "Draft" => "Bản nháp",
+                    "Active" => "Đang hiệu lực",
+                    "Completed" => "Đã hoàn thành",
+                    "Cancelled" => "Đã hủy",
+                    _ => contract.Status
+                };
+                <tr>
+                    <td>@contract.ContractCode</td>
+                    <td>@contract.Room.Building.BuildingName - @contract.Room.RoomCode</td>
+                    <td>@contract.Tenant.FullName</td>
+                    <td>@contract.StartDate.ToString("dd/MM/yyyy") - @contract.EndDate.ToString("dd/MM/yyyy")</td>
+                    <td>@contract.MonthlyRent.ToString("N0")</td>
+                    <td>@statusText</td>
+                    <td class="text-end">
+                        <a asp-action="Details" asp-route-id="@contract.ContractId" class="btn btn-sm btn-outline-info">Chi tiết</a>
+                        <a asp-action="Edit" asp-route-id="@contract.ContractId" class="btn btn-sm btn-outline-primary">Sửa</a>
+                        <a asp-action="Delete" asp-route-id="@contract.ContractId" class="btn btn-sm btn-outline-danger">Xóa</a>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}

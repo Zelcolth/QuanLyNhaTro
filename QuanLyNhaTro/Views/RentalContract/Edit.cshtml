@@ -1,0 +1,80 @@
+@model QuanLyNhaTro.Models.RentalContract
+
+@{
+    ViewData["Title"] = "Sửa hợp đồng thuê";
+}
+
+<h1>Sửa hợp đồng thuê</h1>
+
+<form asp-action="Edit" method="post">
+    <input type="hidden" asp-for="ContractId" />
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+    <div class="mb-3">
+        <label asp-for="ContractCode" class="form-label">Mã hợp đồng</label>
+        <input asp-for="ContractCode" class="form-control" />
+        <span asp-validation-for="ContractCode" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="RoomId" class="form-label">Phòng</label>
+        <select asp-for="RoomId" asp-items="ViewBag.Rooms" class="form-select">
+            <option value="">-- Chọn phòng --</option>
+        </select>
+        <span asp-validation-for="RoomId" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="TenantId" class="form-label">Người thuê</label>
+        <select asp-for="TenantId" asp-items="ViewBag.Tenants" class="form-select">
+            <option value="">-- Chọn người thuê --</option>
+        </select>
+        <span asp-validation-for="TenantId" class="text-danger"></span>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <label asp-for="StartDate" class="form-label">Ngày bắt đầu</label>
+            <input asp-for="StartDate" type="date" class="form-control" />
+            <span asp-validation-for="StartDate" class="text-danger"></span>
+        </div>
+        <div class="col-md-6 mb-3">
+            <label asp-for="EndDate" class="form-label">Ngày kết thúc</label>
+            <input asp-for="EndDate" type="date" class="form-control" />
+            <span asp-validation-for="EndDate" class="text-danger"></span>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <label asp-for="MonthlyRent" class="form-label">Giá thuê hàng tháng</label>
+            <input asp-for="MonthlyRent" type="number" min="0" step="0.01" class="form-control" />
+            <span asp-validation-for="MonthlyRent" class="text-danger"></span>
+        </div>
+        <div class="col-md-6 mb-3">
+            <label asp-for="Deposit" class="form-label">Tiền đặt cọc</label>
+            <input asp-for="Deposit" type="number" min="0" step="0.01" class="form-control" />
+            <span asp-validation-for="Deposit" class="text-danger"></span>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Status" class="form-label">Trạng thái</label>
+        <select asp-for="Status" asp-items="ViewBag.Statuses" class="form-select"></select>
+        <div class="form-text">Chỉ chọn Đang hiệu lực khi ngày hiện tại nằm trong thời hạn hợp đồng.</div>
+        <span asp-validation-for="Status" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Terms" class="form-label">Điều khoản</label>
+        <textarea asp-for="Terms" class="form-control" rows="4"></textarea>
+        <span asp-validation-for="Terms" class="text-danger"></span>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Lưu thay đổi</button>
+    <a asp-action="Index" class="btn btn-secondary">Hủy</a>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

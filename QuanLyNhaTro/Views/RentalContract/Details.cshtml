@@ -1,0 +1,53 @@
+@model QuanLyNhaTro.Models.RentalContract
+
+@{
+    ViewData["Title"] = "Chi tiết hợp đồng thuê";
+    var statusText = Model.Status switch
+    {
+        "Draft" => "Bản nháp",
+        "Active" => "Đang hiệu lực",
+        "Completed" => "Đã hoàn thành",
+        "Cancelled" => "Đã hủy",
+        _ => Model.Status
+    };
+}
+
+<h1>Chi tiết hợp đồng thuê</h1>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-4">Mã hợp đồng</dt>
+            <dd class="col-sm-8">@Model.ContractCode</dd>
+
+            <dt class="col-sm-4">Phòng</dt>
+            <dd class="col-sm-8">@Model.Room.Building.BuildingName - @Model.Room.RoomCode</dd>
+
+            <dt class="col-sm-4">Người thuê</dt>
+            <dd class="col-sm-8">@Model.Tenant.FullName</dd>
+
+            <dt class="col-sm-4">Ngày bắt đầu</dt>
+            <dd class="col-sm-8">@Model.StartDate.ToString("dd/MM/yyyy")</dd>
+
+            <dt class="col-sm-4">Ngày kết thúc</dt>
+            <dd class="col-sm-8">@Model.EndDate.ToString("dd/MM/yyyy")</dd>
+
+            <dt class="col-sm-4">Giá thuê hàng tháng</dt>
+            <dd class="col-sm-8">@Model.MonthlyRent.ToString("N0")</dd>
+
+            <dt class="col-sm-4">Tiền đặt cọc</dt>
+            <dd class="col-sm-8">@Model.Deposit.ToString("N0")</dd>
+
+            <dt class="col-sm-4">Trạng thái</dt>
+            <dd class="col-sm-8">@statusText</dd>
+
+            <dt class="col-sm-4">Điều khoản</dt>
+            <dd class="col-sm-8">@(string.IsNullOrWhiteSpace(Model.Terms) ? "Chưa có" : Model.Terms)</dd>
+        </dl>
+    </div>
+</div>
+
+<div>
+    <a asp-action="Edit" asp-route-id="@Model.ContractId" class="btn btn-primary">Sửa</a>
+    <a asp-action="Index" class="btn btn-secondary">Quay lại danh sách</a>
+</div>
