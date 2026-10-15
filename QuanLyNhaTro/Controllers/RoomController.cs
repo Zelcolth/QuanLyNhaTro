@@ -68,7 +68,7 @@ public class RoomController : Controller
         [Bind("BuildingId,RoomCode,Area,MonthlyRent,MaxOccupants,Status,Description")] Room room)
     {
         ModelState.Remove(nameof(Room.Building));
-        room.RoomCode = room.RoomCode.Trim();
+        room.RoomCode = room.RoomCode?.Trim() ?? string.Empty;
         await ValidateRoomAsync(room);
 
         if (!ModelState.IsValid)
@@ -124,7 +124,7 @@ public class RoomController : Controller
             return NotFound();
         }
 
-        room.RoomCode = room.RoomCode.Trim();
+        room.RoomCode = room.RoomCode?.Trim() ?? string.Empty;
         await ValidateRoomAsync(room, room.RoomId);
 
         if (!ModelState.IsValid)
@@ -241,7 +241,7 @@ public class RoomController : Controller
             ModelState.AddModelError(nameof(Room.MaxOccupants), "Số người tối đa phải ít nhất là 1.");
         }
 
-        if (!RoomStatuses.ContainsKey(room.Status))
+        if (string.IsNullOrWhiteSpace(room.Status) || !RoomStatuses.ContainsKey(room.Status))
         {
             ModelState.AddModelError(nameof(Room.Status), "Trạng thái phòng không hợp lệ.");
         }
