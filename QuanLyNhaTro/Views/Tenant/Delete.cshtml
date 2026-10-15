@@ -1,0 +1,40 @@
+@model QuanLyNhaTro.Models.TenantProfile
+
+@{
+    ViewData["Title"] = "Xóa người thuê";
+}
+
+<h1>Xóa người thuê</h1>
+
+@if (TempData["ErrorMessage"] is string errorMessage)
+{
+    <div class="alert alert-danger" role="alert">@errorMessage</div>
+}
+
+<div class="alert alert-warning" role="alert">
+    Bạn có chắc muốn xóa người thuê này không? Không thể xóa người thuê nếu còn hợp đồng thuê tham chiếu.
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-4">Họ và tên</dt>
+            <dd class="col-sm-8">@Model.FullName</dd>
+
+            <dt class="col-sm-4">Số điện thoại</dt>
+            <dd class="col-sm-8">@Model.Phone</dd>
+
+            <dt class="col-sm-4">Email</dt>
+            <dd class="col-sm-8">@(Model.Email ?? "Chưa có")</dd>
+
+            <dt class="col-sm-4">Ngày sinh</dt>
+            <dd class="col-sm-8">@(Model.DateOfBirth?.ToString("dd/MM/yyyy") ?? "Chưa có")</dd>
+        </dl>
+    </div>
+</div>
+
+<form asp-action="Delete" method="post">
+    <input type="hidden" asp-for="TenantId" />
+    <button type="submit" class="btn btn-danger">Xác nhận xóa</button>
+    <a asp-action="Index" class="btn btn-secondary">Hủy</a>
+</form>

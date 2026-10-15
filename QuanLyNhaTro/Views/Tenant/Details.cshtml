@@ -1,0 +1,39 @@
+@model QuanLyNhaTro.Models.TenantProfile
+
+@{
+    ViewData["Title"] = "Chi tiết người thuê";
+}
+
+<h1>Chi tiết người thuê</h1>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-4">Họ và tên</dt>
+            <dd class="col-sm-8">@Model.FullName</dd>
+
+            <dt class="col-sm-4">Số điện thoại</dt>
+            <dd class="col-sm-8">@Model.Phone</dd>
+
+            <dt class="col-sm-4">Email</dt>
+            <dd class="col-sm-8">@(Model.Email ?? "Chưa có")</dd>
+
+            <dt class="col-sm-4">Số CCCD/CMND</dt>
+            <dd class="col-sm-8">@(Model.IdentityNumber ?? "Chưa có")</dd>
+
+            <dt class="col-sm-4">Ngày sinh</dt>
+            <dd class="col-sm-8">@(Model.DateOfBirth?.ToString("dd/MM/yyyy") ?? "Chưa có")</dd>
+
+            <dt class="col-sm-4">Địa chỉ thường trú</dt>
+            <dd class="col-sm-8">@(Model.PermanentAddress ?? "Chưa có")</dd>
+
+            <dt class="col-sm-4">Ghi chú</dt>
+            <dd class="col-sm-8">@(Model.Notes ?? "Chưa có")</dd>
+        </dl>
+    </div>
+</div>
+
+<div>
+    <a asp-action="Edit" asp-route-id="@Model.TenantId" class="btn btn-primary">Sửa</a>
+    <a asp-action="Index" class="btn btn-secondary">Quay lại danh sách</a>
+</div>
