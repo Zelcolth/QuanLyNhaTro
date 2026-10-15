@@ -1,0 +1,30 @@
+@model QuanLyNhaTro.Models.Building
+
+@{
+    ViewData["Title"] = "Chi tiết tòa nhà";
+}
+
+<h1>Chi tiết tòa nhà</h1>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Tên tòa nhà</dt>
+            <dd class="col-sm-9">@Model.BuildingName</dd>
+
+            <dt class="col-sm-3">Địa chỉ</dt>
+            <dd class="col-sm-9">@Model.Address</dd>
+
+            <dt class="col-sm-3">Mô tả</dt>
+            <dd class="col-sm-9">@(string.IsNullOrWhiteSpace(Model.Description) ? "Chưa có" : Model.Description)</dd>
+
+            <dt class="col-sm-3">Số phòng</dt>
+            <dd class="col-sm-9">@Model.Rooms.Count</dd>
+        </dl>
+    </div>
+</div>
+
+<div>
+    <a asp-action="Edit" asp-route-id="@Model.BuildingId" class="btn btn-primary">Sửa</a>
+    <a asp-action="Index" class="btn btn-secondary">Quay lại danh sách</a>
+</div>

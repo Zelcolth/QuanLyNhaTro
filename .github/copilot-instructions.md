@@ -67,3 +67,11 @@ Do not replace database operations with hardcoded or in-memory sample data.
 - Do not claim that a feature works until it has been tested.
 - Prefer the simplest correct solution that satisfies the thesis requirements.
 - Avoid generating the entire application in one large change.
+
+## Scope Clarification
+- The application manages one physical rental property at one location.
+- Building records represent buildings or blocks within that same property, not separate business branches or rental locations.
+- Rooms belong to buildings within the same property.
+- The Address field must not be used to introduce multi-branch management.
+- Do not implement branch management, branch-specific permissions, or cross-branch reporting.
+- Keep the implementation small and aligned with the supervisor's requirements.

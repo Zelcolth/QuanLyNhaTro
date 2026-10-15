@@ -1,0 +1,55 @@
+@model IEnumerable<QuanLyNhaTro.Models.Building>
+
+@{
+    ViewData["Title"] = "Quản lý tòa nhà";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>Quản lý tòa nhà</h1>
+    <a asp-action="Create" class="btn btn-primary">Thêm tòa nhà</a>
+</div>
+
+@if (TempData["SuccessMessage"] is string successMessage)
+{
+    <div class="alert alert-success" role="alert">@successMessage</div>
+}
+
+@if (TempData["ErrorMessage"] is string errorMessage)
+{
+    <div class="alert alert-danger" role="alert">@errorMessage</div>
+}
+
+@if (!Model.Any())
+{
+    <div class="alert alert-info">Chưa có tòa nhà nào.</div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped table-bordered align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Tên tòa nhà</th>
+                    <th>Địa chỉ</th>
+                    <th>Số phòng</th>
+                    <th class="text-end">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var building in Model)
+            {
+                <tr>
+                    <td>@building.BuildingName</td>
+                    <td>@building.Address</td>
+                    <td>@building.Rooms.Count</td>
+                    <td class="text-end">
+                        <a asp-action="Details" asp-route-id="@building.BuildingId" class="btn btn-sm btn-outline-info">Chi tiết</a>
+                        <a asp-action="Edit" asp-route-id="@building.BuildingId" class="btn btn-sm btn-outline-primary">Sửa</a>
+                        <a asp-action="Delete" asp-route-id="@building.BuildingId" class="btn btn-sm btn-outline-danger">Xóa</a>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}

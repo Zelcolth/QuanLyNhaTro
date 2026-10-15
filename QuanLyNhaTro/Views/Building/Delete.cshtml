@@ -1,0 +1,37 @@
+@model QuanLyNhaTro.Models.Building
+
+@{
+    ViewData["Title"] = "Xóa tòa nhà";
+}
+
+<h1>Xóa tòa nhà</h1>
+
+@if (TempData["ErrorMessage"] is string errorMessage)
+{
+    <div class="alert alert-danger" role="alert">@errorMessage</div>
+}
+
+<div class="alert alert-warning" role="alert">
+    Bạn có chắc muốn xóa tòa nhà này không? Không thể xóa tòa nhà nếu tòa nhà vẫn còn phòng.
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Tên tòa nhà</dt>
+            <dd class="col-sm-9">@Model.BuildingName</dd>
+
+            <dt class="col-sm-3">Địa chỉ</dt>
+            <dd class="col-sm-9">@Model.Address</dd>
+
+            <dt class="col-sm-3">Số phòng</dt>
+            <dd class="col-sm-9">@Model.Rooms.Count</dd>
+        </dl>
+    </div>
+</div>
+
+<form asp-action="Delete" method="post">
+    <input type="hidden" asp-for="BuildingId" />
+    <button type="submit" class="btn btn-danger">Xác nhận xóa</button>
+    <a asp-action="Index" class="btn btn-secondary">Hủy</a>
+</form>
