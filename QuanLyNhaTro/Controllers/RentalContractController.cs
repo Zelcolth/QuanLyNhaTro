@@ -86,40 +86,22 @@ public class RentalContractController : Controller
             return View(contract);
         }
 
-        var roomHasActiveContract = await _context.RentalContracts
-            .AsNoTracking()
-            .AnyAsync(item =>
-                item.RoomId == contract.RoomId
-                && item.Status == "Active");
-
-        if (roomHasActiveContract)
-        {
-            ModelState.AddModelError(nameof(RentalContract.RoomId), "Phòng đã có hợp đồng đang hiệu lực.");
-            await PopulateFormOptionsAsync(contract.RoomId, contract.TenantId, contract.Status);
-            return View(contract);
-        }
-
-        _context.RentalContracts.Add(contract);
+        await using var transaction = await _context.Database.BeginTransactionAsync();
 
         try
         {
+            _context.RentalContracts.Add(contract);
             await _context.SaveChangesAsync();
 
-            var room = await _context.Rooms.FindAsync(contract.RoomId);
-            if (room is not null && room.Status is not ("Maintenance" or "Reserved"))
-            {
-                var today = DateTime.Today;
-                room.Status = contract.Status == "Active"
-                    && contract.StartDate.Date <= today
-                    && contract.EndDate.Date >= today
-                    ? "Occupied"
-                    : "Available";
+            await SynchronizeRoomStatusAsync(contract.RoomId);
+            await _context.SaveChangesAsync();
 
-                await _context.SaveChangesAsync();
-            }
+            await transaction.CommitAsync();
         }
         catch (DbUpdateException)
         {
+            await transaction.RollbackAsync();
+
             ModelState.AddModelError(nameof(RentalContract.ContractCode), "Mã hợp đồng đã tồn tại hoặc dữ liệu tham chiếu không hợp lệ.");
             await PopulateFormOptionsAsync(contract.RoomId, contract.TenantId, contract.Status);
             return View(contract);
@@ -247,21 +229,27 @@ public class RentalContractController : Controller
         contract.Status = "Completed";
         contract.EndDate = DateTime.Now;
 
-        if (room.Status is not ("Maintenance" or "Reserved"))
-        {
-            room.Status = "Available";
-        }
-
         // Sau này có thể tính khấu trừ cọc tại đây:
         // RefundAmount = contract.Deposit - (UnpaidInvoices + Damages);
         // Cần bổ sung bảng hóa đơn/thiệt hại và migration khi được duyệt.
 
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
         try
         {
             await _context.SaveChangesAsync();
+
+            // Tính lại trạng thái phòng từ các hợp đồng còn hiệu lực,
+            // đồng thời giữ nguyên trạng thái Maintenance hoặc Reserved.
+            await SynchronizeRoomStatusAsync(contract.RoomId);
+            await _context.SaveChangesAsync();
+
+            await transaction.CommitAsync();
         }
         catch (DbUpdateException)
         {
+            await transaction.RollbackAsync();
+
             TempData["ErrorMessage"] = "Không thể kết thúc hợp đồng. Vui lòng thử lại.";
             return RedirectToAction(nameof(Details), new { id });
         }
@@ -359,10 +347,22 @@ public class RentalContractController : Controller
         }
 
         if (contract.StartDate != default
-            && contract.EndDate != default
-            && startDate >= endDate)
+            && contract.EndDate != default)
         {
-            ModelState.AddModelError(nameof(RentalContract.EndDate), "Ngày bắt đầu phải sớm hơn ngày kết thúc.");
+            // Hợp đồng đã hoàn thành có thể được kết thúc ngay trong ngày bắt đầu.
+            // Các trạng thái khác vẫn yêu cầu ngày kết thúc sau ngày bắt đầu.
+            var invalidDateRange = contract.Status == "Completed"
+                ? startDate > endDate
+                : startDate >= endDate;
+
+            if (invalidDateRange)
+            {
+                ModelState.AddModelError(
+                    nameof(RentalContract.EndDate),
+                    contract.Status == "Completed"
+                        ? "Ngày kết thúc không được trước ngày bắt đầu."
+                        : "Ngày bắt đầu phải sớm hơn ngày kết thúc.");
+            }
         }
 
         if (contract.MonthlyRent < 0)
