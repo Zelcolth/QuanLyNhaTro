@@ -33,6 +33,11 @@ public class RoomController : Controller
             .ThenBy(room => room.RoomCode)
             .ToListAsync();
 
+        ViewBag.TotalRooms = rooms.Count;
+        ViewBag.AvailableRooms = rooms.Count(room => room.Status == "Available");
+        ViewBag.OccupiedRooms = rooms.Count(room => room.Status == "Occupied");
+        ViewBag.MaintenanceRooms = rooms.Count(room => room.Status == "Maintenance");
+
         return View(rooms);
     }
 
