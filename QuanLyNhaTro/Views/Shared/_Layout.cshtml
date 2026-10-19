@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="~/QuanLyNhaTro.styles.css" asp-append-version="true" />
 </head>
 <body class="d-flex flex-column min-vh-100 bg-light">
+    @{ var currentController = ViewContext.RouteData.Values["controller"]?.ToString(); }
     <header>
         <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom shadow-sm">
             <div class="container">
