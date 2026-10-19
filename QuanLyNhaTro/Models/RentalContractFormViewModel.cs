@@ -1,4 +1,6 @@
-﻿namespace QuanLyNhaTro.Models;
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace QuanLyNhaTro.Models;
 
 public class RentalContractFormViewModel
 {
@@ -35,5 +37,6 @@ public class ContractTenantOptionInput
 
     public bool IsSelected { get; set; }
 
+    [StringLength(100, ErrorMessage = "Quan hệ với người đại diện không được vượt quá 100 ký tự.")]
     public string? RelationshipToPrimaryTenant { get; set; }
 }
