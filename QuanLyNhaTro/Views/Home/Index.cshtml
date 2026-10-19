@@ -1,8 +1,100 @@
-﻿@{
-    ViewData["Title"] = "Home Page";
+@model QuanLyNhaTro.Models.HomeDashboardViewModel
+
+@{
+    ViewData["Title"] = "Tổng quan";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+    <div>
+        <h1 class="h2 fw-bold mb-2">Tổng quan quản lý nhà trọ</h1>
+        <p class="text-secondary mb-0">Theo dõi nhanh tình hình khu nhà, phòng, người thuê và hợp đồng.</p>
+    </div>
+    <a asp-controller="RentalContract" asp-action="Create" class="btn btn-primary">
+        + Tạo hợp đồng
+    </a>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-4">
+        <a asp-controller="Building" asp-action="Index" class="text-decoration-none text-reset">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <div class="text-secondary small mb-2">Khu nhà</div>
+                    <div class="display-6 fw-semibold">@Model.BuildingCount.ToString("N0")</div>
+                    <div class="small text-primary mt-2">Xem danh sách khu nhà →</div>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-sm-6 col-xl-4">
+        <a asp-controller="Room" asp-action="Index" class="text-decoration-none text-reset">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <div class="text-secondary small mb-2">Tổng số phòng</div>
+                    <div class="display-6 fw-semibold">@Model.RoomCount.ToString("N0")</div>
+                    <div class="small text-primary mt-2">Quản lý phòng →</div>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-sm-6 col-xl-4">
+        <a asp-controller="Room" asp-action="Index" class="text-decoration-none text-reset">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <div class="text-secondary small mb-2">Phòng trống</div>
+                    <div class="display-6 fw-semibold">@Model.AvailableRoomCount.ToString("N0")</div>
+                    <div class="small text-primary mt-2">Xem tình trạng phòng →</div>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-sm-6 col-xl-4">
+        <a asp-controller="Room" asp-action="Index" class="text-decoration-none text-reset">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <div class="text-secondary small mb-2">Phòng đang thuê</div>
+                    <div class="display-6 fw-semibold">@Model.OccupiedRoomCount.ToString("N0")</div>
+                    <div class="small text-primary mt-2">Xem tình trạng phòng →</div>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-sm-6 col-xl-4">
+        <a asp-controller="Tenant" asp-action="Index" class="text-decoration-none text-reset">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <div class="text-secondary small mb-2">Hồ sơ người thuê</div>
+                    <div class="display-6 fw-semibold">@Model.TenantCount.ToString("N0")</div>
+                    <div class="small text-primary mt-2">Quản lý người thuê →</div>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-sm-6 col-xl-4">
+        <a asp-controller="RentalContract" asp-action="Index" class="text-decoration-none text-reset">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <div class="text-secondary small mb-2">Hợp đồng đang hiệu lực</div>
+                    <div class="display-6 fw-semibold">@Model.ActiveContractCount.ToString("N0")</div>
+                    <div class="small text-primary mt-2">Quản lý hợp đồng →</div>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-4">
+        <h2 class="h5 fw-semibold mb-3">Truy cập nhanh</h2>
+        <div class="d-flex flex-wrap gap-2">
+            <a asp-controller="Building" asp-action="Create" class="btn btn-outline-primary">Thêm khu nhà</a>
+            <a asp-controller="Room" asp-action="Create" class="btn btn-outline-primary">Thêm phòng</a>
+            <a asp-controller="Tenant" asp-action="Create" class="btn btn-outline-primary">Thêm người thuê</a>
+            <a asp-controller="RentalContract" asp-action="Create" class="btn btn-outline-primary">Tạo hợp đồng</a>
+        </div>
+        <p class="text-secondary small mt-3 mb-0">
+            Số phòng trống và phòng đang thuê được tính theo các hợp đồng đang hiệu lực trong ngày hiện tại.
+            Phòng đang bảo trì hoặc đã đặt trước không được tính là phòng trống.
+        </p>
+    </div>
 </div>
