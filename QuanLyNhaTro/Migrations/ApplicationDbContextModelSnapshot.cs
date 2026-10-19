@@ -103,9 +103,6 @@ namespace QuanLyNhaTro.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RoomId"));
 
-                    b.Property<decimal>("Area")
-                        .HasColumnType("decimal(18,2)");
-
                     b.Property<int>("BuildingId")
                         .HasColumnType("int");
 
