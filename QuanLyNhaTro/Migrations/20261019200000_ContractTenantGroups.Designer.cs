@@ -233,7 +233,6 @@ namespace QuanLyNhaTro.Migrations
 
                     b.Navigation("Room");
 
-                    b.Navigation("ContractTenants");
                 });
 
             modelBuilder.Entity("QuanLyNhaTro.Models.ContractTenant", b =>
