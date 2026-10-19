@@ -171,9 +171,9 @@ public class TenantController : Controller
             return NotFound();
         }
 
-        var hasContracts = await _context.RentalContracts
+        var hasContracts = await _context.ContractTenants
             .AsNoTracking()
-            .AnyAsync(contract => contract.TenantId == id);
+            .AnyAsync(assignment => assignment.TenantId == id);
 
         if (hasContracts)
         {
@@ -235,7 +235,7 @@ public class TenantController : Controller
 
     private void RemoveUnpostedModelStateEntries()
     {
-        ModelState.Remove(nameof(TenantProfile.Contracts));
+        ModelState.Remove(nameof(TenantProfile.ContractTenants));
     }
 
     private static string? NormalizeOptionalText(string? value)
