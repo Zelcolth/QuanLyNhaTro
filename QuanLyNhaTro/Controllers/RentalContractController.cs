@@ -86,13 +86,37 @@ public class RentalContractController : Controller
             return View(contract);
         }
 
+        var roomHasActiveContract = await _context.RentalContracts
+            .AsNoTracking()
+            .AnyAsync(item =>
+                item.RoomId == contract.RoomId
+                && item.Status == "Active");
+
+        if (roomHasActiveContract)
+        {
+            ModelState.AddModelError(nameof(RentalContract.RoomId), "Phòng đã có hợp đồng đang hiệu lực.");
+            await PopulateFormOptionsAsync(contract.RoomId, contract.TenantId, contract.Status);
+            return View(contract);
+        }
+
         _context.RentalContracts.Add(contract);
 
         try
         {
             await _context.SaveChangesAsync();
-            await SynchronizeRoomStatusAsync(contract.RoomId);
-            await _context.SaveChangesAsync();
+
+            var room = await _context.Rooms.FindAsync(contract.RoomId);
+            if (room is not null && room.Status is not ("Maintenance" or "Reserved"))
+            {
+                var today = DateTime.Today;
+                room.Status = contract.Status == "Active"
+                    && contract.StartDate.Date <= today
+                    && contract.EndDate.Date >= today
+                    ? "Occupied"
+                    : "Available";
+
+                await _context.SaveChangesAsync();
+            }
         }
         catch (DbUpdateException)
         {
@@ -193,6 +217,57 @@ public class RentalContractController : Controller
 
         TempData["SuccessMessage"] = "Đã cập nhật hợp đồng thuê thành công.";
         return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EndContract(int id)
+    {
+        var contract = await _context.RentalContracts.FindAsync(id);
+
+        if (contract is null)
+        {
+            return NotFound();
+        }
+
+        if (contract.Status != "Active")
+        {
+            TempData["ErrorMessage"] = "Chỉ có thể kết thúc hợp đồng đang hiệu lực.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
+        var room = await _context.Rooms.FindAsync(contract.RoomId);
+
+        if (room is null)
+        {
+            TempData["ErrorMessage"] = "Không tìm thấy phòng liên kết với hợp đồng.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
+        contract.Status = "Completed";
+        contract.EndDate = DateTime.Now;
+
+        if (room.Status is not ("Maintenance" or "Reserved"))
+        {
+            room.Status = "Available";
+        }
+
+        // Sau này có thể tính khấu trừ cọc tại đây:
+        // RefundAmount = contract.Deposit - (UnpaidInvoices + Damages);
+        // Cần bổ sung bảng hóa đơn/thiệt hại và migration khi được duyệt.
+
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateException)
+        {
+            TempData["ErrorMessage"] = "Không thể kết thúc hợp đồng. Vui lòng thử lại.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
+        TempData["SuccessMessage"] = "Đã kết thúc hợp đồng thuê.";
+        return RedirectToAction(nameof(Details), new { id });
     }
 
     public async Task<IActionResult> Delete(int? id)

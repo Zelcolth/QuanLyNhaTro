@@ -14,6 +14,16 @@
 
 <h1>Chi tiết hợp đồng thuê</h1>
 
+@if (TempData["SuccessMessage"] is string successMessage)
+{
+    <div class="alert alert-success" role="alert">@successMessage</div>
+}
+
+@if (TempData["ErrorMessage"] is string errorMessage)
+{
+    <div class="alert alert-danger" role="alert">@errorMessage</div>
+}
+
 <div class="card mb-3">
     <div class="card-body">
         <dl class="row mb-0">
@@ -47,7 +57,13 @@
     </div>
 </div>
 
-<div>
+<div class="d-flex gap-2 flex-wrap">
     <a asp-action="Edit" asp-route-id="@Model.ContractId" class="btn btn-primary">Sửa</a>
+    @if (Model.Status == "Active")
+    {
+        <form asp-action="EndContract" asp-route-id="@Model.ContractId" method="post" class="d-inline">
+            <button type="submit" class="btn btn-warning">Kết thúc hợp đồng</button>
+        </form>
+    }
     <a asp-action="Index" class="btn btn-secondary">Quay lại danh sách</a>
 </div>

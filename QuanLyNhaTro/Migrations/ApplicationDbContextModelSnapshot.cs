@@ -134,6 +134,43 @@ namespace QuanLyNhaTro.Migrations
                     b.ToTable("Rooms");
                 });
 
+            modelBuilder.Entity("QuanLyNhaTro.Models.SystemConfig", b =>
+                {
+                    b.Property<int>("ConfigId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ConfigId"));
+
+                    b.Property<string>("AccountName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("BankAccount")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("BankCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<decimal>("ElectricityPrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("GarbageFee")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("WaterPrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("WifiFee")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("ConfigId");
+
+                    b.ToTable("SystemConfigs");
+                });
+
             modelBuilder.Entity("QuanLyNhaTro.Models.TenantProfile", b =>
                 {
                     b.Property<int>("TenantId")
