@@ -34,7 +34,26 @@
             <dd class="col-sm-8">@Model.Room.Building.BuildingName - @Model.Room.RoomCode</dd>
 
             <dt class="col-sm-4">Người thuê</dt>
-            <dd class="col-sm-8">@Model.Tenant.FullName</dd>
+            <dd class="col-sm-8">
+                <ul class="mb-0">
+                @foreach (var assignment in Model.ContractTenants
+                    .OrderByDescending(item => item.IsPrimaryTenant)
+                    .ThenBy(item => item.Tenant.FullName))
+                {
+                    <li>
+                        @assignment.Tenant.FullName
+                        @if (assignment.IsPrimaryTenant)
+                        {
+                            <span class="badge bg-primary">Người đại diện</span>
+                        }
+                        else if (!string.IsNullOrWhiteSpace(assignment.RelationshipToPrimaryTenant))
+                        {
+                            <span class="text-muted">(@assignment.RelationshipToPrimaryTenant)</span>
+                        }
+                    </li>
+                }
+                </ul>
+            </dd>
 
             <dt class="col-sm-4">Ngày bắt đầu</dt>
             <dd class="col-sm-8">@Model.StartDate.ToString("dd/MM/yyyy")</dd>
