@@ -58,10 +58,11 @@
                                 <small class="text-muted">@Model.TenantOptions[i].Phone</small>
                             </td>
                             <td class="text-center">
-                                <input asp-for="PrimaryTenantId" type="radio" value="@Model.TenantOptions[i].TenantId" class="form-check-input" />
+                                <input asp-for="PrimaryTenantId" type="radio" value="@Model.TenantOptions[i].TenantId" id="PrimaryTenantId_@Model.TenantOptions[i].TenantId" class="form-check-input" />
                             </td>
                             <td>
-                                <input asp-for="TenantOptions[i].RelationshipToPrimaryTenant" class="form-control" placeholder="Ví dụ: vợ/chồng, con, bạn cùng thuê" />
+                                <input asp-for="TenantOptions[i].RelationshipToPrimaryTenant" class="form-control" maxlength="100" placeholder="Ví dụ: vợ/chồng, con, bạn cùng thuê" />
+                                <span asp-validation-for="TenantOptions[i].RelationshipToPrimaryTenant" class="text-danger"></span>
                             </td>
                         </tr>
                     }
