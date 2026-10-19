@@ -507,15 +507,14 @@ public class RentalContractController : Controller
             .ThenBy(room => room.RoomCode)
             .ToListAsync();
 
-        ViewBag.Rooms = new SelectList(
-            rooms.Select(room => new SelectListItem
+        ViewBag.Rooms = rooms
+            .Select(room => new SelectListItem
             {
                 Value = room.RoomId.ToString(),
-                Text = $"{room.Building.BuildingName} - Phòng {room.RoomCode}"
-            }),
-            nameof(SelectListItem.Value),
-            nameof(SelectListItem.Text),
-            model.RoomId);
+                Text = $"{room.Building.BuildingName} - Phòng {room.RoomCode}",
+                Selected = room.RoomId == model.RoomId
+            })
+            .ToList();
 
         ViewBag.Statuses = ContractStatuses
             .Select(status => new SelectListItem
