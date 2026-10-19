@@ -52,7 +52,12 @@ else
                 <tr>
                     <td>@contract.ContractCode</td>
                     <td>@contract.Room.Building.BuildingName - @contract.Room.RoomCode</td>
-                    <td>@contract.Tenant.FullName</td>
+                    <td>
+                        @string.Join(", ", contract.ContractTenants
+                            .OrderByDescending(item => item.IsPrimaryTenant)
+                            .ThenBy(item => item.Tenant.FullName)
+                            .Select(item => item.Tenant.FullName + (item.IsPrimaryTenant ? " (Đại diện)" : "")))
+                    </td>
                     <td>@contract.StartDate.ToString("dd/MM/yyyy") - @contract.EndDate.ToString("dd/MM/yyyy")</td>
                     <td>@contract.MonthlyRent.ToString("N0")</td>
                     <td>@statusText</td>
