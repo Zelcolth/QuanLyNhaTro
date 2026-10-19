@@ -35,24 +35,49 @@
 
             <dt class="col-sm-4">Người thuê</dt>
             <dd class="col-sm-8">
-                <ul class="mb-0">
-                @foreach (var assignment in Model.ContractTenants
-                    .OrderByDescending(item => item.IsPrimaryTenant)
-                    .ThenBy(item => item.Tenant.FullName))
-                {
-                    <li>
-                        @assignment.Tenant.FullName
-                        @if (assignment.IsPrimaryTenant)
-                        {
-                            <span class="badge bg-primary">Người đại diện</span>
-                        }
-                        else if (!string.IsNullOrWhiteSpace(assignment.RelationshipToPrimaryTenant))
-                        {
-                            <span class="text-muted">(@assignment.RelationshipToPrimaryTenant)</span>
-                        }
-                    </li>
+                @{
+                    var primaryTenant = Model.ContractTenants
+                        .FirstOrDefault(item => item.IsPrimaryTenant);
+                    var otherTenants = Model.ContractTenants
+                        .Where(item => !item.IsPrimaryTenant)
+                        .OrderBy(item => item.Tenant.FullName)
+                        .ToList();
                 }
-                </ul>
+
+                @if (primaryTenant is null)
+                {
+                    <span class="text-muted">Chưa có người đại diện</span>
+                }
+                else
+                {
+                    <ul class="list-unstyled mb-0">
+                        <li>
+                            <div>
+                                <strong>@primaryTenant.Tenant.FullName</strong>
+                                <span class="badge bg-primary">Người đại diện</span>
+                            </div>
+
+                            @if (otherTenants.Count > 0)
+                            {
+                                <ul class="list-unstyled ms-3 mt-2 mb-0 ps-3 border-start">
+                                    @foreach (var assignment in otherTenants)
+                                    {
+                                        <li class="mb-2">
+                                            <span class="text-muted me-1">↳</span>
+                                            <span>@assignment.Tenant.FullName</span>
+                                            @if (!string.IsNullOrWhiteSpace(assignment.RelationshipToPrimaryTenant))
+                                            {
+                                                <small class="text-muted ms-1">
+                                                    (Quan hệ: @assignment.RelationshipToPrimaryTenant)
+                                                </small>
+                                            }
+                                        </li>
+                                    }
+                                </ul>
+                            }
+                        </li>
+                    </ul>
+                }
             </dd>
 
             <dt class="col-sm-4">Ngày bắt đầu</dt>

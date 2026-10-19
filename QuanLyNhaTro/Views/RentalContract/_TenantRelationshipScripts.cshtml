@@ -1,0 +1,68 @@
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const primaryRadios = document.querySelectorAll(
+            'input[type="radio"][name="PrimaryTenantId"]'
+        );
+
+        const tenantCheckboxes = document.querySelectorAll(
+            'input[type="checkbox"][name$=".IsSelected"]'
+        );
+
+        function updateRelationshipFields() {
+            const selectedPrimary = document.querySelector(
+                'input[type="radio"][name="PrimaryTenantId"]:checked'
+            );
+
+            primaryRadios.forEach(function (radio) {
+                const row = radio.closest("tr");
+                const relationshipInput = row.querySelector(
+                    'input[name$=".RelationshipToPrimaryTenant"]'
+                );
+
+                if (!relationshipInput) return;
+
+                const isPrimary = selectedPrimary === radio;
+                relationshipInput.disabled = isPrimary;
+                relationshipInput.placeholder = isPrimary
+                    ? "Không áp dụng cho người đại diện"
+                    : "Ví dụ: vợ/chồng, con, bạn cùng thuê";
+
+                if (isPrimary) {
+                    relationshipInput.value = "";
+                }
+            });
+        }
+
+        primaryRadios.forEach(function (radio) {
+            radio.addEventListener("change", function () {
+                const row = radio.closest("tr");
+                const checkbox = row.querySelector(
+                    'input[type="checkbox"][name$=".IsSelected"]'
+                );
+
+                if (checkbox) {
+                    checkbox.checked = true;
+                }
+
+                updateRelationshipFields();
+            });
+        });
+
+        tenantCheckboxes.forEach(function (checkbox) {
+            checkbox.addEventListener("change", function () {
+                const row = checkbox.closest("tr");
+                const radio = row.querySelector(
+                    'input[type="radio"][name="PrimaryTenantId"]'
+                );
+
+                if (!checkbox.checked && radio && radio.checked) {
+                    radio.checked = false;
+                }
+
+                updateRelationshipFields();
+            });
+        });
+
+        updateRelationshipFields();
+    });
+</script>
