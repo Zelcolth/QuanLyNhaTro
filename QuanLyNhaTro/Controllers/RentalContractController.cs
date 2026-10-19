@@ -272,9 +272,9 @@ public class RentalContractController : Controller
             return RedirectToAction(nameof(Details), new { id });
         }
 
-        if (room.Status is "Maintenance" or "Reserved")
+        if (room.Status == "Maintenance")
         {
-            TempData["ErrorMessage"] = "Không thể kích hoạt hợp đồng khi phòng đang bảo trì hoặc đã được đặt trước.";
+            TempData["ErrorMessage"] = "Không thể kích hoạt hợp đồng khi phòng đang bảo trì.";
             return RedirectToAction(nameof(Details), new { id });
         }
 
@@ -492,9 +492,9 @@ public class RentalContractController : Controller
         {
             ModelState.AddModelError(nameof(model.RoomId), "Vui lòng chọn một phòng tồn tại.");
         }
-        else if (room.Status is "Maintenance" or "Reserved")
+        else if (room.Status == "Maintenance")
         {
-            ModelState.AddModelError(nameof(model.RoomId), "Không thể lập hợp đồng cho phòng đang bảo trì hoặc đã được đặt trước.");
+            ModelState.AddModelError(nameof(model.RoomId), "Không thể lập hợp đồng cho phòng đang bảo trì.");
         }
 
         var selectedTenantIds = (model.TenantOptions ?? new List<ContractTenantOptionInput>())
@@ -609,7 +609,7 @@ public class RentalContractController : Controller
     {
         var room = await _context.Rooms.FindAsync(roomId);
 
-        if (room is null || room.Status is "Maintenance" or "Reserved")
+        if (room is null || room.Status == "Maintenance")
         {
             return;
         }

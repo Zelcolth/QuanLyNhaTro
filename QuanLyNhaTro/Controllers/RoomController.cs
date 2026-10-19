@@ -12,9 +12,7 @@ public class RoomController : Controller
         new Dictionary<string, string>
         {
             ["Available"] = "Trống",
-            ["Occupied"] = "Đang thuê",
-            ["Maintenance"] = "Bảo trì",
-            ["Reserved"] = "Đã đặt trước"
+            ["Maintenance"] = "Bảo trì"
         };
 
     private readonly ApplicationDbContext _context;
@@ -114,7 +112,17 @@ public class RoomController : Controller
             return NotFound();
         }
 
-        await PopulateFormOptionsAsync(room.BuildingId, room.Status);
+        var hasCurrentActiveContract = await HasCurrentActiveContractAsync(room.RoomId);
+        if (hasCurrentActiveContract && room.Status != "Maintenance")
+        {
+            room.Status = "Occupied";
+        }
+        else if (!hasCurrentActiveContract && room.Status == "Occupied")
+        {
+            room.Status = "Available";
+        }
+
+        await PopulateFormOptionsAsync(room.BuildingId, room.Status, hasCurrentActiveContract);
         return View(room);
     }
 
@@ -135,7 +143,7 @@ public class RoomController : Controller
 
         if (!ModelState.IsValid)
         {
-            await PopulateFormOptionsAsync(room.BuildingId, room.Status);
+            await PopulateFormOptionsAsync(room.BuildingId, room.Status, await HasCurrentActiveContractAsync(room.RoomId));
             return View(room);
         }
 
@@ -160,7 +168,7 @@ public class RoomController : Controller
         catch (DbUpdateException)
         {
             ModelState.AddModelError(nameof(Room.RoomCode), "Mã phòng đã tồn tại trong tòa nhà đã chọn.");
-            await PopulateFormOptionsAsync(room.BuildingId, room.Status);
+            await PopulateFormOptionsAsync(room.BuildingId, room.Status, await HasCurrentActiveContractAsync(room.RoomId));
             return View(room);
         }
 
@@ -243,9 +251,14 @@ public class RoomController : Controller
             ModelState.AddModelError(nameof(Room.MaxOccupants), "Số người tối đa phải ít nhất là 1.");
         }
 
-        if (string.IsNullOrWhiteSpace(room.Status) || !RoomStatuses.ContainsKey(room.Status))
+        var hasCurrentActiveContract = room.RoomId > 0
+            && await HasCurrentActiveContractAsync(room.RoomId);
+        var occupiedStatusAllowed = room.Status == "Occupied" && hasCurrentActiveContract;
+
+        if (string.IsNullOrWhiteSpace(room.Status)
+            || (!RoomStatuses.ContainsKey(room.Status) && !occupiedStatusAllowed))
         {
-            ModelState.AddModelError(nameof(Room.Status), "Trạng thái phòng không hợp lệ.");
+            ModelState.AddModelError(nameof(Room.Status), "Trạng thái phòng không hợp lệ. Trạng thái Đang thuê được xác định từ hợp đồng đang hiệu lực.");
         }
 
         var buildingExists = await _context.Buildings
@@ -273,7 +286,7 @@ public class RoomController : Controller
 
         if (room.RoomId > 0
             && room.Status == "Available"
-            && await HasCurrentActiveContractAsync(room.RoomId))
+            && hasCurrentActiveContract)
         {
             ModelState.AddModelError(nameof(Room.Status), "Không thể đặt phòng là Trống vì phòng đang có hợp đồng hiệu lực.");
         }
@@ -311,7 +324,7 @@ public class RoomController : Controller
         foreach (var roomId in expiredRoomIds)
         {
             var room = await _context.Rooms.FindAsync(roomId);
-            if (room is null || room.Status is "Maintenance" or "Reserved")
+            if (room is null || room.Status == "Maintenance")
             {
                 continue;
             }
@@ -328,7 +341,10 @@ public class RoomController : Controller
         await _context.SaveChangesAsync();
     }
 
-    private async Task PopulateFormOptionsAsync(int? selectedBuildingId = null, string? selectedStatus = null)
+    private async Task PopulateFormOptionsAsync(
+        int? selectedBuildingId = null,
+        string? selectedStatus = null,
+        bool allowOccupiedStatus = false)
     {
         var buildings = await _context.Buildings
             .AsNoTracking()
@@ -341,13 +357,33 @@ public class RoomController : Controller
             nameof(Building.BuildingName),
             selectedBuildingId);
 
-        ViewBag.Statuses = RoomStatuses
-            .Select(status => new SelectListItem
+        var statusOptions = new List<SelectListItem>
+        {
+            new()
             {
-                Value = status.Key,
-                Text = status.Value,
-                Selected = status.Key == selectedStatus
-            })
-            .ToList();
+                Value = "Available",
+                Text = "Trống",
+                Selected = selectedStatus == "Available"
+            }
+        };
+
+        if (allowOccupiedStatus)
+        {
+            statusOptions.Add(new SelectListItem
+            {
+                Value = "Occupied",
+                Text = "Đang thuê (theo hợp đồng đang hiệu lực)",
+                Selected = selectedStatus == "Occupied"
+            });
+        }
+
+        statusOptions.Add(new SelectListItem
+        {
+            Value = "Maintenance",
+            Text = "Bảo trì",
+            Selected = selectedStatus == "Maintenance"
+        });
+
+        ViewBag.Statuses = statusOptions;
     }
 }

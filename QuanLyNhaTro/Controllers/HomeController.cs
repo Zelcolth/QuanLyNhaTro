@@ -37,7 +37,6 @@ public class HomeController : Controller
                 .AsNoTracking()
                 .CountAsync(room =>
                     room.Status != "Maintenance"
-                    && room.Status != "Reserved"
                     && !_context.RentalContracts.Any(contract =>
                         contract.RoomId == room.RoomId
                         && contract.Status == "Active"
@@ -48,7 +47,6 @@ public class HomeController : Controller
                 .AsNoTracking()
                 .CountAsync(room =>
                     room.Status != "Maintenance"
-                    && room.Status != "Reserved"
                     && _context.RentalContracts.Any(contract =>
                         contract.RoomId == room.RoomId
                         && contract.Status == "Active"
