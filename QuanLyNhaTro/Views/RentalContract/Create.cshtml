@@ -48,8 +48,8 @@
                     @for (var i = 0; i < Model.TenantOptions.Count; i++)
                     {
                         <tr>
-                            <input type="hidden" asp-for="TenantOptions[i].TenantId" />
                             <td class="text-center">
+                                <input type="hidden" asp-for="TenantOptions[i].TenantId" />
                                 <input asp-for="TenantOptions[i].IsSelected" class="form-check-input" />
                             </td>
                             <td>
