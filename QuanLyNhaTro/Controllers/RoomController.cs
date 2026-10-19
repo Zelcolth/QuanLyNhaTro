@@ -65,7 +65,7 @@ public class RoomController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(
-        [Bind("BuildingId,RoomCode,Area,MonthlyRent,MaxOccupants,Status,Description")] Room room)
+        [Bind("BuildingId,RoomCode,MonthlyRent,MaxOccupants,Status,Description")] Room room)
     {
         ModelState.Remove(nameof(Room.Building));
         room.RoomCode = room.RoomCode?.Trim() ?? string.Empty;
@@ -116,7 +116,7 @@ public class RoomController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Edit(
         int id,
-        [Bind("RoomId,BuildingId,RoomCode,Area,MonthlyRent,MaxOccupants,Status,Description")] Room room)
+        [Bind("RoomId,BuildingId,RoomCode,MonthlyRent,MaxOccupants,Status,Description")] Room room)
     {
         ModelState.Remove(nameof(Room.Building));
         if (id != room.RoomId)
@@ -142,7 +142,6 @@ public class RoomController : Controller
 
         existingRoom.BuildingId = room.BuildingId;
         existingRoom.RoomCode = room.RoomCode;
-        existingRoom.Area = room.Area;
         existingRoom.MonthlyRent = room.MonthlyRent;
         existingRoom.MaxOccupants = room.MaxOccupants;
         existingRoom.Status = room.Status;
@@ -224,11 +223,6 @@ public class RoomController : Controller
         if (string.IsNullOrWhiteSpace(room.RoomCode))
         {
             ModelState.AddModelError(nameof(Room.RoomCode), "Vui lòng nhập mã phòng.");
-        }
-
-        if (room.Area <= 0)
-        {
-            ModelState.AddModelError(nameof(Room.Area), "Diện tích phải lớn hơn 0.");
         }
 
         if (room.MonthlyRent < 0)
