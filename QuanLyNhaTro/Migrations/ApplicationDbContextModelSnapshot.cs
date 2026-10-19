@@ -77,9 +77,6 @@ namespace QuanLyNhaTro.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int>("TenantId")
-                        .HasColumnType("int");
-
                     b.Property<string>("Terms")
                         .HasColumnType("nvarchar(max)");
 
@@ -90,9 +87,29 @@ namespace QuanLyNhaTro.Migrations
 
                     b.HasIndex("RoomId");
 
+                    b.ToTable("RentalContracts");
+                });
+
+            modelBuilder.Entity("QuanLyNhaTro.Models.ContractTenant", b =>
+                {
+                    b.Property<int>("ContractId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsPrimaryTenant")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("RelationshipToPrimaryTenant")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.HasKey("ContractId", "TenantId");
+
                     b.HasIndex("TenantId");
 
-                    b.ToTable("RentalContracts");
+                    b.ToTable("ContractTenants");
                 });
 
             modelBuilder.Entity("QuanLyNhaTro.Models.Room", b =>
@@ -212,13 +229,26 @@ namespace QuanLyNhaTro.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.Navigation("Room");
+
+                    b.Navigation("ContractTenants");
+                });
+
+            modelBuilder.Entity("QuanLyNhaTro.Models.ContractTenant", b =>
+                {
+                    b.HasOne("QuanLyNhaTro.Models.RentalContract", "Contract")
+                        .WithMany("ContractTenants")
+                        .HasForeignKey("ContractId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("QuanLyNhaTro.Models.TenantProfile", "Tenant")
-                        .WithMany("Contracts")
+                        .WithMany("ContractTenants")
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("Room");
+                    b.Navigation("Contract");
 
                     b.Navigation("Tenant");
                 });
@@ -239,9 +269,14 @@ namespace QuanLyNhaTro.Migrations
                     b.Navigation("Rooms");
                 });
 
+            modelBuilder.Entity("QuanLyNhaTro.Models.RentalContract", b =>
+                {
+                    b.Navigation("ContractTenants");
+                });
+
             modelBuilder.Entity("QuanLyNhaTro.Models.TenantProfile", b =>
                 {
-                    b.Navigation("Contracts");
+                    b.Navigation("ContractTenants");
                 });
 #pragma warning restore 612, 618
         }
