@@ -8,7 +8,6 @@
 
         public string RoomCode { get; set; } = string.Empty;
 
-        public decimal Area { get; set; }
 
         public decimal MonthlyRent { get; set; }
 

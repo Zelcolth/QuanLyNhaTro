@@ -1,0 +1,24 @@
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const confirmButton = document.getElementById("confirmOverlapButton");
+        if (!confirmButton) return;
+
+        ["RoomId", "StartDate", "EndDate"].forEach(function (fieldId) {
+            const field = document.getElementById(fieldId);
+            if (!field) return;
+
+            field.addEventListener("change", function () {
+                // Require a fresh server-side check when the room or date range changes.
+                confirmButton.disabled = true;
+
+                const warning = document.getElementById("overlapWarning");
+                if (warning) {
+                    const note = warning.querySelector("p:nth-child(2)");
+                    if (note) {
+                        note.textContent = "Bạn đã thay đổi phòng hoặc thời hạn. Hãy bấm nút Lưu thông thường để kiểm tra lại xung đột.";
+                    }
+                }
+            });
+        });
+    });
+</script>

@@ -15,6 +15,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Room> Rooms => Set<Room>();
     public DbSet<TenantProfile> TenantProfiles => Set<TenantProfile>();
     public DbSet<RentalContract> RentalContracts => Set<RentalContract>();
+    public DbSet<ContractTenant> ContractTenants => Set<ContractTenant>();
     public DbSet<SystemConfig> SystemConfigs => Set<SystemConfig>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -22,29 +23,45 @@ public class ApplicationDbContext : DbContext
         base.OnModelCreating(modelBuilder);
 
         modelBuilder.Entity<Building>()
-            .HasMany(b => b.Rooms)
-            .WithOne(r => r.Building)
-            .HasForeignKey(r => r.BuildingId)
+            .HasMany(building => building.Rooms)
+            .WithOne(room => room.Building)
+            .HasForeignKey(room => room.BuildingId)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Room>()
-            .HasIndex(r => new { r.BuildingId, r.RoomCode })
+            .HasIndex(room => new { room.BuildingId, room.RoomCode })
             .IsUnique();
 
         modelBuilder.Entity<RentalContract>()
-            .HasOne(c => c.Room)
+            .HasOne(contract => contract.Room)
             .WithMany()
-            .HasForeignKey(c => c.RoomId)
+            .HasForeignKey(contract => contract.RoomId)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<RentalContract>()
-            .HasOne(c => c.Tenant)
-            .WithMany(t => t.Contracts)
-            .HasForeignKey(c => c.TenantId)
+            .HasMany(contract => contract.ContractTenants)
+            .WithOne(contractTenant => contractTenant.Contract)
+            .HasForeignKey(contractTenant => contractTenant.ContractId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ContractTenant>()
+            .HasKey(contractTenant => new { contractTenant.ContractId, contractTenant.TenantId });
+
+        modelBuilder.Entity<ContractTenant>()
+            .Property(contractTenant => contractTenant.RelationshipToPrimaryTenant)
+            .HasMaxLength(100);
+
+        modelBuilder.Entity<ContractTenant>()
+            .HasIndex(contractTenant => contractTenant.TenantId);
+
+        modelBuilder.Entity<TenantProfile>()
+            .HasMany(tenant => tenant.ContractTenants)
+            .WithOne(contractTenant => contractTenant.Tenant)
+            .HasForeignKey(contractTenant => contractTenant.TenantId)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<RentalContract>()
-            .HasIndex(c => c.ContractCode)
+            .HasIndex(contract => contract.ContractCode)
             .IsUnique();
 
         modelBuilder.Entity<SystemConfig>(entity =>

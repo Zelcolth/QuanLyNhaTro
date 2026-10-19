@@ -22,6 +22,9 @@ public class BuildingController : Controller
             .OrderBy(building => building.BuildingName)
             .ToListAsync();
 
+        ViewBag.TotalBuildings = buildings.Count;
+        ViewBag.TotalRooms = buildings.Sum(building => building.Rooms.Count);
+
         return View(buildings);
     }
 

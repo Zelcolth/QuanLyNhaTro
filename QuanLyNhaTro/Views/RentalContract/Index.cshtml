@@ -9,6 +9,41 @@
     <a asp-action="Create" class="btn btn-primary">Thêm hợp đồng</a>
 </div>
 
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="small text-secondary mb-1">Đang hiệu lực</div>
+                <div class="fs-3 fw-semibold">@ViewBag.ActiveContracts</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="small text-secondary mb-1">Bản nháp</div>
+                <div class="fs-3 fw-semibold">@ViewBag.DraftContracts</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="small text-secondary mb-1">Hết hạn</div>
+                <div class="fs-3 fw-semibold">@ViewBag.ExpiredContracts</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="small text-secondary mb-1">Đã chấm dứt</div>
+                <div class="fs-3 fw-semibold">@ViewBag.TerminatedContracts</div>
+            </div>
+        </div>
+    </div>
+</div>
+
 @if (TempData["SuccessMessage"] is string successMessage)
 {
     <div class="alert alert-success" role="alert">@successMessage</div>
@@ -33,7 +68,7 @@ else
                     <th>Phòng</th>
                     <th>Người thuê</th>
                     <th>Thời hạn</th>
-                    <th>Giá thuê</th>
+                    <th>Giá thuê thỏa thuận</th>
                     <th>Trạng thái</th>
                     <th class="text-end">Thao tác</th>
                 </tr>
@@ -45,21 +80,31 @@ else
                 {
                     "Draft" => "Bản nháp",
                     "Active" => "Đang hiệu lực",
-                    "Completed" => "Đã hoàn thành",
-                    "Cancelled" => "Đã hủy",
+                    "Expired" => "Hết hạn",
+                    "Terminated" => "Đã chấm dứt",
+                    "Completed" => "Đã hoàn thành (hợp đồng cũ)",
+                    "Cancelled" => "Đã hủy (hợp đồng cũ)",
                     _ => contract.Status
                 };
                 <tr>
                     <td>@contract.ContractCode</td>
                     <td>@contract.Room.Building.BuildingName - @contract.Room.RoomCode</td>
-                    <td>@contract.Tenant.FullName</td>
+                    <td>
+                        @string.Join(", ", contract.ContractTenants
+                            .OrderByDescending(item => item.IsPrimaryTenant)
+                            .ThenBy(item => item.Tenant.FullName)
+                            .Select(item => item.Tenant.FullName + (item.IsPrimaryTenant ? " (Đại diện)" : "")))
+                    </td>
                     <td>@contract.StartDate.ToString("dd/MM/yyyy") - @contract.EndDate.ToString("dd/MM/yyyy")</td>
                     <td>@contract.MonthlyRent.ToString("N0")</td>
                     <td>@statusText</td>
                     <td class="text-end">
                         <a asp-action="Details" asp-route-id="@contract.ContractId" class="btn btn-sm btn-outline-info">Chi tiết</a>
                         <a asp-action="Edit" asp-route-id="@contract.ContractId" class="btn btn-sm btn-outline-primary">Sửa</a>
-                        <a asp-action="Delete" asp-route-id="@contract.ContractId" class="btn btn-sm btn-outline-danger">Xóa</a>
+                        @if (contract.Status is "Draft" or "Cancelled")
+                        {
+                            <a asp-action="Delete" asp-route-id="@contract.ContractId" class="btn btn-sm btn-outline-danger">Xóa</a>
+                        }
                     </td>
                 </tr>
             }

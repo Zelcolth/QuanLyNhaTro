@@ -54,6 +54,9 @@ namespace QuanLyNhaTro.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ContractId"));
 
+                    b.Property<DateTime?>("ActualEndDate")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("ContractCode")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
@@ -77,9 +80,6 @@ namespace QuanLyNhaTro.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int>("TenantId")
-                        .HasColumnType("int");
-
                     b.Property<string>("Terms")
                         .HasColumnType("nvarchar(max)");
 
@@ -90,9 +90,29 @@ namespace QuanLyNhaTro.Migrations
 
                     b.HasIndex("RoomId");
 
+                    b.ToTable("RentalContracts");
+                });
+
+            modelBuilder.Entity("QuanLyNhaTro.Models.ContractTenant", b =>
+                {
+                    b.Property<int>("ContractId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsPrimaryTenant")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("RelationshipToPrimaryTenant")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.HasKey("ContractId", "TenantId");
+
                     b.HasIndex("TenantId");
 
-                    b.ToTable("RentalContracts");
+                    b.ToTable("ContractTenants");
                 });
 
             modelBuilder.Entity("QuanLyNhaTro.Models.Room", b =>
@@ -102,9 +122,6 @@ namespace QuanLyNhaTro.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RoomId"));
-
-                    b.Property<decimal>("Area")
-                        .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("BuildingId")
                         .HasColumnType("int");
@@ -215,13 +232,25 @@ namespace QuanLyNhaTro.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.Navigation("Room");
+
+                });
+
+            modelBuilder.Entity("QuanLyNhaTro.Models.ContractTenant", b =>
+                {
+                    b.HasOne("QuanLyNhaTro.Models.RentalContract", "Contract")
+                        .WithMany("ContractTenants")
+                        .HasForeignKey("ContractId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("QuanLyNhaTro.Models.TenantProfile", "Tenant")
-                        .WithMany("Contracts")
+                        .WithMany("ContractTenants")
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("Room");
+                    b.Navigation("Contract");
 
                     b.Navigation("Tenant");
                 });
@@ -244,7 +273,7 @@ namespace QuanLyNhaTro.Migrations
 
             modelBuilder.Entity("QuanLyNhaTro.Models.TenantProfile", b =>
                 {
-                    b.Navigation("Contracts");
+                    b.Navigation("ContractTenants");
                 });
 #pragma warning restore 612, 618
         }

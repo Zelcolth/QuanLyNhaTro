@@ -6,8 +6,10 @@
     {
         "Draft" => "Bản nháp",
         "Active" => "Đang hiệu lực",
-        "Completed" => "Đã hoàn thành",
-        "Cancelled" => "Đã hủy",
+        "Expired" => "Hết hạn",
+        "Terminated" => "Đã chấm dứt",
+        "Completed" => "Đã hoàn thành (hợp đồng cũ)",
+        "Cancelled" => "Đã hủy (hợp đồng cũ)",
         _ => Model.Status
     };
 }
@@ -34,15 +36,65 @@
             <dd class="col-sm-8">@Model.Room.Building.BuildingName - @Model.Room.RoomCode</dd>
 
             <dt class="col-sm-4">Người thuê</dt>
-            <dd class="col-sm-8">@Model.Tenant.FullName</dd>
+            <dd class="col-sm-8">
+                @{
+                    var primaryTenant = Model.ContractTenants
+                        .FirstOrDefault(item => item.IsPrimaryTenant);
+                    var otherTenants = Model.ContractTenants
+                        .Where(item => !item.IsPrimaryTenant)
+                        .OrderBy(item => item.Tenant.FullName)
+                        .ToList();
+                }
+
+                @if (primaryTenant is null)
+                {
+                    <span class="text-muted">Chưa có người đại diện</span>
+                }
+                else
+                {
+                    <ul class="list-unstyled mb-0">
+                        <li>
+                            <div>
+                                <strong>@primaryTenant.Tenant.FullName</strong>
+                                <span class="badge bg-primary">Người đại diện</span>
+                            </div>
+
+                            @if (otherTenants.Count > 0)
+                            {
+                                <ul class="list-unstyled ms-3 mt-2 mb-0 ps-3 border-start">
+                                    @foreach (var assignment in otherTenants)
+                                    {
+                                        <li class="mb-2">
+                                            <span class="text-muted me-1">↳</span>
+                                            <span>@assignment.Tenant.FullName</span>
+                                            @if (!string.IsNullOrWhiteSpace(assignment.RelationshipToPrimaryTenant))
+                                            {
+                                                <small class="text-muted ms-1">
+                                                    (Quan hệ: @assignment.RelationshipToPrimaryTenant)
+                                                </small>
+                                            }
+                                        </li>
+                                    }
+                                </ul>
+                            }
+                        </li>
+                    </ul>
+                }
+            </dd>
 
             <dt class="col-sm-4">Ngày bắt đầu</dt>
             <dd class="col-sm-8">@Model.StartDate.ToString("dd/MM/yyyy")</dd>
 
-            <dt class="col-sm-4">Ngày kết thúc</dt>
+            <dt class="col-sm-4">Ngày kết thúc theo hợp đồng</dt>
             <dd class="col-sm-8">@Model.EndDate.ToString("dd/MM/yyyy")</dd>
 
-            <dt class="col-sm-4">Giá thuê hàng tháng</dt>
+            @if (Model.ActualEndDate.HasValue)
+            {
+                <dt class="col-sm-4">Ngày chấm dứt thực tế</dt>
+                <dd class="col-sm-8">@Model.ActualEndDate.Value.ToString("dd/MM/yyyy")</dd>
+            }
+
+            <dt class="col-sm-4">Giá thuê thỏa thuận hàng tháng</dt>
             <dd class="col-sm-8">@Model.MonthlyRent.ToString("N0")</dd>
 
             <dt class="col-sm-4">Tiền đặt cọc</dt>
@@ -58,11 +110,24 @@
 </div>
 
 <div class="d-flex gap-2 flex-wrap">
-    <a asp-action="Edit" asp-route-id="@Model.ContractId" class="btn btn-primary">Sửa</a>
+    <a asp-action="Edit" asp-route-id="@Model.ContractId" class="btn btn-primary">Sửa thông tin</a>
+    @if (Model.Status == "Draft")
+    {
+        <form asp-action="Activate" asp-route-id="@Model.ContractId" method="post" class="d-inline">
+            <button type="submit" class="btn btn-success"
+                    onclick="return confirm('Kích hoạt hợp đồng này? Chỉ kích hoạt khi ngày hiện tại nằm trong thời hạn hợp đồng.');">
+                Kích hoạt hợp đồng
+            </button>
+        </form>
+        <a asp-action="Delete" asp-route-id="@Model.ContractId" class="btn btn-outline-danger">Xóa bản nháp</a>
+    }
     @if (Model.Status == "Active")
     {
         <form asp-action="EndContract" asp-route-id="@Model.ContractId" method="post" class="d-inline">
-            <button type="submit" class="btn btn-warning">Kết thúc hợp đồng</button>
+            <button type="submit" class="btn btn-warning"
+                    onclick="return confirm('Xác nhận người thuê đã trả phòng và chấm dứt hợp đồng trước hạn? Ngày kết thúc theo hợp đồng sẽ được giữ nguyên.');">
+                Kết thúc hợp đồng
+            </button>
         </form>
     }
     <a asp-action="Index" class="btn btn-secondary">Quay lại danh sách</a>

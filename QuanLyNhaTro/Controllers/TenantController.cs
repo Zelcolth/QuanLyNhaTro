@@ -22,6 +22,19 @@ public class TenantController : Controller
             .OrderBy(tenant => tenant.FullName)
             .ToListAsync();
 
+        var today = DateTime.Today;
+        var currentlyRentingTenantCount = await _context.ContractTenants
+            .Where(assignment => assignment.Contract.Status == "Active"
+                && assignment.Contract.StartDate.Date <= today
+                && assignment.Contract.EndDate.Date >= today)
+            .Select(assignment => assignment.TenantId)
+            .Distinct()
+            .CountAsync();
+
+        ViewBag.TotalTenants = tenants.Count;
+        ViewBag.CurrentlyRentingTenants = currentlyRentingTenantCount;
+        ViewBag.NotCurrentlyRentingTenants = tenants.Count - currentlyRentingTenantCount;
+
         return View(tenants);
     }
 
@@ -171,9 +184,9 @@ public class TenantController : Controller
             return NotFound();
         }
 
-        var hasContracts = await _context.RentalContracts
+        var hasContracts = await _context.ContractTenants
             .AsNoTracking()
-            .AnyAsync(contract => contract.TenantId == id);
+            .AnyAsync(assignment => assignment.TenantId == id);
 
         if (hasContracts)
         {
@@ -235,7 +248,7 @@ public class TenantController : Controller
 
     private void RemoveUnpostedModelStateEntries()
     {
-        ModelState.Remove(nameof(TenantProfile.Contracts));
+        ModelState.Remove(nameof(TenantProfile.ContractTenants));
     }
 
     private static string? NormalizeOptionalText(string? value)

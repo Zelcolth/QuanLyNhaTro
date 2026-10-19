@@ -9,6 +9,41 @@
     <a asp-action="Create" class="btn btn-primary">Thêm phòng</a>
 </div>
 
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="small text-secondary mb-1">Tổng số phòng</div>
+                <div class="fs-3 fw-semibold">@ViewBag.TotalRooms</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="small text-secondary mb-1">Phòng trống</div>
+                <div class="fs-3 fw-semibold">@ViewBag.AvailableRooms</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="small text-secondary mb-1">Đang thuê</div>
+                <div class="fs-3 fw-semibold">@ViewBag.OccupiedRooms</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="small text-secondary mb-1">Bảo trì</div>
+                <div class="fs-3 fw-semibold">@ViewBag.MaintenanceRooms</div>
+            </div>
+        </div>
+    </div>
+</div>
+
 @if (TempData["SuccessMessage"] is string successMessage)
 {
     <div class="alert alert-success" role="alert">@successMessage</div>
@@ -31,8 +66,7 @@ else
                 <tr>
                     <th>Tòa nhà</th>
                     <th>Mã phòng</th>
-                    <th>Diện tích (m²)</th>
-                    <th>Giá thuê/tháng</th>
+                    <th>Giá thuê niêm yết/tháng</th>
                     <th>Số người tối đa</th>
                     <th>Trạng thái</th>
                     <th class="text-end">Thao tác</th>
@@ -46,13 +80,11 @@ else
                     "Available" => "Trống",
                     "Occupied" => "Đang thuê",
                     "Maintenance" => "Bảo trì",
-                    "Reserved" => "Đã đặt trước",
                     _ => room.Status
                 };
                 <tr>
                     <td>@room.Building.BuildingName</td>
                     <td>@room.RoomCode</td>
-                    <td>@room.Area.ToString("N2")</td>
                     <td>@room.MonthlyRent.ToString("N0")</td>
                     <td>@room.MaxOccupants</td>
                     <td>@statusText</td>
