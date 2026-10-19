@@ -271,11 +271,6 @@ namespace QuanLyNhaTro.Migrations
                     b.Navigation("Rooms");
                 });
 
-            modelBuilder.Entity("QuanLyNhaTro.Models.RentalContract", b =>
-                {
-                    b.Navigation("ContractTenants");
-                });
-
             modelBuilder.Entity("QuanLyNhaTro.Models.TenantProfile", b =>
                 {
                     b.Navigation("ContractTenants");
