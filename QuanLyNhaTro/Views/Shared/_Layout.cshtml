@@ -1,8 +1,3 @@
-@{
-    var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
-    var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
-    var isDashboard = currentController == "Home" && currentAction == "Index";
-}
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -18,7 +13,7 @@
     <header>
         <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom shadow-sm">
             <div class="container">
-                <a class="navbar-brand fw-semibold text-primary" asp-controller="Home" asp-action="Index">
+                <a class="navbar-brand fw-semibold text-primary" asp-controller="Room" asp-action="Index">
                     <span class="badge text-bg-primary me-2">NT</span>Quản lý nhà trọ
                 </a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavigation"
@@ -28,19 +23,14 @@
                 <div class="collapse navbar-collapse" id="mainNavigation">
                     <ul class="navbar-nav ms-auto gap-lg-1">
                         <li class="nav-item">
-                            <a class="nav-link @(isDashboard ? "active fw-semibold" : "")"
-                               aria-current="@(isDashboard ? "page" : null)"
-                               asp-controller="Home" asp-action="Index">Tổng quan</a>
+                            <a class="nav-link @(currentController == "Room" ? "active fw-semibold" : "")"
+                               aria-current="@(currentController == "Room" ? "page" : null)"
+                               asp-controller="Room" asp-action="Index">Phòng</a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link @(currentController == "Building" ? "active fw-semibold" : "")"
                                aria-current="@(currentController == "Building" ? "page" : null)"
                                asp-controller="Building" asp-action="Index">Khu nhà</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link @(currentController == "Room" ? "active fw-semibold" : "")"
-                               aria-current="@(currentController == "Room" ? "page" : null)"
-                               asp-controller="Room" asp-action="Index">Phòng</a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link @(currentController == "Tenant" ? "active fw-semibold" : "")"
