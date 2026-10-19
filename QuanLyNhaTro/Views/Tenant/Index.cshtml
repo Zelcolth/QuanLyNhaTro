@@ -9,6 +9,33 @@
     <a asp-action="Create" class="btn btn-primary">Thêm người thuê</a>
 </div>
 
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="small text-secondary mb-1">Tổng số người thuê</div>
+                <div class="fs-3 fw-semibold">@ViewBag.TotalTenants</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="small text-secondary mb-1">Đang thuê hiện tại</div>
+                <div class="fs-3 fw-semibold">@ViewBag.CurrentlyRentingTenants</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="small text-secondary mb-1">Chưa thuê hiện tại</div>
+                <div class="fs-3 fw-semibold">@ViewBag.NotCurrentlyRentingTenants</div>
+            </div>
+        </div>
+    </div>
+</div>
+
 @if (TempData["SuccessMessage"] is string successMessage)
 {
     <div class="alert alert-success" role="alert">@successMessage</div>

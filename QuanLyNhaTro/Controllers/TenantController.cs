@@ -22,6 +22,19 @@ public class TenantController : Controller
             .OrderBy(tenant => tenant.FullName)
             .ToListAsync();
 
+        var today = DateTime.Today;
+        var currentlyRentingTenantCount = await _context.ContractTenants
+            .Where(assignment => assignment.Contract.Status == "Active"
+                && assignment.Contract.StartDate.Date <= today
+                && assignment.Contract.EndDate.Date >= today)
+            .Select(assignment => assignment.TenantId)
+            .Distinct()
+            .CountAsync();
+
+        ViewBag.TotalTenants = tenants.Count;
+        ViewBag.CurrentlyRentingTenants = currentlyRentingTenantCount;
+        ViewBag.NotCurrentlyRentingTenants = tenants.Count - currentlyRentingTenantCount;
+
         return View(tenants);
     }
 

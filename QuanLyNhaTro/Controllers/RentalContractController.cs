@@ -28,6 +28,11 @@ public class RentalContractController : Controller
             .ThenBy(contract => contract.ContractCode)
             .ToListAsync();
 
+        ViewBag.ActiveContracts = contracts.Count(contract => contract.Status == "Active");
+        ViewBag.DraftContracts = contracts.Count(contract => contract.Status == "Draft");
+        ViewBag.ExpiredContracts = contracts.Count(contract => contract.Status == "Expired");
+        ViewBag.TerminatedContracts = contracts.Count(contract => contract.Status == "Terminated");
+
         return View(contracts);
     }
 
