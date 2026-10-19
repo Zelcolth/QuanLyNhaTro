@@ -26,6 +26,8 @@ public class RoomController : Controller
 
     public async Task<IActionResult> Index()
     {
+        await SynchronizeExpiredContractsAsync();
+
         var rooms = await _context.Rooms
             .Include(room => room.Building)
             .AsNoTracking()
@@ -38,6 +40,8 @@ public class RoomController : Controller
 
     public async Task<IActionResult> Details(int? id)
     {
+        await SynchronizeExpiredContractsAsync();
+
         if (id is null)
         {
             return NotFound();
@@ -96,6 +100,8 @@ public class RoomController : Controller
 
     public async Task<IActionResult> Edit(int? id)
     {
+        await SynchronizeExpiredContractsAsync();
+
         if (id is null)
         {
             return NotFound();
@@ -164,6 +170,8 @@ public class RoomController : Controller
 
     public async Task<IActionResult> Delete(int? id)
     {
+        await SynchronizeExpiredContractsAsync();
+
         if (id is null)
         {
             return NotFound();
@@ -280,6 +288,44 @@ public class RoomController : Controller
             && contract.Status == "Active"
             && contract.StartDate.Date <= today
             && contract.EndDate.Date >= today);
+    }
+
+    private async Task SynchronizeExpiredContractsAsync()
+    {
+        var today = DateTime.Today;
+        var expiredRoomIds = await _context.RentalContracts
+            .Where(contract => contract.Status == "Active" && contract.EndDate.Date < today)
+            .Select(contract => contract.RoomId)
+            .Distinct()
+            .ToListAsync();
+
+        if (expiredRoomIds.Count == 0)
+        {
+            return;
+        }
+
+        await _context.RentalContracts
+            .Where(contract => contract.Status == "Active" && contract.EndDate.Date < today)
+            .ExecuteUpdateAsync(update => update.SetProperty(contract => contract.Status, "Expired"));
+
+        foreach (var roomId in expiredRoomIds)
+        {
+            var room = await _context.Rooms.FindAsync(roomId);
+            if (room is null || room.Status is "Maintenance" or "Reserved")
+            {
+                continue;
+            }
+
+            var hasCurrentActiveContract = await _context.RentalContracts.AnyAsync(contract =>
+                contract.RoomId == roomId
+                && contract.Status == "Active"
+                && contract.StartDate.Date <= today
+                && contract.EndDate.Date >= today);
+
+            room.Status = hasCurrentActiveContract ? "Occupied" : "Available";
+        }
+
+        await _context.SaveChangesAsync();
     }
 
     private async Task PopulateFormOptionsAsync(int? selectedBuildingId = null, string? selectedStatus = null)
