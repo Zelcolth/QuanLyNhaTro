@@ -8,6 +8,17 @@
 
 <form asp-action="Create" method="post">
     <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+    @if (ViewBag.OverlapWarning is string overlapWarning)
+    {
+        <div class="alert alert-warning" id="overlapWarning" role="alert">
+            <p class="mb-2">@overlapWarning</p>
+            <p class="mb-2">Để tiếp tục, xác nhận lưu bản nháp dù đang có xung đột lịch.</p>
+            <button type="submit" name="confirmOverlap" value="true" id="confirmOverlapButton" class="btn btn-warning">
+                Vẫn lưu bản nháp
+            </button>
+        </div>
+    }
+
 
     <div class="mb-3">
         <label asp-for="ContractCode" class="form-label">Mã hợp đồng</label>
@@ -147,4 +158,5 @@
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
     <partial name="_TenantRelationshipScripts" />
+    <partial name="_OverlapWarningScripts" />
 }

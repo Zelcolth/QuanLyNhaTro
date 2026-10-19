@@ -72,7 +72,7 @@ public class RentalContractController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create(RentalContractFormViewModel model)
+    public async Task<IActionResult> Create(RentalContractFormViewModel model, bool confirmOverlap = false)
     {
         await SynchronizeExpiredContractsAsync();
         NormalizeContract(model);
@@ -81,6 +81,19 @@ public class RentalContractController : Controller
         if (!ModelState.IsValid)
         {
             await PopulateFormOptionsAsync(model, preserveTenantOptions: true);
+            return View(model);
+        }
+
+        var hasOverlappingContract = await HasOverlappingActiveContractAsync(
+            model.RoomId,
+            model.StartDate,
+            model.EndDate,
+            null);
+
+        if (hasOverlappingContract && !confirmOverlap)
+        {
+            await PopulateFormOptionsAsync(model, preserveTenantOptions: true);
+            ViewBag.OverlapWarning = "Phòng đã có hợp đồng đang hiệu lực bị chồng lấn thời gian với khoảng ngày đã chọn. Bạn vẫn có thể lưu bản nháp để hoàn thiện sau, nhưng hệ thống sẽ không cho kích hoạt khi xung đột còn tồn tại.";
             return View(model);
         }
 
@@ -137,7 +150,7 @@ public class RentalContractController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Edit(int id, RentalContractFormViewModel model)
+    public async Task<IActionResult> Edit(int id, RentalContractFormViewModel model, bool confirmOverlap = false)
     {
         if (id != model.ContractId)
         {
@@ -161,6 +174,20 @@ public class RentalContractController : Controller
         if (!ModelState.IsValid)
         {
             await PopulateFormOptionsAsync(model, preserveTenantOptions: true);
+            return View(model);
+        }
+
+        // Warn before saving a draft, but keep the existing hard validation for active contracts.
+        if (existingContract.Status == "Draft"
+            && await HasOverlappingActiveContractAsync(
+                model.RoomId,
+                model.StartDate,
+                model.EndDate,
+                model.ContractId)
+            && !confirmOverlap)
+        {
+            await PopulateFormOptionsAsync(model, preserveTenantOptions: true);
+            ViewBag.OverlapWarning = "Phòng đã có hợp đồng đang hiệu lực bị chồng lấn thời gian với khoảng ngày đã chọn. Bạn vẫn có thể lưu bản nháp để hoàn thiện sau, nhưng hệ thống sẽ không cho kích hoạt khi xung đột còn tồn tại.";
             return View(model);
         }
 
