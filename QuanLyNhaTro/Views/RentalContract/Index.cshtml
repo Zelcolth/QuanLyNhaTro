@@ -33,7 +33,7 @@ else
                     <th>Phòng</th>
                     <th>Người thuê</th>
                     <th>Thời hạn</th>
-                    <th>Giá thuê</th>
+                    <th>Giá thuê thỏa thuận</th>
                     <th>Trạng thái</th>
                     <th class="text-end">Thao tác</th>
                 </tr>
@@ -45,8 +45,10 @@ else
                 {
                     "Draft" => "Bản nháp",
                     "Active" => "Đang hiệu lực",
-                    "Completed" => "Đã hoàn thành",
-                    "Cancelled" => "Đã hủy",
+                    "Expired" => "Hết hạn",
+                    "Terminated" => "Đã chấm dứt",
+                    "Completed" => "Đã hoàn thành (hợp đồng cũ)",
+                    "Cancelled" => "Đã hủy (hợp đồng cũ)",
                     _ => contract.Status
                 };
                 <tr>
@@ -64,7 +66,10 @@ else
                     <td class="text-end">
                         <a asp-action="Details" asp-route-id="@contract.ContractId" class="btn btn-sm btn-outline-info">Chi tiết</a>
                         <a asp-action="Edit" asp-route-id="@contract.ContractId" class="btn btn-sm btn-outline-primary">Sửa</a>
-                        <a asp-action="Delete" asp-route-id="@contract.ContractId" class="btn btn-sm btn-outline-danger">Xóa</a>
+                        @if (contract.Status is "Draft" or "Cancelled")
+                        {
+                            <a asp-action="Delete" asp-route-id="@contract.ContractId" class="btn btn-sm btn-outline-danger">Xóa</a>
+                        }
                     </td>
                 </tr>
             }

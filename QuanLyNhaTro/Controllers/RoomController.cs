@@ -225,9 +225,9 @@ public class RoomController : Controller
             ModelState.AddModelError(nameof(Room.RoomCode), "Vui lòng nhập mã phòng.");
         }
 
-        if (room.MonthlyRent < 0)
+        if (room.MonthlyRent <= 0)
         {
-            ModelState.AddModelError(nameof(Room.MonthlyRent), "Tiền thuê hàng tháng không được âm.");
+            ModelState.AddModelError(nameof(Room.MonthlyRent), "Giá thuê niêm yết phải lớn hơn 0.");
         }
 
         if (room.MaxOccupants < 1)

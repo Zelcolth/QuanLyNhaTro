@@ -12,7 +12,7 @@
 }
 
 <div class="alert alert-warning" role="alert">
-    Chỉ có thể xóa hợp đồng ở trạng thái Bản nháp hoặc Đã hủy. Không thể xóa hợp đồng đang hiệu lực hoặc đã hoàn thành.
+    Chỉ có thể xóa hợp đồng bản nháp. Hợp đồng đã có hiệu lực hoặc đã kết thúc cần được giữ lại để tra cứu.
 </div>
 
 <div class="card mb-3">
@@ -47,7 +47,16 @@
             </dd>
 
             <dt class="col-sm-4">Trạng thái</dt>
-            <dd class="col-sm-8">@Model.Status</dd>
+            <dd class="col-sm-8">@(Model.Status switch
+{
+    "Draft" => "Bản nháp",
+    "Active" => "Đang hiệu lực",
+    "Expired" => "Hết hạn",
+    "Terminated" => "Đã chấm dứt",
+    "Completed" => "Đã hoàn thành (hợp đồng cũ)",
+    "Cancelled" => "Đã hủy (hợp đồng cũ)",
+    _ => Model.Status
+})</dd>
         </dl>
     </div>
 </div>

@@ -54,6 +54,9 @@ namespace QuanLyNhaTro.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ContractId"));
 
+                    b.Property<DateTime?>("ActualEndDate")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("ContractCode")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");

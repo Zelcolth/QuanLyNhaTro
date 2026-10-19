@@ -25,8 +25,8 @@
     </div>
 
     <div class="mb-3">
-        <label asp-for="MonthlyRent" class="form-label">Giá thuê hàng tháng</label>
-        <input asp-for="MonthlyRent" type="number" min="0" step="0.01" class="form-control" />
+        <label asp-for="MonthlyRent" class="form-label">Giá thuê niêm yết (đồng/tháng)</label>
+        <input asp-for="MonthlyRent" type="number" min="0.01" step="0.01" required class="form-control" />
         <span asp-validation-for="MonthlyRent" class="text-danger"></span>
     </div>
 

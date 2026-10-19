@@ -1,68 +1,201 @@
 <script>
     document.addEventListener("DOMContentLoaded", function () {
-        const primaryRadios = document.querySelectorAll(
-            'input[type="radio"][name="PrimaryTenantId"]'
-        );
+        const roomSelect = document.getElementById("RoomId");
+        const rentInput = document.getElementById("MonthlyRent");
 
-        const tenantCheckboxes = document.querySelectorAll(
-            'input[type="checkbox"][name$=".IsSelected"]'
-        );
+        if (roomSelect && rentInput) {
+            roomSelect.addEventListener("change", function () {
+                const selectedOption = roomSelect.selectedOptions[0];
+                if (!selectedOption || !selectedOption.value) return;
 
-        function updateRelationshipFields() {
-            const selectedPrimary = document.querySelector(
-                'input[type="radio"][name="PrimaryTenantId"]:checked'
-            );
-
-            primaryRadios.forEach(function (radio) {
-                const row = radio.closest("tr");
-                const relationshipInput = row.querySelector(
-                    'input[name$=".RelationshipToPrimaryTenant"]'
-                );
-
-                if (!relationshipInput) return;
-
-                const isPrimary = selectedPrimary === radio;
-                relationshipInput.disabled = isPrimary;
-                relationshipInput.placeholder = isPrimary
-                    ? "Không áp dụng cho người đại diện"
-                    : "Ví dụ: vợ/chồng, con, bạn cùng thuê";
-
-                if (isPrimary) {
-                    relationshipInput.value = "";
+                const listedRent = selectedOption.dataset.monthlyRent;
+                if (listedRent) {
+                    rentInput.value = listedRent;
                 }
             });
         }
 
-        primaryRadios.forEach(function (radio) {
-            radio.addEventListener("change", function () {
-                const row = radio.closest("tr");
-                const checkbox = row.querySelector(
-                    'input[type="checkbox"][name$=".IsSelected"]'
-                );
+        const selectedList = document.getElementById("selectedTenantList");
+        const pickerRows = Array.from(document.querySelectorAll(".tenant-picker-row"));
+        if (!selectedList || pickerRows.length === 0) return;
 
-                if (checkbox) {
-                    checkbox.checked = true;
-                }
-
-                updateRelationshipFields();
-            });
+        const relationshipValues = {};
+        pickerRows.forEach(function (row) {
+            relationshipValues[row.dataset.tenantId] = row.dataset.relationship || "";
         });
 
-        tenantCheckboxes.forEach(function (checkbox) {
+        let primaryTenantId = selectedList.dataset.primaryTenantId || "";
+
+        function getCheckbox(row) {
+            return row.querySelector(".tenant-picker-checkbox");
+        }
+
+        function getSelectedRows() {
+            return pickerRows.filter(function (row) {
+                const checkbox = getCheckbox(row);
+                return checkbox && checkbox.checked;
+            });
+        }
+
+        function updateRelationshipInputs() {
+            selectedList.querySelectorAll(".tenant-relationship-input").forEach(function (input) {
+                const isPrimary = input.dataset.tenantId === primaryTenantId;
+                input.disabled = isPrimary;
+                input.placeholder = isPrimary
+                    ? "Không áp dụng cho người đại diện"
+                    : "Ví dụ: vợ/chồng, con, bạn cùng thuê";
+
+                if (isPrimary) {
+                    input.value = "";
+                    relationshipValues[input.dataset.tenantId] = "";
+                }
+            });
+        }
+
+        function renderSelectedTenants() {
+            const selectedRows = getSelectedRows();
+            const selectedIds = selectedRows.map(row => row.dataset.tenantId);
+
+            if (!selectedIds.includes(primaryTenantId)) {
+                primaryTenantId = selectedIds.length ? selectedIds[0] : "";
+            }
+
+            selectedList.replaceChildren();
+
+            if (selectedRows.length === 0) {
+                const emptyMessage = document.createElement("div");
+                emptyMessage.className = "alert alert-light border mb-0";
+                emptyMessage.textContent = "Chưa thêm người thuê vào hợp đồng.";
+                selectedList.appendChild(emptyMessage);
+                selectedList.dataset.primaryTenantId = "";
+                return;
+            }
+
+            selectedRows.forEach(function (row) {
+                const tenantId = row.dataset.tenantId;
+                const pickerIndex = pickerRows.indexOf(row);
+                const isPrimary = tenantId === primaryTenantId;
+
+                const card = document.createElement("div");
+                card.className = "card mb-2";
+                const body = document.createElement("div");
+                body.className = "card-body py-3";
+                const top = document.createElement("div");
+                top.className = "d-flex align-items-start gap-3";
+                const identity = document.createElement("div");
+                identity.className = "flex-grow-1";
+
+                const name = document.createElement("div");
+                name.className = "fw-semibold";
+                name.textContent = row.dataset.tenantName || "Người thuê";
+                identity.appendChild(name);
+
+                const phone = document.createElement("small");
+                phone.className = "text-muted";
+                phone.textContent = row.dataset.tenantPhone || "";
+                identity.appendChild(phone);
+
+                const primaryWrap = document.createElement("div");
+                primaryWrap.className = "form-check text-nowrap";
+                const primaryRadio = document.createElement("input");
+                primaryRadio.type = "radio";
+                primaryRadio.name = "PrimaryTenantId";
+                primaryRadio.value = tenantId;
+                primaryRadio.id = "PrimaryTenantId_" + tenantId;
+                primaryRadio.className = "form-check-input";
+                primaryRadio.checked = isPrimary;
+                primaryRadio.addEventListener("change", function () {
+                    primaryTenantId = tenantId;
+                    relationshipValues[tenantId] = "";
+                    renderSelectedTenants();
+                });
+                const primaryLabel = document.createElement("label");
+                primaryLabel.className = "form-check-label";
+                primaryLabel.htmlFor = primaryRadio.id;
+                primaryLabel.textContent = "Đại diện";
+                primaryWrap.append(primaryRadio, primaryLabel);
+
+                const removeButton = document.createElement("button");
+                removeButton.type = "button";
+                removeButton.className = "btn btn-sm btn-outline-danger";
+                removeButton.textContent = "Bỏ";
+                removeButton.setAttribute("aria-label", "Bỏ " + (row.dataset.tenantName || "người thuê") + " khỏi hợp đồng");
+                removeButton.addEventListener("click", function () {
+                    const checkbox = getCheckbox(row);
+                    if (checkbox) {
+                        checkbox.checked = false;
+                        checkbox.dispatchEvent(new Event("change", { bubbles: true }));
+                    }
+                });
+
+                top.append(identity, primaryWrap, removeButton);
+                body.appendChild(top);
+
+                const relationRow = document.createElement("div");
+                relationRow.className = "mt-3";
+                const relationLabel = document.createElement("label");
+                relationLabel.className = "form-label";
+                relationLabel.htmlFor = "TenantOptions_" + pickerIndex + "__RelationshipToPrimaryTenant";
+                relationLabel.textContent = "Quan hệ với người đại diện";
+                const relationInput = document.createElement("input");
+                relationInput.type = "text";
+                relationInput.className = "form-control tenant-relationship-input";
+                relationInput.maxLength = 100;
+                relationInput.name = "TenantOptions[" + pickerIndex + "].RelationshipToPrimaryTenant";
+                relationInput.id = "TenantOptions_" + pickerIndex + "__RelationshipToPrimaryTenant";
+                relationInput.dataset.tenantId = tenantId;
+                relationInput.value = relationshipValues[tenantId] || "";
+                relationInput.placeholder = "Ví dụ: vợ/chồng, con, bạn cùng thuê";
+                relationInput.addEventListener("input", function () {
+                    relationshipValues[tenantId] = relationInput.value;
+                });
+
+                const pickerError = row.querySelector(".tenant-relationship-validation");
+                if (pickerError && pickerError.textContent.trim()) {
+                    const error = document.createElement("span");
+                    error.className = "text-danger";
+                    error.textContent = pickerError.textContent.trim();
+                    relationRow.appendChild(error);
+                }
+
+                relationRow.insertBefore(relationLabel, relationRow.firstChild);
+                relationRow.appendChild(relationInput);
+                body.appendChild(relationRow);
+                card.appendChild(body);
+                selectedList.appendChild(card);
+            });
+
+            selectedList.dataset.primaryTenantId = primaryTenantId;
+            updateRelationshipInputs();
+        }
+
+        pickerRows.forEach(function (row) {
+            const checkbox = getCheckbox(row);
+            if (!checkbox) return;
+
             checkbox.addEventListener("change", function () {
-                const row = checkbox.closest("tr");
-                const radio = row.querySelector(
-                    'input[type="radio"][name="PrimaryTenantId"]'
-                );
-
-                if (!checkbox.checked && radio && radio.checked) {
-                    radio.checked = false;
+                const selectedIds = getSelectedRows().map(item => item.dataset.tenantId);
+                if (!selectedIds.includes(primaryTenantId)) {
+                    primaryTenantId = selectedIds.length ? selectedIds[0] : "";
                 }
-
-                updateRelationshipFields();
+                renderSelectedTenants();
             });
         });
 
-        updateRelationshipFields();
+        const search = document.getElementById("tenantSearch");
+        if (search) {
+            search.addEventListener("input", function () {
+                const query = search.value.trim().toLocaleLowerCase();
+                pickerRows.forEach(function (row) {
+                    const searchableText = (
+                        (row.dataset.tenantName || "") + " " +
+                        (row.dataset.tenantPhone || "")
+                    ).toLocaleLowerCase();
+                    row.hidden = !searchableText.includes(query);
+                });
+            });
+        }
+
+        renderSelectedTenants();
     });
 </script>

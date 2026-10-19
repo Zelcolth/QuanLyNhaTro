@@ -15,6 +15,8 @@ public class RentalContract
 
     public DateTime EndDate { get; set; }
 
+    public DateTime? ActualEndDate { get; set; }
+
     public decimal MonthlyRent { get; set; }
 
     public decimal Deposit { get; set; }

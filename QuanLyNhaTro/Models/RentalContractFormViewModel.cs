@@ -18,8 +18,6 @@ public class RentalContractFormViewModel
 
     public decimal Deposit { get; set; }
 
-    public string Status { get; set; } = "Draft";
-
     public string? Terms { get; set; }
 
     public int? PrimaryTenantId { get; set; }
