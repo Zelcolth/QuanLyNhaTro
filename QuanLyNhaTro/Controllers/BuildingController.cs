@@ -187,10 +187,6 @@ public class BuildingController : Controller
             ModelState.AddModelError(nameof(Building.BuildingName), "Vui lòng nhập tên tòa nhà.");
         }
 
-        if (string.IsNullOrWhiteSpace(building.Address))
-        {
-            ModelState.AddModelError(nameof(Building.Address), "Vui lòng nhập địa chỉ tòa nhà.");
-        }
     }
 
     private async Task<bool> BuildingExistsAsync(int id)

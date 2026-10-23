@@ -668,7 +668,7 @@ public class RentalContractController : Controller
             {
                 TenantId = tenant.TenantId,
                 FullName = tenant.FullName,
-                Phone = tenant.Phone,
+                Phone = tenant.Phone ?? string.Empty,
                 IsSelected = submitted?.IsSelected ?? false,
                 RelationshipToPrimaryTenant = submitted?.RelationshipToPrimaryTenant
             };

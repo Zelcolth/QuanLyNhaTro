@@ -13,16 +13,24 @@
             <dd class="col-sm-8">@Model.FullName</dd>
 
             <dt class="col-sm-4">Số điện thoại</dt>
-            <dd class="col-sm-8">@Model.Phone</dd>
-
-            <dt class="col-sm-4">Email</dt>
-            <dd class="col-sm-8">@(Model.Email ?? "Chưa có")</dd>
+            <dd class="col-sm-8">@(string.IsNullOrWhiteSpace(Model.Phone) ? "Chưa có" : Model.Phone)</dd>
 
             <dt class="col-sm-4">Số CCCD/CMND</dt>
             <dd class="col-sm-8">@(Model.IdentityNumber ?? "Chưa có")</dd>
 
-            <dt class="col-sm-4">Ngày sinh</dt>
-            <dd class="col-sm-8">@(Model.DateOfBirth?.ToString("dd/MM/yyyy") ?? "Chưa có")</dd>
+            <dt class="col-sm-4">Thông tin ngày sinh</dt>
+            @if (Model.DateOfBirth.HasValue)
+            {
+                <dd class="col-sm-8">@Model.DateOfBirth.Value.ToString("dd/MM/yyyy")</dd>
+            }
+            else if (Model.BirthYear.HasValue)
+            {
+                <dd class="col-sm-8">Năm sinh: @Model.BirthYear.Value — chưa có ngày/tháng sinh đầy đủ</dd>
+            }
+            else
+            {
+                <dd class="col-sm-8">Chưa xác minh được thông tin ngày sinh</dd>
+            }
 
             <dt class="col-sm-4">Địa chỉ thường trú</dt>
             <dd class="col-sm-8">@(Model.PermanentAddress ?? "Chưa có")</dd>

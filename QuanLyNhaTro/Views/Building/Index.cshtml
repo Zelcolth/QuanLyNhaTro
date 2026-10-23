@@ -49,7 +49,6 @@ else
             <thead class="table-light">
                 <tr>
                     <th>Tên tòa nhà</th>
-                    <th>Địa chỉ</th>
                     <th>Số phòng</th>
                     <th class="text-end">Thao tác</th>
                 </tr>
@@ -59,7 +58,6 @@ else
             {
                 <tr>
                     <td>@building.BuildingName</td>
-                    <td>@building.Address</td>
                     <td>@building.Rooms.Count</td>
                     <td class="text-end">
                         <a asp-action="Details" asp-route-id="@building.BuildingId" class="btn btn-sm btn-outline-info">Chi tiết</a>

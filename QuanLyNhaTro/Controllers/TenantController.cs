@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QuanLyNhaTro.Data;
@@ -65,9 +64,10 @@ public class TenantController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(
-        [Bind("FullName,Phone,Email,IdentityNumber,DateOfBirth,PermanentAddress,Notes")] TenantProfile tenant)
+        [Bind("FullName,Phone,IdentityNumber,DateOfBirth,BirthYear,PermanentAddress,Notes")] TenantProfile tenant)
     {
         NormalizeTenant(tenant);
+        LocalizeBirthYearBindingError();
         RemoveUnpostedModelStateEntries();
         ValidateTenant(tenant);
 
@@ -104,7 +104,7 @@ public class TenantController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Edit(
         int id,
-        [Bind("TenantId,FullName,Phone,Email,IdentityNumber,DateOfBirth,PermanentAddress,Notes")] TenantProfile tenant)
+        [Bind("TenantId,FullName,Phone,IdentityNumber,DateOfBirth,BirthYear,PermanentAddress,Notes")] TenantProfile tenant)
     {
         if (id != tenant.TenantId)
         {
@@ -112,6 +112,7 @@ public class TenantController : Controller
         }
 
         NormalizeTenant(tenant);
+        LocalizeBirthYearBindingError();
         RemoveUnpostedModelStateEntries();
         ValidateTenant(tenant);
 
@@ -129,9 +130,9 @@ public class TenantController : Controller
 
         existingTenant.FullName = tenant.FullName;
         existingTenant.Phone = tenant.Phone;
-        existingTenant.Email = tenant.Email;
         existingTenant.IdentityNumber = tenant.IdentityNumber;
         existingTenant.DateOfBirth = tenant.DateOfBirth;
+        existingTenant.BirthYear = tenant.BirthYear;
         existingTenant.PermanentAddress = tenant.PermanentAddress;
         existingTenant.Notes = tenant.Notes;
 
@@ -212,8 +213,7 @@ public class TenantController : Controller
     private static void NormalizeTenant(TenantProfile tenant)
     {
         tenant.FullName = tenant.FullName?.Trim() ?? string.Empty;
-        tenant.Phone = tenant.Phone?.Trim() ?? string.Empty;
-        tenant.Email = NormalizeOptionalText(tenant.Email);
+        tenant.Phone = NormalizeOptionalText(tenant.Phone);
         tenant.IdentityNumber = NormalizeOptionalText(tenant.IdentityNumber);
         tenant.PermanentAddress = NormalizeOptionalText(tenant.PermanentAddress);
         tenant.Notes = NormalizeOptionalText(tenant.Notes);
@@ -221,28 +221,22 @@ public class TenantController : Controller
 
     private void ValidateTenant(TenantProfile tenant)
     {
-        ModelState.Remove(nameof(TenantProfile.FullName));
-        ModelState.Remove(nameof(TenantProfile.Phone));
-
-        if (string.IsNullOrWhiteSpace(tenant.FullName))
-        {
-            ModelState.AddModelError(nameof(TenantProfile.FullName), "Vui lòng nhập họ và tên.");
-        }
-
-        if (string.IsNullOrWhiteSpace(tenant.Phone))
-        {
-            ModelState.AddModelError(nameof(TenantProfile.Phone), "Vui lòng nhập số điện thoại.");
-        }
-
-        if (!string.IsNullOrWhiteSpace(tenant.Email)
-            && !new EmailAddressAttribute().IsValid(tenant.Email))
-        {
-            ModelState.AddModelError(nameof(TenantProfile.Email), "Email không đúng định dạng.");
-        }
-
         if (tenant.DateOfBirth.HasValue && tenant.DateOfBirth.Value.Date > DateTime.Today)
         {
             ModelState.AddModelError(nameof(TenantProfile.DateOfBirth), "Ngày sinh không được lớn hơn ngày hiện tại.");
+        }
+
+        if (tenant.BirthYear.HasValue
+            && (tenant.BirthYear.Value < 1 || tenant.BirthYear.Value > DateTime.Today.Year))
+        {
+            ModelState.AddModelError(nameof(TenantProfile.BirthYear),
+                $"Năm sinh phải nằm trong khoảng từ 1 đến {DateTime.Today.Year}.");
+        }
+
+        if (tenant.DateOfBirth.HasValue && tenant.BirthYear.HasValue)
+        {
+            ModelState.AddModelError(nameof(TenantProfile.BirthYear),
+                "Chỉ nhập ngày sinh đầy đủ hoặc năm sinh, không nhập đồng thời cả hai.");
         }
     }
 
@@ -260,5 +254,25 @@ public class TenantController : Controller
     private async Task<bool> TenantExistsAsync(int id)
     {
         return await _context.TenantProfiles.AnyAsync(tenant => tenant.TenantId == id);
+    }
+    private void LocalizeBirthYearBindingError()
+    {
+        const string field = nameof(TenantProfile.BirthYear);
+
+        if (!ModelState.TryGetValue(field, out var entry)
+            || entry.Errors.Count == 0)
+        {
+            return;
+        }
+
+        var attemptedValue = entry.AttemptedValue;
+
+        ModelState.Remove(field);
+        ModelState.SetModelValue(
+            field, attemptedValue, attemptedValue);
+
+        ModelState.AddModelError(
+            field,
+            "Năm sinh phải là số nguyên hợp lệ.");
     }
 }

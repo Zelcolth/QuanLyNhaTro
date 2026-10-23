@@ -72,6 +72,6 @@ Do not replace database operations with hardcoded or in-memory sample data.
 - The application manages one physical rental property at one location.
 - Building records represent buildings or blocks within that same property, not separate business branches or rental locations.
 - Rooms belong to buildings within the same property.
-- The Address field must not be used to introduce multi-branch management.
+- Do not add an Address field to individual Building records; all buildings belong to one physical rental property. If the property's address is later needed for an export workflow, store it once at the property level.
 - Do not implement branch management, branch-specific permissions, or cross-branch reporting.
 - Keep the implementation small and aligned with the supervisor's requirements.
