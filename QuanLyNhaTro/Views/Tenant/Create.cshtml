@@ -16,8 +16,9 @@
     </div>
 
     <div class="mb-3">
-        <label asp-for="Phone" class="form-label">Số điện thoại</label>
+        <label asp-for="Phone" class="form-label">Số điện thoại (không bắt buộc)</label>
         <input asp-for="Phone" type="tel" class="form-control" />
+        <div class="form-text">Có thể để trống nếu người thuê chưa có số điện thoại riêng.</div>
         <span asp-validation-for="Phone" class="text-danger"></span>
     </div>
 
