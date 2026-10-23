@@ -23,21 +23,23 @@
     </div>
 
     <div class="mb-3">
-        <label asp-for="Email" class="form-label">Email</label>
-        <input asp-for="Email" type="email" class="form-control" />
-        <span asp-validation-for="Email" class="text-danger"></span>
-    </div>
-
-    <div class="mb-3">
         <label asp-for="IdentityNumber" class="form-label">Số CCCD/CMND</label>
         <input asp-for="IdentityNumber" class="form-control" />
         <span asp-validation-for="IdentityNumber" class="text-danger"></span>
     </div>
 
     <div class="mb-3">
-        <label asp-for="DateOfBirth" class="form-label">Ngày sinh</label>
+        <label asp-for="DateOfBirth" class="form-label">Ngày sinh đầy đủ (nếu biết)</label>
         <input asp-for="DateOfBirth" type="date" max="@DateTime.Today.ToString("yyyy-MM-dd")" class="form-control" />
+        <div class="form-text">Chỉ nhập khi biết chính xác ngày, tháng và năm sinh.</div>
         <span asp-validation-for="DateOfBirth" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="BirthYear" class="form-label">Năm sinh (nếu chỉ biết năm)</label>
+        <input asp-for="BirthYear" type="number" min="1" max="@DateTime.Today.Year" step="1" class="form-control" />
+        <div class="form-text">Nhập năm sinh nếu không biết đủ ngày/tháng. Không nhập đồng thời với ngày sinh đầy đủ.</div>
+        <span asp-validation-for="BirthYear" class="text-danger"></span>
     </div>
 
     <div class="mb-3">
