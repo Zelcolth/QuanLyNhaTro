@@ -212,7 +212,7 @@ public class TenantController : Controller
     private static void NormalizeTenant(TenantProfile tenant)
     {
         tenant.FullName = tenant.FullName?.Trim() ?? string.Empty;
-        tenant.Phone = tenant.Phone?.Trim() ?? string.Empty;
+        tenant.Phone = NormalizeOptionalText(tenant.Phone);
         tenant.Email = NormalizeOptionalText(tenant.Email);
         tenant.IdentityNumber = NormalizeOptionalText(tenant.IdentityNumber);
         tenant.PermanentAddress = NormalizeOptionalText(tenant.PermanentAddress);
@@ -222,16 +222,10 @@ public class TenantController : Controller
     private void ValidateTenant(TenantProfile tenant)
     {
         ModelState.Remove(nameof(TenantProfile.FullName));
-        ModelState.Remove(nameof(TenantProfile.Phone));
 
         if (string.IsNullOrWhiteSpace(tenant.FullName))
         {
             ModelState.AddModelError(nameof(TenantProfile.FullName), "Vui lòng nhập họ và tên.");
-        }
-
-        if (string.IsNullOrWhiteSpace(tenant.Phone))
-        {
-            ModelState.AddModelError(nameof(TenantProfile.Phone), "Vui lòng nhập số điện thoại.");
         }
 
         if (!string.IsNullOrWhiteSpace(tenant.Email)
