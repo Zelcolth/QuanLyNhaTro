@@ -11,11 +11,11 @@ public class TenantProfile
 
     public string? Phone { get; set; }
 
-    public string? Email { get; set; }
-
     public string? IdentityNumber { get; set; }
 
     public DateTime? DateOfBirth { get; set; }
+
+    public int? BirthYear { get; set; }
 
     public string? PermanentAddress { get; set; }
 
