@@ -68,7 +68,7 @@ else
             {
                 <tr>
                     <td>@tenant.FullName</td>
-                    <td>@tenant.Phone</td>
+                    <td>@(string.IsNullOrWhiteSpace(tenant.Phone) ? "Chưa có" : tenant.Phone)</td>
                     <td>@(tenant.Email ?? "Chưa có")</td>
                     <td>@(tenant.IdentityNumber ?? "Chưa có")</td>
                     <td class="text-end">
