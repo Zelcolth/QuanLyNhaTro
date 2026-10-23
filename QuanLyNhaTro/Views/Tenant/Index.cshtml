@@ -58,7 +58,7 @@ else
                 <tr>
                     <th>Họ và tên</th>
                     <th>Số điện thoại</th>
-                    <th>Email</th>
+                    <th>Ngày sinh / Năm sinh</th>
                     <th>Số CCCD/CMND</th>
                     <th class="text-end">Thao tác</th>
                 </tr>
@@ -69,7 +69,7 @@ else
                 <tr>
                     <td>@tenant.FullName</td>
                     <td>@(string.IsNullOrWhiteSpace(tenant.Phone) ? "Chưa có" : tenant.Phone)</td>
-                    <td>@(tenant.Email ?? "Chưa có")</td>
+                    <td>@(tenant.DateOfBirth?.ToString("dd/MM/yyyy") ?? (tenant.BirthYear.HasValue ? $"Năm {tenant.BirthYear.Value}" : "Chưa xác minh"))</td>
                     <td>@(tenant.IdentityNumber ?? "Chưa có")</td>
                     <td class="text-end">
                         <a asp-action="Details" asp-route-id="@tenant.TenantId" class="btn btn-sm btn-outline-info">Chi tiết</a>
