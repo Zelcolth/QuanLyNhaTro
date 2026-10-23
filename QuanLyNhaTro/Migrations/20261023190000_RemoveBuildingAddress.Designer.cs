@@ -12,7 +12,7 @@ using QuanLyNhaTro.Data;
 namespace QuanLyNhaTro.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-     [Migration("20261023190000_RemoveBuildingAddress")]
+    [Migration("20261023190000_RemoveBuildingAddress")]
     partial class RemoveBuildingAddress : Migration
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
