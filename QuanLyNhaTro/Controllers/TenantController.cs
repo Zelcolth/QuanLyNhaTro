@@ -67,6 +67,7 @@ public class TenantController : Controller
         [Bind("FullName,Phone,IdentityNumber,DateOfBirth,BirthYear,PermanentAddress,Notes")] TenantProfile tenant)
     {
         NormalizeTenant(tenant);
+        LocalizeBirthYearBindingError();
         RemoveUnpostedModelStateEntries();
         ValidateTenant(tenant);
 
@@ -111,6 +112,7 @@ public class TenantController : Controller
         }
 
         NormalizeTenant(tenant);
+        LocalizeBirthYearBindingError();
         RemoveUnpostedModelStateEntries();
         ValidateTenant(tenant);
 
@@ -252,5 +254,25 @@ public class TenantController : Controller
     private async Task<bool> TenantExistsAsync(int id)
     {
         return await _context.TenantProfiles.AnyAsync(tenant => tenant.TenantId == id);
+    }
+    private void LocalizeBirthYearBindingError()
+    {
+        const string field = nameof(TenantProfile.BirthYear);
+
+        if (!ModelState.TryGetValue(field, out var entry)
+            || entry.Errors.Count == 0)
+        {
+            return;
+        }
+
+        var attemptedValue = entry.AttemptedValue;
+
+        ModelState.Remove(field);
+        ModelState.SetModelValue(
+            field, attemptedValue, attemptedValue);
+
+        ModelState.AddModelError(
+            field,
+            "Năm sinh phải là số nguyên hợp lệ.");
     }
 }

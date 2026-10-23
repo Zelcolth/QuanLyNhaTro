@@ -12,6 +12,9 @@ public class TenantProfile
 
     public string? Phone { get; set; }
 
+    [RegularExpression(
+    @"^(?:[0-9]{9}|[0-9]{12})$",
+    ErrorMessage = "Số CCCD/CMND phải gồm đúng 9 hoặc 12 chữ số.")]
     public string? IdentityNumber { get; set; }
 
     public DateTime? DateOfBirth { get; set; }

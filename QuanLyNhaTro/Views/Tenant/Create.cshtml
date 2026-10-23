@@ -60,4 +60,11 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+
+    <script>
+        if (window.jQuery && $.validator) {
+            $.validator.messages.number =
+                "Năm sinh phải là số nguyên hợp lệ.";
+        }
+    </script>
 }
