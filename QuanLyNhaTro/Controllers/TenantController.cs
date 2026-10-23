@@ -219,13 +219,6 @@ public class TenantController : Controller
 
     private void ValidateTenant(TenantProfile tenant)
     {
-        ModelState.Remove(nameof(TenantProfile.FullName));
-
-        if (string.IsNullOrWhiteSpace(tenant.FullName))
-        {
-            ModelState.AddModelError(nameof(TenantProfile.FullName), "Vui lòng nhập họ và tên.");
-        }
-
         if (tenant.DateOfBirth.HasValue && tenant.DateOfBirth.Value.Date > DateTime.Today)
         {
             ModelState.AddModelError(nameof(TenantProfile.DateOfBirth), "Ngày sinh không được lớn hơn ngày hiện tại.");

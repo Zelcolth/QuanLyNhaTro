@@ -7,6 +7,7 @@ public class TenantProfile
     [Key]
     public int TenantId { get; set; }
 
+    [Required(ErrorMessage = "Vui lòng nhập họ và tên.")]
     public string FullName { get; set; } = string.Empty;
 
     public string? Phone { get; set; }
