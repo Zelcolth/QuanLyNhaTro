@@ -94,6 +94,66 @@ public class AccountController : Controller
     }
 
     [Authorize]
+    [HttpGet]
+    public IActionResult ChangePassword()
+    {
+        return View(new ChangePasswordViewModel());
+    }
+
+    [Authorize]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ChangePassword(ChangePasswordViewModel model)
+    {
+        if (!ModelState.IsValid)
+        {
+            return View(model);
+        }
+
+        var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!int.TryParse(userIdValue, out var userId))
+        {
+            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            return RedirectToAction(nameof(Login));
+        }
+
+        var user = await _context.Users.FindAsync(userId);
+        if (user is null)
+        {
+            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            return RedirectToAction(nameof(Login));
+        }
+
+        var currentPasswordVerification = _passwordHasher.VerifyHashedPassword(
+            user, user.PasswordHash, model.CurrentPassword);
+
+        if (currentPasswordVerification == PasswordVerificationResult.Failed)
+        {
+            ModelState.AddModelError(
+                nameof(model.CurrentPassword),
+                "Mật khẩu hiện tại không chính xác.");
+            return View(model);
+        }
+
+        var newPasswordVerification = _passwordHasher.VerifyHashedPassword(
+            user, user.PasswordHash, model.NewPassword);
+
+        if (newPasswordVerification != PasswordVerificationResult.Failed)
+        {
+            ModelState.AddModelError(
+                nameof(model.NewPassword),
+                "Mật khẩu mới phải khác mật khẩu hiện tại.");
+            return View(model);
+        }
+
+        user.PasswordHash = _passwordHasher.HashPassword(user, model.NewPassword);
+        await _context.SaveChangesAsync();
+
+        TempData["StatusMessage"] = "Đổi mật khẩu thành công.";
+        return RedirectToAction(nameof(ChangePassword));
+    }
+
+    [Authorize]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Logout()
