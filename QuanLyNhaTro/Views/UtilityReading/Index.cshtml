@@ -1,0 +1,235 @@
+@model QuanLyNhaTro.Models.UtilityReadingBatchViewModel
+
+@{
+    ViewData["Title"] = "Nhập chỉ số điện nước";
+    var selectedMonth = DateTime.TryParseExact(Model.ReadingMonth, "yyyy-MM", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var parsedMonth)
+        ? parsedMonth
+        : new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+    var previousMonth = selectedMonth.AddMonths(-1);
+    var nextMonth = selectedMonth.AddMonths(1);
+    var canGoNext = nextMonth <= DateTime.ParseExact(Model.CurrentMonth, "yyyy-MM", System.Globalization.CultureInfo.InvariantCulture);
+    var completeCount = Model.Rooms.Count(room => room.ElectricityReading.HasValue && room.WaterReading.HasValue && string.IsNullOrWhiteSpace(room.ErrorMessage));
+    var incompleteCount = Model.Rooms.Count - completeCount;
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+    <div>
+        <h1 class="h3 mb-1">Nhập chỉ số điện nước</h1>
+        <p class="text-muted mb-0">Nhập chỉ số cho tất cả phòng trong cùng một kỳ. Có thể lưu các dòng hợp lệ và bổ sung những dòng còn thiếu sau.</p>
+    </div>
+</div>
+
+@if (ViewBag.SuccessMessage is string successMessage)
+{
+    <div class="alert alert-success" role="alert">@successMessage</div>
+}
+@if (ViewBag.ErrorMessage is string errorMessage)
+{
+    <div class="alert alert-danger" role="alert">@errorMessage</div>
+}
+@if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+{
+    <div class="alert @(incompleteCount > 0 ? "alert-warning" : "alert-success")" role="status">@Model.StatusMessage</div>
+}
+
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <div class="d-flex align-items-center gap-2">
+                <a asp-action="Index" asp-route-readingMonth="@previousMonth.ToString("yyyy-MM")" class="btn btn-outline-secondary" aria-label="Xem tháng trước">‹ Tháng trước</a>
+                <form asp-action="Index" method="get" class="d-flex align-items-center gap-2">
+                    <label class="form-label mb-0 fw-semibold" for="readingMonth">Kỳ:</label>
+                    <input id="readingMonth" name="readingMonth" type="month" value="@Model.ReadingMonth" max="@Model.CurrentMonth" class="form-control" required />
+                    <button type="submit" class="btn btn-outline-primary">Xem</button>
+                </form>
+                @if (canGoNext)
+                {
+                    <a asp-action="Index" asp-route-readingMonth="@nextMonth.ToString("yyyy-MM")" class="btn btn-outline-secondary" aria-label="Xem tháng sau">Tháng sau ›</a>
+                }
+                else
+                {
+                    <button type="button" class="btn btn-outline-secondary" disabled>Tháng sau ›</button>
+                }
+            </div>
+            <div class="text-md-end">
+                <div class="fw-semibold">Điện nước tháng @selectedMonth.ToString("MM/yyyy")</div>
+                <div class="small text-muted"><span id="completeCount">@completeCount</span>/@Model.Rooms.Count phòng đã nhập đủ</div>
+            </div>
+        </div>
+        <div class="progress mt-3" style="height: 7px;" role="progressbar" aria-label="Tiến độ nhập chỉ số" aria-valuenow="@(Model.Rooms.Count == 0 ? 0 : completeCount * 100 / Model.Rooms.Count)" aria-valuemin="0" aria-valuemax="100">
+            <div id="progressBar" class="progress-bar bg-success" style="width: @(Model.Rooms.Count == 0 ? 0 : completeCount * 100 / Model.Rooms.Count)%"></div>
+        </div>
+    </div>
+</div>
+
+@if (Model.Rooms.Count == 0)
+{
+    <div class="alert alert-info">Chưa có phòng nào. Hãy tạo khu nhà và phòng trước khi nhập chỉ số điện nước.</div>
+}
+else
+{
+    <form asp-action="SaveMonth" method="post" id="utilityReadingsForm">
+        <input type="hidden" asp-for="ReadingMonth" />
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+        <div id="incompleteAlert" class="alert alert-warning @(incompleteCount == 0 ? "d-none" : "")" role="alert">
+            <strong>⚠ Còn ô điện nước chưa nhập đủ hoặc chưa hợp lệ.</strong>
+            <span>Những dòng chưa hợp lệ sẽ không được lưu; các dòng hợp lệ vẫn có thể lưu.</span>
+        </div>
+
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <div class="small text-muted">Điện: kWh · Nước: m³ · Chỉ số mới có thể bằng chỉ số cũ nếu không phát sinh tiêu thụ.</div>
+            <button type="submit" class="btn btn-primary">Lưu chỉ số tháng @selectedMonth.ToString("MM/yyyy")</button>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover align-middle bg-white utility-readings-table">
+                <thead class="table-light">
+                    <tr>
+                        <th scope="col" style="min-width: 170px;">Phòng</th>
+                        <th scope="col" style="min-width: 120px;">⚡ Điện @previousMonth.ToString("MM/yyyy")</th>
+                        <th scope="col" class="utility-current-electricity" style="min-width: 155px;">⚡ Điện @selectedMonth.ToString("MM/yyyy")</th>
+                        <th scope="col" style="min-width: 120px;">💧 Nước @previousMonth.ToString("MM/yyyy")</th>
+                        <th scope="col" class="utility-current-water" style="min-width: 155px;">💧 Nước @selectedMonth.ToString("MM/yyyy")</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @for (var i = 0; i < Model.Rooms.Count; i++)
+                {
+                    var room = Model.Rooms[i];
+                    var electricityInvalid = room.ErrorMessage is not null || !room.ElectricityReading.HasValue
+                        || (room.PreviousElectricityReading.HasValue && room.ElectricityReading < room.PreviousElectricityReading);
+                    var waterInvalid = room.ErrorMessage is not null || !room.WaterReading.HasValue
+                        || (room.PreviousWaterReading.HasValue && room.WaterReading < room.PreviousWaterReading);
+                    <tr data-room-row>
+                        <td>
+                            <input type="hidden" asp-for="Rooms[i].RoomId" />
+                            <div class="fw-semibold">@room.RoomLabel</div>
+                            @if (room.PreviousReadingMonth.HasValue && room.PreviousReadingMonth.Value.AddMonths(1) != selectedMonth)
+                            {
+                                <small class="d-block text-warning-emphasis">Kỳ gần nhất: @room.PreviousReadingMonth.Value.ToString("MM/yyyy")</small>
+                            }
+                            @if (room.ErrorMessage is not null)
+                            {
+                                <small class="d-block text-danger row-error">@room.ErrorMessage</small>
+                            }
+                            @if (room.WasSavedThisRequest)
+                            {
+                                <small class="d-block text-success">Đã lưu trong lần gửi này</small>
+                            }
+                        </td>
+                        <td>
+                            <input class="form-control utility-previous" value="@(room.PreviousElectricityReading?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) ?? "")" readonly tabindex="-1" aria-label="Chỉ số điện kỳ trước của @room.RoomLabel" />
+                        </td>
+                        <td class="utility-current-electricity">
+                            <input asp-for="Rooms[i].ElectricityReading" type="number" min="0" step="0.01"
+                                   class="form-control utility-current-input @(electricityInvalid ? "is-invalid" : "is-valid")"
+                                   placeholder="Nhập điện" data-meter="electricity"
+                                   data-previous="@(room.PreviousElectricityReading?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "")"
+                                   aria-label="Chỉ số điện mới của @room.RoomLabel" />
+                        </td>
+                        <td>
+                            <input class="form-control utility-previous" value="@(room.PreviousWaterReading?.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) ?? "")" readonly tabindex="-1" aria-label="Chỉ số nước kỳ trước của @room.RoomLabel" />
+                        </td>
+                        <td class="utility-current-water">
+                            <input asp-for="Rooms[i].WaterReading" type="number" min="0" step="0.01"
+                                   class="form-control utility-current-input @(waterInvalid ? "is-invalid" : "is-valid")"
+                                   placeholder="Nhập nước" data-meter="water"
+                                   data-previous="@(room.PreviousWaterReading?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "")"
+                                   aria-label="Chỉ số nước mới của @room.RoomLabel" />
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
+            <span class="small text-muted">Chỉ lưu những dòng đã nhập đủ cả điện và nước, có chỉ số hợp lệ.</span>
+            <button type="submit" class="btn btn-primary">Lưu chỉ số tháng @selectedMonth.ToString("MM/yyyy")</button>
+        </div>
+    </form>
+}
+
+<style>
+    .utility-current-electricity { background-color: #fff8e1 !important; }
+    .utility-current-water { background-color: #e3f2fd !important; }
+    .utility-previous { background-color: #f1f3f5; min-width: 90px; }
+    .utility-current-input { min-width: 110px; }
+    .utility-current-input.is-valid { border-width: 2px; border-color: #198754; }
+    .utility-current-input.is-invalid { border-color: #dc3545; }
+    .utility-readings-table th { vertical-align: middle; white-space: nowrap; }
+</style>
+
+@section Scripts {
+    <script>
+        (() => {
+            const form = document.getElementById("utilityReadingsForm");
+            if (!form) return;
+
+            const rows = Array.from(form.querySelectorAll("[data-room-row]"));
+            const inputs = Array.from(form.querySelectorAll("[data-meter]"));
+            const alert = document.getElementById("incompleteAlert");
+            const completeCount = document.getElementById("completeCount");
+            const progressBar = document.getElementById("progressBar");
+
+            function isValid(input) {
+                if (input.value.trim() === "") return false;
+                const value = Number(input.value);
+                if (!Number.isFinite(value) || value < 0) return false;
+                const previous = input.dataset.previous;
+                return previous === "" || value >= Number(previous);
+            }
+
+            function updateRow(row) {
+                const rowInputs = Array.from(row.querySelectorAll("[data-meter]"));
+                const hasServerError = !!row.querySelector(".row-error");
+                rowInputs.forEach(input => {
+                    const valid = isValid(input) && !hasServerError;
+                    input.classList.toggle("is-valid", valid);
+                    input.classList.toggle("is-invalid", !valid);
+                    if (input.value.trim() !== "" && input.dataset.previous !== ""
+                        && Number(input.value) < Number(input.dataset.previous)) {
+                        input.setCustomValidity("Chỉ số mới phải lớn hơn hoặc bằng chỉ số kỳ trước.");
+                    } else {
+                        input.setCustomValidity("");
+                    }
+                });
+                return rowInputs.length === 2 && rowInputs.every(isValid) && !hasServerError;
+            }
+
+            function updateSummary() {
+                let complete = 0;
+                rows.forEach(row => {
+                    if (updateRow(row)) complete++;
+                });
+                if (completeCount) completeCount.textContent = String(complete);
+                if (progressBar) progressBar.style.width = (rows.length ? complete * 100 / rows.length : 0) + "%";
+                if (alert) alert.classList.toggle("d-none", complete === rows.length);
+            }
+
+            inputs.forEach((input, index) => {
+                input.addEventListener("input", updateSummary);
+                input.addEventListener("keydown", event => {
+                    if (event.key !== "Enter") return;
+                    event.preventDefault();
+                    const row = input.closest("[data-room-row]");
+                    const rowInputs = Array.from(row.querySelectorAll("[data-meter]"));
+                    const position = rowInputs.indexOf(input);
+                    if (position === 0) {
+                        rowInputs[1].focus();
+                    } else {
+                        const nextRow = rows[rows.indexOf(row) + 1];
+                        nextRow?.querySelector('[data-meter="electricity"]')?.focus();
+                    }
+                });
+            });
+
+            form.addEventListener("submit", () => {
+                updateSummary();
+            });
+
+            updateSummary();
+        })();
+    </script>
+}
