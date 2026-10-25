@@ -1,0 +1,37 @@
+@model QuanLyNhaTro.Models.UtilityReading
+
+@{
+    ViewData["Title"] = "Xóa bản ghi chỉ số";
+}
+
+<h1 class="h3 mb-3">Xóa bản ghi chỉ số</h1>
+
+<div class="alert alert-warning">
+    Bạn có chắc chắn muốn xóa bản ghi chỉ số điện, nước này không? Lượng tiêu thụ của các kỳ sau sẽ được tính lại dựa trên dữ liệu còn lại.
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-4">Phòng</dt>
+            <dd class="col-sm-8">@Model.Room.Building.BuildingName - Phòng @Model.Room.RoomCode</dd>
+
+            <dt class="col-sm-4">Kỳ ghi</dt>
+            <dd class="col-sm-8">@Model.ReadingMonth.ToString("MM/yyyy")</dd>
+
+            <dt class="col-sm-4">Chỉ số điện</dt>
+            <dd class="col-sm-8">@Model.ElectricityReading.ToString("N2") kWh</dd>
+
+            <dt class="col-sm-4">Chỉ số nước</dt>
+            <dd class="col-sm-8">@Model.WaterReading.ToString("N2") m³</dd>
+
+            <dt class="col-sm-4">Ghi nhận lúc</dt>
+            <dd class="col-sm-8">@Model.RecordedAt.ToString("dd/MM/yyyy HH:mm")</dd>
+        </dl>
+    </div>
+</div>
+
+<form asp-action="Delete" asp-route-id="@Model.UtilityReadingId" method="post">
+    <button type="submit" class="btn btn-danger">Xác nhận xóa</button>
+    <a asp-action="Index" asp-route-readingMonthFilter="@Model.ReadingMonth.ToString("yyyy-MM")" asp-route-roomIdFilter="@Model.RoomId" class="btn btn-outline-secondary">Hủy</a>
+</form>

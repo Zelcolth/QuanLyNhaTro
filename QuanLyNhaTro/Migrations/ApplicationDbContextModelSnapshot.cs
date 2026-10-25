@@ -42,6 +42,37 @@ namespace QuanLyNhaTro.Migrations
                     b.ToTable("Buildings");
                 });
 
+            modelBuilder.Entity("QuanLyNhaTro.Models.UtilityReading", b =>
+                {
+                    b.Property<int>("UtilityReadingId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("UtilityReadingId"));
+
+                    b.Property<decimal>("ElectricityReading")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("ReadingMonth")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("RecordedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("RoomId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("WaterReading")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("UtilityReadingId");
+
+                    b.HasIndex("RoomId", "ReadingMonth")
+                        .IsUnique();
+
+                    b.ToTable("UtilityReadings");
+                });
+
             modelBuilder.Entity("QuanLyNhaTro.Models.User", b =>
                 {
                     b.Property<int>("UserId")
@@ -302,6 +333,17 @@ namespace QuanLyNhaTro.Migrations
             modelBuilder.Entity("QuanLyNhaTro.Models.Building", b =>
                 {
                     b.Navigation("Rooms");
+                });
+
+            modelBuilder.Entity("QuanLyNhaTro.Models.UtilityReading", b =>
+                {
+                    b.HasOne("QuanLyNhaTro.Models.Room", "Room")
+                        .WithMany()
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Room");
                 });
 
             modelBuilder.Entity("QuanLyNhaTro.Models.TenantProfile", b =>

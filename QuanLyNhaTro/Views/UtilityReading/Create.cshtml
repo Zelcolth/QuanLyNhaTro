@@ -1,0 +1,120 @@
+@model QuanLyNhaTro.Models.UtilityReadingFormViewModel
+@using Microsoft.AspNetCore.Mvc.Rendering
+@using QuanLyNhaTro.Models
+
+@{
+    ViewData["Title"] = "Ghi chỉ số điện, nước";
+    var roomOptions = ViewBag.RoomOptions as List<SelectListItem> ?? new List<SelectListItem>();
+    var previousReading = ViewBag.PreviousReading as UtilityReading;
+    var nextReading = ViewBag.NextReading as UtilityReading;
+    int? existingReadingId = ViewBag.ExistingReadingId as int?;
+}
+
+<h1 class="h3 mb-2">Ghi chỉ số điện, nước</h1>
+<p class="text-muted mb-4">Chọn phòng và kỳ trước, sau đó nhập chỉ số hiển thị trên đồng hồ.</p>
+
+@if (!((bool?)ViewBag.HasRooms ?? false))
+{
+    <div class="alert alert-warning">Chưa có phòng nào. Hãy tạo khu nhà và phòng trước khi ghi chỉ số.</div>
+    <a asp-controller="Room" asp-action="Create" class="btn btn-primary">Thêm phòng</a>
+}
+else
+{
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <h2 class="h5 mb-3">1. Chọn phòng và kỳ ghi</h2>
+            <form asp-action="Create" method="get" class="row g-3 align-items-end">
+                <div class="col-12 col-md-6">
+                    <label class="form-label" for="roomId">Phòng</label>
+                    <select name="roomId" id="roomId" class="form-select" required>
+                        @foreach (var option in roomOptions)
+                        {
+                            if (option.Selected)
+                            {
+                                <option value="@option.Value" selected>@option.Text</option>
+                            }
+                            else
+                            {
+                                <option value="@option.Value">@option.Text</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="col-12 col-md-3">
+                    <label class="form-label" for="readingMonth">Kỳ ghi chỉ số</label>
+                    <input type="month" name="readingMonth" id="readingMonth" value="@Model.ReadingMonth" class="form-control" required />
+                </div>
+                <div class="col-12 col-md-3">
+                    <button type="submit" class="btn btn-outline-primary w-100">Xem chỉ số kỳ trước</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    @if (existingReadingId.HasValue)
+    {
+        <div class="alert alert-warning" role="alert">
+            Phòng này đã có bản ghi trong kỳ @Model.ReadingMonth. Không thể tạo bản ghi trùng.
+            <a asp-action="Edit" asp-route-id="@existingReadingId.Value" class="alert-link">Mở bản ghi để sửa</a>.
+        </div>
+    }
+    else
+    {
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-4">
+                <h2 class="h5 mb-3">2. Nhập chỉ số mới</h2>
+
+                @if (previousReading is null)
+                {
+                    <div class="alert alert-info">
+                        Đây là bản ghi mốc đầu tiên của phòng. Hệ thống chưa thể tính lượng tiêu thụ cho kỳ này vì chưa có chỉ số trước đó.
+                    </div>
+                }
+                else
+                {
+                    <div class="row g-3 mb-4">
+                        <div class="col-12 col-md-6">
+                            <div class="small text-muted">Chỉ số điện kỳ @previousReading.ReadingMonth.ToString("MM/yyyy")</div>
+                            <div class="fs-5 fw-semibold">@previousReading.ElectricityReading.ToString("N2") kWh</div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <div class="small text-muted">Chỉ số nước kỳ @previousReading.ReadingMonth.ToString("MM/yyyy")</div>
+                            <div class="fs-5 fw-semibold">@previousReading.WaterReading.ToString("N2") m³</div>
+                        </div>
+                    </div>
+                }
+
+                @if (nextReading is not null)
+                {
+                    <div class="alert alert-secondary">
+                        Đã có bản ghi kỳ @nextReading.ReadingMonth.ToString("MM/yyyy"). Các chỉ số bạn nhập không được vượt quá chỉ số của kỳ đó.
+                    </div>
+                }
+
+                <form asp-action="Create" method="post">
+                    <input type="hidden" asp-for="RoomId" />
+                    <input type="hidden" asp-for="ReadingMonth" />
+                    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+                    <div class="mb-3">
+                        <label asp-for="ElectricityReading" class="form-label"></label>
+                        <input asp-for="ElectricityReading" type="number" min="0" step="0.01" class="form-control" />
+                        <span asp-validation-for="ElectricityReading" class="text-danger small"></span>
+                    </div>
+                    <div class="mb-4">
+                        <label asp-for="WaterReading" class="form-label"></label>
+                        <input asp-for="WaterReading" type="number" min="0" step="0.01" class="form-control" />
+                        <span asp-validation-for="WaterReading" class="text-danger small"></span>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Lưu chỉ số</button>
+                    <a asp-action="Index" class="btn btn-outline-secondary">Quay lại</a>
+                </form>
+            </div>
+        </div>
+    }
+}
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

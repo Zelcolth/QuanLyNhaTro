@@ -1,0 +1,73 @@
+@model QuanLyNhaTro.Models.UtilityReadingFormViewModel
+@using QuanLyNhaTro.Models
+
+@{
+    ViewData["Title"] = "Sửa chỉ số điện, nước";
+    var previousReading = ViewBag.PreviousReading as UtilityReading;
+    var nextReading = ViewBag.NextReading as UtilityReading;
+}
+
+<h1 class="h3 mb-2">Sửa chỉ số điện, nước</h1>
+<p class="text-muted mb-4">Phòng và kỳ ghi chỉ số được giữ cố định. Nếu sửa bản ghi kỳ trước, lượng tiêu thụ của các kỳ sau sẽ được tính lại.</p>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-4">
+        @if (previousReading is not null)
+        {
+            <div class="alert alert-info">
+                Chỉ số trước (kỳ @previousReading.ReadingMonth.ToString("MM/yyyy")):
+                điện @previousReading.ElectricityReading.ToString("N2") kWh,
+                nước @previousReading.WaterReading.ToString("N2") m³.
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-info">Đây là bản ghi mốc đầu tiên của phòng.</div>
+        }
+
+        @if (nextReading is not null)
+        {
+            <div class="alert alert-secondary">
+                Chỉ số kỳ sau (kỳ @nextReading.ReadingMonth.ToString("MM/yyyy")):
+                điện @nextReading.ElectricityReading.ToString("N2") kWh,
+                nước @nextReading.WaterReading.ToString("N2") m³.
+            </div>
+        }
+
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-md-6">
+                <label class="form-label">Phòng</label>
+                <input value="@ViewBag.RoomDisplay" class="form-control" readonly />
+            </div>
+            <div class="col-12 col-md-6">
+                <label class="form-label">Kỳ ghi chỉ số</label>
+                <input value="@Model.ReadingMonth" type="month" class="form-control" readonly />
+            </div>
+        </div>
+
+        <form asp-action="Edit" asp-route-id="@Model.UtilityReadingId" method="post">
+            <input type="hidden" asp-for="UtilityReadingId" />
+            <input type="hidden" asp-for="RoomId" />
+            <input type="hidden" asp-for="ReadingMonth" />
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+            <div class="mb-3">
+                <label asp-for="ElectricityReading" class="form-label"></label>
+                <input asp-for="ElectricityReading" type="number" min="0" step="0.01" class="form-control" />
+                <span asp-validation-for="ElectricityReading" class="text-danger small"></span>
+            </div>
+            <div class="mb-4">
+                <label asp-for="WaterReading" class="form-label"></label>
+                <input asp-for="WaterReading" type="number" min="0" step="0.01" class="form-control" />
+                <span asp-validation-for="WaterReading" class="text-danger small"></span>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Lưu thay đổi</button>
+            <a asp-action="Index" asp-route-readingMonthFilter="@Model.ReadingMonth" asp-route-roomIdFilter="@Model.RoomId" class="btn btn-outline-secondary">Hủy</a>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

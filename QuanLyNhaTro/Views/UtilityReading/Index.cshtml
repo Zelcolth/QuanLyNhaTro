@@ -1,0 +1,105 @@
+@model QuanLyNhaTro.Models.UtilityReadingListViewModel
+
+@{
+    ViewData["Title"] = "Chỉ số điện, nước";
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+        <h1 class="h3 mb-1">Chỉ số điện, nước</h1>
+        <p class="text-muted mb-0">Ghi nhận chỉ số theo phòng và kỳ hàng tháng; lượng tiêu thụ được tính từ lần ghi trước đó.</p>
+    </div>
+    <a asp-action="Create" class="btn btn-primary">Ghi chỉ số mới</a>
+</div>
+
+@if (ViewBag.SuccessMessage is string successMessage)
+{
+    <div class="alert alert-success" role="alert">@successMessage</div>
+}
+@if (ViewBag.ErrorMessage is string errorMessage)
+{
+    <div class="alert alert-danger" role="alert">@errorMessage</div>
+}
+
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <form asp-action="Index" method="get" class="row g-3 align-items-end">
+            <div class="col-12 col-md-5">
+                <label asp-for="RoomIdFilter" class="form-label">Phòng</label>
+                <select asp-for="RoomIdFilter" asp-items="Model.RoomOptions" class="form-select">
+                    <option value="">Tất cả phòng</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-4">
+                <label asp-for="ReadingMonthFilter" class="form-label">Kỳ ghi chỉ số</label>
+                <input asp-for="ReadingMonthFilter" type="month" class="form-control" />
+            </div>
+            <div class="col-12 col-md-3 d-flex gap-2">
+                <button type="submit" class="btn btn-outline-primary">Lọc</button>
+                <a asp-action="Index" class="btn btn-outline-secondary">Xóa lọc</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@if (Model.Readings.Count == 0)
+{
+    <div class="alert alert-info">Chưa có bản ghi phù hợp. Hãy chọn “Ghi chỉ số mới” để bắt đầu.</div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped table-bordered align-middle bg-white">
+            <thead class="table-light">
+                <tr>
+                    <th>Kỳ</th>
+                    <th>Phòng</th>
+                    <th>Điện (kWh)</th>
+                    <th>Nước (m³)</th>
+                    <th>Ghi nhận lúc</th>
+                    <th class="text-end">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var item in Model.Readings)
+            {
+                <tr>
+                    <td class="text-nowrap">@item.ReadingMonth.ToString("MM/yyyy")</td>
+                    <td>@item.BuildingName - Phòng @item.RoomCode</td>
+                    <td>
+                        <div>@(item.PreviousElectricityReading.HasValue ? item.PreviousElectricityReading.Value.ToString("N2") : "—") → @item.ElectricityReading.ToString("N2")</div>
+                        @if (item.ElectricityConsumption.HasValue)
+                        {
+                            <small class="text-muted">Tiêu thụ: @item.ElectricityConsumption.Value.ToString("N2")</small>
+                            @if (item.PreviousReadingMonth.HasValue && item.PreviousReadingMonth.Value.AddMonths(1) != item.ReadingMonth)
+                            {
+                                <small class="d-block text-warning-emphasis">Đối chiếu từ kỳ @item.PreviousReadingMonth.Value.ToString("MM/yyyy")</small>
+                            }
+                        }
+                        else
+                        {
+                            <small class="text-muted">Bản ghi mốc đầu tiên</small>
+                        }
+                    </td>
+                    <td>
+                        <div>@(item.PreviousWaterReading.HasValue ? item.PreviousWaterReading.Value.ToString("N2") : "—") → @item.WaterReading.ToString("N2")</div>
+                        @if (item.WaterConsumption.HasValue)
+                        {
+                            <small class="text-muted">Tiêu thụ: @item.WaterConsumption.Value.ToString("N2")</small>
+                        }
+                        else
+                        {
+                            <small class="text-muted">Bản ghi mốc đầu tiên</small>
+                        }
+                    </td>
+                    <td class="text-nowrap">@item.RecordedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                    <td class="text-end text-nowrap">
+                        <a asp-action="Edit" asp-route-id="@item.UtilityReadingId" class="btn btn-sm btn-outline-primary">Sửa</a>
+                        <a asp-action="Delete" asp-route-id="@item.UtilityReadingId" class="btn btn-sm btn-outline-danger">Xóa</a>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}

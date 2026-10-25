@@ -17,6 +17,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<RentalContract> RentalContracts => Set<RentalContract>();
     public DbSet<ContractTenant> ContractTenants => Set<ContractTenant>();
     public DbSet<SystemConfig> SystemConfigs => Set<SystemConfig>();
+    public DbSet<UtilityReading> UtilityReadings => Set<UtilityReading>();
     public DbSet<User> Users => Set<User>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -79,6 +80,23 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<RentalContract>()
             .HasIndex(contract => contract.ContractCode)
             .IsUnique();
+
+        modelBuilder.Entity<UtilityReading>(entity =>
+        {
+            entity.Property(reading => reading.ElectricityReading)
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(reading => reading.WaterReading)
+                .HasColumnType("decimal(18,2)");
+
+            entity.HasIndex(reading => new { reading.RoomId, reading.ReadingMonth })
+                .IsUnique();
+
+            entity.HasOne(reading => reading.Room)
+                .WithMany()
+                .HasForeignKey(reading => reading.RoomId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
 
         modelBuilder.Entity<SystemConfig>(entity =>
         {
