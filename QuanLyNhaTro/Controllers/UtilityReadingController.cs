@@ -18,81 +18,256 @@ public class UtilityReadingController : Controller
         _context = context;
     }
 
-    public async Task<IActionResult> Index(string? readingMonthFilter, int? roomIdFilter)
+    public async Task<IActionResult> Index(string? readingMonth, string? readingMonthFilter = null, int? roomIdFilter = null)
     {
-        DateTime? selectedMonth = null;
-        if (TryParseReadingMonth(readingMonthFilter, out var parsedMonth))
+        var requestedMonth = readingMonth ?? readingMonthFilter;
+        if (!TryParseReadingMonth(requestedMonth, out var period))
         {
-            selectedMonth = parsedMonth;
-            readingMonthFilter = parsedMonth.ToString("yyyy-MM", CultureInfo.InvariantCulture);
-        }
-        else
-        {
-            readingMonthFilter = string.Empty;
+            period = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
         }
 
-        var allReadings = await _context.UtilityReadings
-            .Include(reading => reading.Room)
-                .ThenInclude(room => room.Building)
-            .AsNoTracking()
-            .OrderBy(reading => reading.RoomId)
-            .ThenBy(reading => reading.ReadingMonth)
-            .ThenBy(reading => reading.UtilityReadingId)
-            .ToListAsync();
-
-        var previousByRoom = new Dictionary<int, UtilityReading>();
-        var rows = new List<UtilityReadingListItemViewModel>();
-
-        foreach (var reading in allReadings)
+        var currentMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+        if (period > currentMonth)
         {
-            previousByRoom.TryGetValue(reading.RoomId, out var previous);
-
-            var matchesMonth = !selectedMonth.HasValue
-                || reading.ReadingMonth == selectedMonth.Value;
-            var matchesRoom = !roomIdFilter.HasValue
-                || reading.RoomId == roomIdFilter.Value;
-
-            if (matchesMonth && matchesRoom)
-            {
-                rows.Add(new UtilityReadingListItemViewModel
-                {
-                    UtilityReadingId = reading.UtilityReadingId,
-                    BuildingName = reading.Room.Building.BuildingName,
-                    RoomCode = reading.Room.RoomCode,
-                    ReadingMonth = reading.ReadingMonth,
-                    PreviousReadingMonth = previous?.ReadingMonth,
-                    PreviousElectricityReading = previous?.ElectricityReading,
-                    ElectricityReading = reading.ElectricityReading,
-                    ElectricityConsumption = previous is null
-                        ? null
-                        : reading.ElectricityReading - previous.ElectricityReading,
-                    PreviousWaterReading = previous?.WaterReading,
-                    WaterReading = reading.WaterReading,
-                    WaterConsumption = previous is null
-                        ? null
-                        : reading.WaterReading - previous.WaterReading,
-                    RecordedAt = reading.RecordedAt
-                });
-            }
-
-            previousByRoom[reading.RoomId] = reading;
+            period = currentMonth;
+            TempData["ErrorMessage"] = "Chưa thể nhập chỉ số cho kỳ trong tương lai.";
         }
 
-        var model = new UtilityReadingListViewModel
-        {
-            ReadingMonthFilter = readingMonthFilter ?? string.Empty,
-            RoomIdFilter = roomIdFilter,
-            RoomOptions = await GetRoomOptionsAsync(roomIdFilter),
-            Readings = rows
-                .OrderByDescending(row => row.ReadingMonth)
-                .ThenBy(row => row.BuildingName)
-                .ThenBy(row => row.RoomCode)
-                .ToList()
-        };
-
+        var model = await BuildBatchViewModelAsync(period);
         ViewBag.SuccessMessage = TempData["SuccessMessage"];
         ViewBag.ErrorMessage = TempData["ErrorMessage"];
         return View(model);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SaveMonth(UtilityReadingBatchViewModel model)
+    {
+        if (!TryParseReadingMonth(model.ReadingMonth, out var period))
+        {
+            TempData["ErrorMessage"] = "Vui lòng chọn kỳ ghi chỉ số hợp lệ.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var currentMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+        if (period > currentMonth)
+        {
+            TempData["ErrorMessage"] = "Chưa thể nhập chỉ số cho kỳ trong tương lai.";
+            return RedirectToAction(nameof(Index), new { readingMonth = currentMonth.ToString("yyyy-MM", CultureInfo.InvariantCulture) });
+        }
+
+        var allRooms = await _context.Rooms
+            .Include(room => room.Building)
+            .AsNoTracking()
+            .OrderBy(room => room.Building.BuildingName)
+            .ThenBy(room => room.RoomCode)
+            .ToListAsync();
+
+        var roomIds = allRooms.Select(room => room.RoomId).ToHashSet();
+        var submittedRows = (model.Rooms ?? new List<UtilityReadingBatchRowViewModel>())
+            .Where(row => roomIds.Contains(row.RoomId))
+            .GroupBy(row => row.RoomId)
+            .ToDictionary(group => group.Key, group => group.First());
+
+        var allReadings = await _context.UtilityReadings
+            .AsNoTracking()
+            .Where(reading => roomIds.Contains(reading.RoomId))
+            .OrderBy(reading => reading.ReadingMonth)
+            .ToListAsync();
+
+        var currentByRoom = allReadings
+            .Where(reading => reading.ReadingMonth == period)
+            .ToDictionary(reading => reading.RoomId);
+
+        var savedRoomIds = new HashSet<int>();
+        var changedReadings = new List<UtilityReading>();
+        var errorCount = 0;
+
+        foreach (var room in allRooms)
+        {
+            if (!submittedRows.TryGetValue(room.RoomId, out var row))
+            {
+                continue;
+            }
+
+            row.ErrorMessage = null;
+            row.WasSavedThisRequest = false;
+
+            var electricityMissing = !row.ElectricityReading.HasValue;
+            var waterMissing = !row.WaterReading.HasValue;
+
+            if (electricityMissing && waterMissing)
+            {
+                continue;
+            }
+
+            if (electricityMissing || waterMissing)
+            {
+                row.ErrorMessage = "Cần nhập đủ cả chỉ số điện và nước hoặc để trống cả hai ô.";
+                errorCount++;
+                continue;
+            }
+
+            var previous = allReadings
+                .Where(reading => reading.RoomId == room.RoomId && reading.ReadingMonth < period)
+                .OrderByDescending(reading => reading.ReadingMonth)
+                .FirstOrDefault();
+            var next = allReadings
+                .Where(reading => reading.RoomId == room.RoomId && reading.ReadingMonth > period)
+                .OrderBy(reading => reading.ReadingMonth)
+                .FirstOrDefault();
+            var existing = currentByRoom.GetValueOrDefault(room.RoomId);
+
+            if (row.ElectricityReading.Value < 0 || row.WaterReading.Value < 0)
+            {
+                row.ErrorMessage = "Chỉ số không được là số âm.";
+            }
+            else if (previous is not null && previous.ReadingMonth.AddMonths(1) != period && existing is null)
+            {
+                row.ErrorMessage = $"Cần ghi kỳ {previous.ReadingMonth.AddMonths(1):MM/yyyy} trước kỳ này.";
+            }
+            else if (previous is null && next is not null && period.AddMonths(1) != next.ReadingMonth && existing is null)
+            {
+                row.ErrorMessage = $"Cần ghi kỳ {next.ReadingMonth.AddMonths(-1):MM/yyyy} trước kỳ {next.ReadingMonth:MM/yyyy}.";
+            }
+            else if (previous is not null
+                && (row.ElectricityReading.Value < previous.ElectricityReading
+                    || row.WaterReading.Value < previous.WaterReading))
+            {
+                row.ErrorMessage = $"Chỉ số mới phải lớn hơn hoặc bằng chỉ số kỳ {previous.ReadingMonth:MM/yyyy}.";
+            }
+            else if (next is not null
+                && (row.ElectricityReading.Value > next.ElectricityReading
+                    || row.WaterReading.Value > next.WaterReading))
+            {
+                row.ErrorMessage = $"Chỉ số mới không được lớn hơn chỉ số kỳ sau ({next.ReadingMonth:MM/yyyy}).";
+            }
+
+            if (row.ErrorMessage is not null)
+            {
+                errorCount++;
+                continue;
+            }
+
+            if (existing is null)
+            {
+                existing = new UtilityReading
+                {
+                    RoomId = room.RoomId,
+                    ReadingMonth = period,
+                    ElectricityReading = row.ElectricityReading.Value,
+                    WaterReading = row.WaterReading.Value,
+                    RecordedAt = DateTime.Now
+                };
+                _context.UtilityReadings.Add(existing);
+                currentByRoom[room.RoomId] = existing;
+                allReadings.Add(existing);
+            }
+            else
+            {
+                existing.ElectricityReading = row.ElectricityReading.Value;
+                existing.WaterReading = row.WaterReading.Value;
+                existing.RecordedAt = DateTime.Now;
+                _context.UtilityReadings.Update(existing);
+            }
+
+            changedReadings.Add(existing);
+            savedRoomIds.Add(room.RoomId);
+            row.WasSavedThisRequest = true;
+        }
+
+        if (changedReadings.Count > 0)
+        {
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                foreach (var row in submittedRows.Values.Where(row => savedRoomIds.Contains(row.RoomId)))
+                {
+                    row.ErrorMessage = "Không thể lưu dòng này do lỗi cơ sở dữ liệu. Hãy tải lại trang và kiểm tra dữ liệu.";
+                    row.WasSavedThisRequest = false;
+                }
+
+                errorCount += savedRoomIds.Count;
+                savedRoomIds.Clear();
+            }
+        }
+
+        model = await BuildBatchViewModelAsync(period, submittedRows, savedRoomIds);
+        model.StatusMessage = savedRoomIds.Count > 0
+            ? $"Đã lưu {savedRoomIds.Count} phòng. " +
+              (errorCount > 0 ? $"Còn {errorCount} dòng chưa lưu do thiếu hoặc sai dữ liệu." : "Các dòng đã nhập đều hợp lệ.")
+            : errorCount > 0
+                ? $"Chưa lưu được dòng nào. Có {errorCount} dòng cần bổ sung hoặc sửa dữ liệu."
+                : "Không có thay đổi nào cần lưu.";
+
+        ViewBag.SuccessMessage = null;
+        ViewBag.ErrorMessage = null;
+        return View("Index", model);
+    }
+
+    private async Task<UtilityReadingBatchViewModel> BuildBatchViewModelAsync(
+        DateTime period,
+        Dictionary<int, UtilityReadingBatchRowViewModel>? submittedRows = null,
+        HashSet<int>? savedRoomIds = null)
+    {
+        var rooms = await _context.Rooms
+            .Include(room => room.Building)
+            .AsNoTracking()
+            .OrderBy(room => room.Building.BuildingName)
+            .ThenBy(room => room.RoomCode)
+            .ToListAsync();
+
+        var roomIds = rooms.Select(room => room.RoomId).ToHashSet();
+        var readings = await _context.UtilityReadings
+            .AsNoTracking()
+            .Where(reading => roomIds.Contains(reading.RoomId))
+            .OrderBy(reading => reading.ReadingMonth)
+            .ToListAsync();
+
+        var rows = new List<UtilityReadingBatchRowViewModel>();
+        foreach (var room in rooms)
+        {
+            var current = readings
+                .Where(reading => reading.RoomId == room.RoomId && reading.ReadingMonth == period)
+                .FirstOrDefault();
+            var previous = readings
+                .Where(reading => reading.RoomId == room.RoomId && reading.ReadingMonth < period)
+                .OrderByDescending(reading => reading.ReadingMonth)
+                .FirstOrDefault();
+
+            UtilityReadingBatchRowViewModel? submitted = null;
+            var hasSubmitted = submittedRows is not null
+                && submittedRows.TryGetValue(room.RoomId, out submitted);
+
+            rows.Add(new UtilityReadingBatchRowViewModel
+            {
+                RoomId = room.RoomId,
+                RoomLabel = $"{room.Building.BuildingName} - Phòng {room.RoomCode}",
+                CurrentReadingId = current?.UtilityReadingId,
+                PreviousReadingMonth = previous?.ReadingMonth,
+                PreviousElectricityReading = previous?.ElectricityReading,
+                PreviousWaterReading = previous?.WaterReading,
+                ElectricityReading = current is not null
+                    ? current.ElectricityReading
+                    : hasSubmitted ? submitted!.ElectricityReading : null,
+                WaterReading = current is not null
+                    ? current.WaterReading
+                    : hasSubmitted ? submitted!.WaterReading : null,
+                ErrorMessage = hasSubmitted ? submitted!.ErrorMessage : null,
+                WasSavedThisRequest = savedRoomIds?.Contains(room.RoomId) == true,
+                HasCurrentReading = current is not null
+            });
+        }
+
+        return new UtilityReadingBatchViewModel
+        {
+            ReadingMonth = period.ToString("yyyy-MM", CultureInfo.InvariantCulture),
+            Rooms = rows,
+            CurrentMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).ToString("yyyy-MM", CultureInfo.InvariantCulture)
+        };
     }
 
     [HttpGet]

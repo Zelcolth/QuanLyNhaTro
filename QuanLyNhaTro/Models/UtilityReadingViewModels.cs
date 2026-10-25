@@ -62,3 +62,81 @@ public class UtilityReadingListItemViewModel
 
     public DateTime RecordedAt { get; set; }
 }
+
+
+public class UtilityReadingBatchViewModel
+{
+    [Required]
+    [RegularExpression(@"^\d{4}-(0[1-9]|1[0-2])$", ErrorMessage = "Kỳ ghi chỉ số không hợp lệ.")]
+    public string ReadingMonth { get; set; } = DateTime.Today.ToString("yyyy-MM");
+
+    public string CurrentMonth { get; set; } = DateTime.Today.ToString("yyyy-MM");
+
+    public string? StatusMessage { get; set; }
+
+    public List<UtilityReadingBatchRowViewModel> Rooms { get; set; } = new();
+}
+
+public class UtilityReadingBatchRowViewModel
+{
+    public int RoomId { get; set; }
+
+    public string RoomLabel { get; set; } = string.Empty;
+
+    public int? CurrentReadingId { get; set; }
+
+    public DateTime? PreviousReadingMonth { get; set; }
+
+    public decimal? PreviousElectricityReading { get; set; }
+
+    public decimal? PreviousWaterReading { get; set; }
+
+    public decimal? ElectricityReading { get; set; }
+
+    public decimal? WaterReading { get; set; }
+
+    public string? ErrorMessage { get; set; }
+
+    public bool HasCurrentReading { get; set; }
+
+    public bool WasSavedThisRequest { get; set; }
+}
+
+
+public class UtilityReadingBatchViewModel
+{
+    [Required]
+    [RegularExpression(@"^\d{4}-(0[1-9]|1[0-2])$", ErrorMessage = "Kỳ ghi chỉ số không hợp lệ.")]
+    public string ReadingMonth { get; set; } = DateTime.Today.ToString("yyyy-MM");
+
+    public string CurrentMonth { get; set; } = DateTime.Today.ToString("yyyy-MM");
+
+    public string? StatusMessage { get; set; }
+
+    public List<UtilityReadingBatchRowViewModel> Rooms { get; set; } = new();
+}
+
+public class UtilityReadingBatchRowViewModel
+{
+    public int RoomId { get; set; }
+
+    public string RoomLabel { get; set; } = string.Empty;
+
+    public int? CurrentReadingId { get; set; }
+
+    public DateTime? PreviousReadingMonth { get; set; }
+
+    public decimal? PreviousElectricityReading { get; set; }
+
+    public decimal? PreviousWaterReading { get; set; }
+
+    public decimal? ElectricityReading { get; set; }
+
+    public decimal? WaterReading { get; set; }
+
+    public string? ErrorMessage { get; set; }
+
+    public bool HasCurrentReading { get; set; }
+
+    public bool WasSavedThisRequest { get; set; }
+}
