@@ -46,11 +46,16 @@
                                    asp-controller="RentalContract" asp-action="Index">Hợp đồng</a>
                             </li>
                             <li class="nav-item">
+                                <a class="nav-link @(currentController == "Account" ? "active fw-semibold" : "")"
+                                   aria-current="@(currentController == "Account" ? "page" : null)"
+                                   asp-controller="Account" asp-action="ChangePassword">Đổi mật khẩu</a>
+                            </li>
+                            <li class="nav-item">
                                 <span class="nav-link text-secondary">@(User.Identity?.Name)</span>
                             </li>
                             <li class="nav-item d-flex align-items-center">
                                 <form asp-controller="Account" asp-action="Logout" method="post" class="m-0">
-                                                    <button type="submit" class="btn btn-outline-secondary btn-sm">Đăng xuất</button>
+                                    <button type="submit" class="btn btn-outline-secondary btn-sm">Đăng xuất</button>
                                 </form>
                             </li>
                         }
