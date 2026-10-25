@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
@@ -6,6 +7,7 @@ using QuanLyNhaTro.Models;
 
 namespace QuanLyNhaTro.Controllers;
 
+[Authorize]
 public class RoomController : Controller
 {
     private static readonly IReadOnlyDictionary<string, string> RoomStatuses =

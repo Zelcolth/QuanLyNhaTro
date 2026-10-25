@@ -42,6 +42,37 @@ namespace QuanLyNhaTro.Migrations
                     b.ToTable("Buildings");
                 });
 
+            modelBuilder.Entity("QuanLyNhaTro.Models.User", b =>
+                {
+                    b.Property<int>("UserId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("UserId"));
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("UserId");
+
+                    b.HasIndex("Username")
+                        .IsUnique();
+
+                    b.ToTable("Users");
+                });
+
             modelBuilder.Entity("QuanLyNhaTro.Models.RentalContract", b =>
                 {
                     b.Property<int>("ContractId")
@@ -192,6 +223,9 @@ namespace QuanLyNhaTro.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TenantId"));
 
+                    b.Property<int?>("UserId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("BirthYear")
                         .HasColumnType("int");
 
@@ -215,6 +249,10 @@ namespace QuanLyNhaTro.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("TenantId");
+
+                    b.HasIndex("UserId")
+                        .IsUnique()
+                        .HasFilter("[UserId] IS NOT NULL");
 
                     b.ToTable("TenantProfiles");
                 });
@@ -268,6 +306,12 @@ namespace QuanLyNhaTro.Migrations
 
             modelBuilder.Entity("QuanLyNhaTro.Models.TenantProfile", b =>
                 {
+                    b.HasOne("QuanLyNhaTro.Models.User", "User")
+                        .WithOne()
+                        .HasForeignKey("QuanLyNhaTro.Models.TenantProfile", "UserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("User");
                     b.Navigation("ContractTenants");
                 });
 #pragma warning restore 612, 618

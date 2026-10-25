@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QuanLyNhaTro.Data;
@@ -5,6 +6,7 @@ using QuanLyNhaTro.Models;
 
 namespace QuanLyNhaTro.Controllers;
 
+[Authorize]
 public class BuildingController : Controller
 {
     private readonly ApplicationDbContext _context;

@@ -17,6 +17,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<RentalContract> RentalContracts => Set<RentalContract>();
     public DbSet<ContractTenant> ContractTenants => Set<ContractTenant>();
     public DbSet<SystemConfig> SystemConfigs => Set<SystemConfig>();
+    public DbSet<User> Users => Set<User>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -53,6 +54,21 @@ public class ApplicationDbContext : DbContext
 
         modelBuilder.Entity<ContractTenant>()
             .HasIndex(contractTenant => contractTenant.TenantId);
+
+        modelBuilder.Entity<User>()
+            .HasIndex(user => user.Username)
+            .IsUnique();
+
+        modelBuilder.Entity<TenantProfile>()
+            .HasOne(tenant => tenant.User)
+            .WithOne()
+            .HasForeignKey<TenantProfile>(tenant => tenant.UserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<TenantProfile>()
+            .HasIndex(tenant => tenant.UserId)
+            .IsUnique()
+            .HasFilter("[UserId] IS NOT NULL");
 
         modelBuilder.Entity<TenantProfile>()
             .HasMany(tenant => tenant.ContractTenants)

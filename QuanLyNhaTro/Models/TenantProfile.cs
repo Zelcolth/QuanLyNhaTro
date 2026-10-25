@@ -7,6 +7,10 @@ public class TenantProfile
     [Key]
     public int TenantId { get; set; }
 
+    public int? UserId { get; set; }
+
+    public User? User { get; set; }
+
     [Required(ErrorMessage = "Vui lòng nhập họ và tên.")]
     public string FullName { get; set; } = string.Empty;
 
