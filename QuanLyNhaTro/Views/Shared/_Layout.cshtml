@@ -42,8 +42,13 @@
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link @(currentController == "RentalContract" ? "active fw-semibold" : "")"
-                                   aria-current="@(currentController == "RentalContract" ? "page" : null)"
+                                   aria-current="@(currentController == "RentalContract" ? "page" : "")"
                                    asp-controller="RentalContract" asp-action="Index">Hợp đồng</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link @(currentController == "SystemConfig" ? "active fw-semibold" : "")"
+                                   aria-current="@(currentController == "SystemConfig" ? "page" : null)"
+                                   asp-controller="SystemConfig" asp-action="Index">Cấu hình</a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link @(currentController == "Account" ? "active fw-semibold" : "")"
