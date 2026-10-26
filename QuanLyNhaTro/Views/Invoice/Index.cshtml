@@ -1,18 +1,144 @@
 @model IEnumerable<QuanLyNhaTro.Models.Invoice>
+@using System.Globalization
 
 @{
-    ViewData["Title"] = "Hóa đơn";
-    var billingMonth = ViewBag.BillingMonth as string ?? DateTime.Today.ToString("yyyy-MM");
+    ViewData["Title"] = "Quản lý hóa đơn";
+    var billingMonth = ViewBag.BillingMonth as string ?? DateTime.Today.ToString("yyyy-MM", CultureInfo.InvariantCulture);
+    var parsedMonth = DateTime.ParseExact(billingMonth, "yyyy-MM", CultureInfo.InvariantCulture);
+    var previousMonth = parsedMonth.AddMonths(-1);
     var invoices = Model.ToList();
-    var totalAmount = ViewBag.TotalAmount is decimal amount ? amount : 0m;
+    var roomOptions = invoices
+        .Select(invoice => invoice.RoomLabelSnapshot)
+        .Where(label => !string.IsNullOrWhiteSpace(label))
+        .Distinct()
+        .OrderBy(label => label)
+        .ToList();
+
+    var paidCount = ViewBag.PaidInvoiceCount is int paid ? paid : 0;
+    var unpaidCount = ViewBag.UnpaidInvoiceCount is int unpaid ? unpaid : 0;
+    var collectedAmount = ViewBag.CollectedAmount is decimal collected ? collected : 0m;
+    var outstandingAmount = ViewBag.OutstandingAmount is decimal outstanding ? outstanding : 0m;
+    var electricityAmount = ViewBag.ElectricityAmount is decimal electricity ? electricity : 0m;
+    var waterAmount = ViewBag.WaterAmount is decimal water ? water : 0m;
+    var totalAmount = ViewBag.TotalAmount is decimal total ? total : 0m;
+    var systemDate = ViewBag.SystemDate as string ?? DateTime.Today.ToString("dd/MM/yyyy");
 }
+
+<style>
+    .invoice-kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 1rem;
+    }
+
+    .invoice-kpi {
+        border: 0;
+        border-left: .28rem solid var(--kpi-color, #6c757d);
+        border-radius: .65rem;
+        box-shadow: 0 .125rem .5rem rgba(0, 0, 0, .06);
+        min-width: 0;
+    }
+
+    .invoice-kpi .kpi-label {
+        color: #6c757d;
+        font-size: .875rem;
+        line-height: 1.35;
+    }
+
+    .invoice-kpi .kpi-icon {
+        align-items: center;
+        background: color-mix(in srgb, var(--kpi-color, #6c757d) 12%, white);
+        border-radius: 50%;
+        color: var(--kpi-color, #6c757d);
+        display: inline-flex;
+        flex: 0 0 2.35rem;
+        font-size: 1.1rem;
+        height: 2.35rem;
+        justify-content: center;
+        width: 2.35rem;
+    }
+
+    .invoice-kpi .kpi-value {
+        font-size: clamp(1.15rem, 1.5vw, 1.6rem);
+        font-weight: 700;
+        line-height: 1.25;
+        overflow-wrap: anywhere;
+    }
+
+    .invoice-table th {
+        font-size: .8rem;
+        white-space: nowrap;
+        vertical-align: middle;
+    }
+
+    .invoice-table td {
+        font-size: .875rem;
+        vertical-align: middle;
+        white-space: nowrap;
+    }
+
+    .invoice-table .money-cell {
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+    }
+
+    .invoice-table .total-cell {
+        background: rgba(13, 110, 253, .045);
+        font-weight: 700;
+    }
+
+    .invoice-table .room-cell {
+        min-width: 170px;
+        white-space: normal;
+    }
+
+    .invoice-table .tenant-cell {
+        max-width: 240px;
+        white-space: normal;
+    }
+
+    @@media (max-width: 1200px) {
+        .invoice-kpi-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+    }
+
+    @@media (max-width: 767.98px) {
+        .invoice-kpi-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: .75rem;
+        }
+
+        .invoice-kpi .card-body {
+            padding: .9rem;
+        }
+    }
+
+    @@media (max-width: 420px) {
+        .invoice-kpi-grid {
+            grid-template-columns: minmax(0, 1fr);
+        }
+    }
+</style>
 
 <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
     <div>
-        <h1 class="h3 mb-1">Quản lý hóa đơn</h1>
-        <p class="text-muted mb-0">Lập hóa đơn theo tháng từ hợp đồng, chỉ số điện nước và đơn giá đã cấu hình.</p>
+        <h1 class="h3 mb-1">Hóa đơn @ViewBag.BillingMonthLabel</h1>
+        <p class="text-muted mb-1">Ngày hệ thống: @systemDate. Dữ liệu điện nước lấy từ chức năng Điện, nước.</p>
+        <p class="text-muted small mb-0">Thống kê tính theo các hóa đơn của kỳ đang chọn.</p>
+    </div>
+    <div class="d-flex flex-wrap align-items-end gap-2">
+        <a asp-controller="UtilityReading" asp-action="Index" asp-route-readingMonth="@billingMonth"
+           class="btn btn-outline-secondary">Xem chỉ số điện nước</a>
+        <form asp-action="GenerateMonth" method="post" class="m-0">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="billingMonth" value="@billingMonth" />
+            <button type="submit" class="btn btn-primary">Lập hóa đơn tháng này</button>
+        </form>
     </div>
 </div>
+
+<div id="invoiceFeedback" class="alert d-none" role="status" aria-live="polite"></div>
 
 @if (TempData["SuccessMessage"] is string successMessage)
 {
@@ -29,74 +155,143 @@
     </div>
 }
 
-<div class="card border-0 shadow-sm mb-4">
-    <div class="card-body">
-        <div class="row g-3 align-items-end">
-            <div class="col-12 col-md-4">
-                <form asp-action="Index" method="get">
-                    <label for="billingMonth" class="form-label">Kỳ hóa đơn</label>
-                    <div class="input-group">
-                        <input id="billingMonth" name="billingMonth" type="month" class="form-control"
-                               value="@billingMonth" max="@DateTime.Today.ToString("yyyy-MM")" required />
-                        <button type="submit" class="btn btn-outline-secondary">Xem</button>
-                    </div>
-                </form>
-            </div>
-            <div class="col-12 col-md-8 d-flex flex-wrap justify-content-md-end align-items-end gap-2">
-                <form asp-action="GenerateMonth" method="post" class="m-0">
-                    @Html.AntiForgeryToken()
-                    <input type="hidden" name="billingMonth" value="@billingMonth" />
-                    <button type="submit" class="btn btn-primary">
-                        Lập hóa đơn cho tháng đã chọn
-                    </button>
-                </form>
+<div class="invoice-kpi-grid mb-4">
+    <div class="card invoice-kpi h-100" style="--kpi-color:#dc3545">
+        <div class="card-body p-3">
+            <div class="d-flex align-items-center gap-3">
+                <span class="kpi-icon" aria-hidden="true">◷</span>
+                <div class="min-w-0">
+                    <div class="kpi-label">Phòng chưa thu</div>
+                    <div class="kpi-value"><span id="unpaidCount">@unpaidCount</span> <span class="fs-6 fw-normal">phòng</span></div>
+                </div>
             </div>
         </div>
-        <p class="form-text mb-0 mt-2">
-            Chỉ lập tự động cho hợp đồng bao phủ trọn tháng và phòng đã có chỉ số của tháng trước lẫn tháng đang lập.
-            Hóa đơn đã tồn tại sẽ được bỏ qua để tránh lập trùng.
-        </p>
+    </div>
+    <div class="card invoice-kpi h-100" style="--kpi-color:#198754">
+        <div class="card-body p-3">
+            <div class="d-flex align-items-center gap-3">
+                <span class="kpi-icon" aria-hidden="true">✓</span>
+                <div class="min-w-0">
+                    <div class="kpi-label">Phòng đã thu</div>
+                    <div class="kpi-value"><span id="paidCount">@paidCount</span> <span class="fs-6 fw-normal">phòng</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card invoice-kpi h-100" style="--kpi-color:#198754">
+        <div class="card-body p-3">
+            <div class="d-flex align-items-center gap-3">
+                <span class="kpi-icon" aria-hidden="true">₫</span>
+                <div class="min-w-0">
+                    <div class="kpi-label">Tiền đã thu được</div>
+                    <div class="kpi-value" id="collectedAmount">@collectedAmount.ToString("N0") đ</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card invoice-kpi h-100" style="--kpi-color:#e77817">
+        <div class="card-body p-3">
+            <div class="d-flex align-items-center gap-3">
+                <span class="kpi-icon" aria-hidden="true">◴</span>
+                <div class="min-w-0">
+                    <div class="kpi-label">Tiền chưa thu</div>
+                    <div class="kpi-value" id="outstandingAmount">@outstandingAmount.ToString("N0") đ</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card invoice-kpi h-100" style="--kpi-color:#fd7e14">
+        <div class="card-body p-3">
+            <div class="d-flex align-items-center gap-3">
+                <span class="kpi-icon" aria-hidden="true">ϟ</span>
+                <div class="min-w-0">
+                    <div class="kpi-label">Tổng tiền điện tháng</div>
+                    <div class="kpi-value" id="electricityAmount">@electricityAmount.ToString("N0") đ</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card invoice-kpi h-100" style="--kpi-color:#0d6efd">
+        <div class="card-body p-3">
+            <div class="d-flex align-items-center gap-3">
+                <span class="kpi-icon" aria-hidden="true">♢</span>
+                <div class="min-w-0">
+                    <div class="kpi-label">Tổng tiền nước tháng</div>
+                    <div class="kpi-value" id="waterAmount">@waterAmount.ToString("N0") đ</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card invoice-kpi h-100" style="--kpi-color:#b58105">
+        <div class="card-body p-3">
+            <div class="d-flex align-items-center gap-3">
+                <span class="kpi-icon" aria-hidden="true">▣</span>
+                <div class="min-w-0">
+                    <div class="kpi-label">Tổng bill tháng</div>
+                    <div class="kpi-value" id="totalAmount">@totalAmount.ToString("N0") đ</div>
+                    <div class="text-success small mt-1">Thực thu: <span id="collectedAmountCaption">@collectedAmount.ToString("N0")</span> đ</div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
-<div class="row g-3 mb-4">
-    <div class="col-12 col-md-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="text-muted small">Số hóa đơn trong kỳ</div>
-                <div class="fs-3 fw-semibold">@invoices.Count</div>
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body py-3">
+        <div class="row align-items-end g-3">
+            <div class="col-12 col-md-5 col-lg-4">
+                <label for="roomFilter" class="form-label fw-semibold mb-1">Lọc số phòng</label>
+                <select id="roomFilter" class="form-select">
+                    <option value="">Tất cả phòng</option>
+                    @foreach (var room in roomOptions)
+                    {
+                        <option value="@room">@room</option>
+                    }
+                </select>
             </div>
-        </div>
-    </div>
-    <div class="col-12 col-md-6">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="text-muted small">Tổng giá trị hóa đơn</div>
-                <div class="fs-3 fw-semibold">@totalAmount.ToString("N0") <span class="fs-6 fw-normal">VNĐ</span></div>
+            <div class="col-12 col-md-7 col-lg-8">
+                <p class="text-muted small mb-2">Chọn phòng để lọc bảng ngay lập tức. Thống kê phía trên vẫn tính trên toàn bộ hóa đơn của tháng.</p>
+                <p class="text-muted small mb-0">Đánh dấu “Đã thu” sẽ lưu trạng thái vào cơ sở dữ liệu mà không tải lại trang.</p>
             </div>
         </div>
     </div>
 </div>
 
 <div class="card border-0 shadow-sm">
+    <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2 py-3">
+        <div>
+            <h2 class="h5 mb-1">Chi tiết hóa đơn</h2>
+            <div class="text-muted small"><span id="visibleInvoiceCount">@invoices.Count</span> / @invoices.Count hóa đơn trong kỳ</div>
+        </div>
+        <span class="badge text-bg-light border text-dark">Kỳ @parsedMonth.ToString("MM/yyyy")</span>
+    </div>
     <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
+        <table class="table table-hover invoice-table mb-0">
             <thead class="table-light">
                 <tr>
-                    <th>Mã hóa đơn</th>
-                    <th>Khu nhà / phòng</th>
-                    <th>Người thuê</th>
+                    <th>Mã phòng</th>
+                    <th>TT thu tiền</th>
+                    <th>Khách thuê</th>
+                    <th class="text-end">Tiền phòng</th>
+                    <th class="text-end">Điện @previousMonth.ToString("MM/yyyy")</th>
+                    <th class="text-end">Điện @parsedMonth.ToString("MM/yyyy")</th>
+                    <th class="text-end">Số điện</th>
+                    <th class="text-end">Nước @previousMonth.ToString("MM/yyyy")</th>
+                    <th class="text-end">Nước @parsedMonth.ToString("MM/yyyy")</th>
+                    <th class="text-end">Số nước</th>
+                    <th class="text-end">Rác</th>
+                    <th class="text-end">Internet</th>
                     <th class="text-end">Tổng tiền</th>
-                    <th>Trạng thái</th>
-                    <th class="text-end">Thao tác</th>
+                    <th>Trạng thái HĐ</th>
+                    <th>Thao tác</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="invoiceTableBody">
                 @if (invoices.Count == 0)
                 {
-                    <tr>
-                        <td colspan="6" class="text-center text-muted py-5">
-                            Chưa có hóa đơn cho kỳ @DateTime.ParseExact(billingMonth, "yyyy-MM", System.Globalization.CultureInfo.InvariantCulture).ToString("MM/yyyy").
+                    <tr id="emptyInvoiceRow">
+                        <td colspan="15" class="text-center text-muted py-5">
+                            Chưa có hóa đơn cho kỳ @parsedMonth.ToString("MM/yyyy"). Chọn tháng và nhấn “Lập hóa đơn tháng này” để tạo hóa đơn.
                         </td>
                     </tr>
                 }
@@ -104,30 +299,44 @@
                 {
                     @foreach (var invoice in invoices)
                     {
-                        <tr>
-                            <td>
-                                <div class="fw-semibold">@invoice.InvoiceCode</div>
-                                <div class="small text-muted">@invoice.BillingMonth.ToString("MM/yyyy")</div>
+                        var isPaid = invoice.Status == "Paid";
+                        var roomCode = invoice.RoomLabelSnapshot;
+                        <tr data-invoice-row
+                            data-room-key="@roomCode"
+                            data-paid="@(isPaid ? "true" : "false")"
+                            data-total-amount="@invoice.TotalAmount.ToString(CultureInfo.InvariantCulture)"
+                            data-electricity-amount="@invoice.ElectricityAmount.ToString(CultureInfo.InvariantCulture)"
+                            data-water-amount="@invoice.WaterAmount.ToString(CultureInfo.InvariantCulture)">
+                            <td class="room-cell">
+                                <div class="fw-semibold">@roomCode</div>
+                                <div class="small text-muted">@invoice.InvoiceCode</div>
                             </td>
-                            <td>@invoice.RoomLabelSnapshot</td>
-                            <td>@invoice.TenantNamesSnapshot</td>
-                            <td class="text-end fw-semibold">@invoice.TotalAmount.ToString("N0") VNĐ</td>
                             <td>
-                                @if (invoice.Status == "Paid")
-                                {
-                                    <span class="badge text-bg-success">Đã thanh toán</span>
-                                }
-                                else if (invoice.Status == "PartiallyPaid")
-                                {
-                                    <span class="badge text-bg-warning">Thanh toán một phần</span>
-                                }
-                                else
-                                {
-                                    <span class="badge text-bg-secondary">Chưa thanh toán</span>
-                                }
+                                <div class="form-check form-switch d-flex align-items-center gap-2 m-0">
+                                    <input class="form-check-input payment-toggle mt-0"
+                                           type="checkbox"
+                                           role="switch"
+                                           id="paid-@invoice.InvoiceId"
+                                           data-invoice-id="@invoice.InvoiceId"
+                                           aria-label="Đánh dấu đã thu tiền cho @roomCode"
+                                           @(isPaid ? "checked" : "") />
+                                    <label class="form-check-label small payment-state-label" for="paid-@invoice.InvoiceId">@(isPaid ? "Đã thu" : "Chưa thu")</label>
+                                </div>
                             </td>
-                            <td class="text-end">
-                                <a asp-action="Details" asp-route-id="@invoice.InvoiceId" class="btn btn-sm btn-outline-primary">Chi tiết</a>
+                            <td class="tenant-cell">@invoice.TenantNamesSnapshot</td>
+                            <td class="money-cell">@invoice.RentAmount.ToString("N0") đ</td>
+                            <td class="money-cell">@invoice.PreviousElectricityReading.ToString("N2")</td>
+                            <td class="money-cell">@invoice.CurrentElectricityReading.ToString("N2")</td>
+                            <td class="money-cell">@invoice.ElectricityConsumption.ToString("N2")</td>
+                            <td class="money-cell">@invoice.PreviousWaterReading.ToString("N2")</td>
+                            <td class="money-cell">@invoice.CurrentWaterReading.ToString("N2")</td>
+                            <td class="money-cell">@invoice.WaterConsumption.ToString("N2")</td>
+                            <td class="money-cell">@invoice.GarbageFee.ToString("N0") đ</td>
+                            <td class="money-cell">@invoice.WifiFee.ToString("N0") đ</td>
+                            <td class="money-cell total-cell">@invoice.TotalAmount.ToString("N0") đ</td>
+                            <td><span class="badge text-bg-success">Đã có HĐ</span></td>
+                            <td>
+                                <a asp-action="Details" asp-route-id="@invoice.InvoiceId" class="btn btn-sm btn-primary">Hóa đơn</a>
                             </td>
                         </tr>
                     }
@@ -136,3 +345,97 @@
         </table>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        (function () {
+            const roomFilter = document.getElementById('roomFilter');
+            const tableBody = document.getElementById('invoiceTableBody');
+            const rows = Array.from(tableBody.querySelectorAll('[data-invoice-row]'));
+            const feedback = document.getElementById('invoiceFeedback');
+            const visibleCount = document.getElementById('visibleInvoiceCount');
+            const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+            const formatter = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 });
+
+            function showFeedback(message, kind) {
+                feedback.className = 'alert alert-' + kind;
+                feedback.textContent = message;
+                feedback.classList.remove('d-none');
+            }
+
+            function formatMoney(value) {
+                return formatter.format(value) + ' đ';
+            }
+
+            function updateSummary() {
+                const paidRows = rows.filter(row => row.dataset.paid === 'true');
+                const unpaidRows = rows.filter(row => row.dataset.paid !== 'true');
+                const sum = (items, key) => items.reduce((total, row) => total + Number(row.dataset[key] || 0), 0);
+                const collected = sum(paidRows, 'totalAmount');
+                const outstanding = sum(unpaidRows, 'totalAmount');
+
+                document.getElementById('paidCount').textContent = paidRows.length;
+                document.getElementById('unpaidCount').textContent = unpaidRows.length;
+                document.getElementById('collectedAmount').textContent = formatMoney(collected);
+                document.getElementById('collectedAmountCaption').textContent = formatter.format(collected);
+                document.getElementById('outstandingAmount').textContent = formatMoney(outstanding);
+                document.getElementById('electricityAmount').textContent = formatMoney(sum(rows, 'electricityAmount'));
+                document.getElementById('waterAmount').textContent = formatMoney(sum(rows, 'waterAmount'));
+                document.getElementById('totalAmount').textContent = formatMoney(sum(rows, 'totalAmount'));
+            }
+
+            roomFilter.addEventListener('change', function () {
+                const selectedRoom = roomFilter.value;
+                let count = 0;
+
+                rows.forEach(row => {
+                    const show = !selectedRoom || row.dataset.roomKey === selectedRoom;
+                    row.classList.toggle('d-none', !show);
+                    if (show) count++;
+                });
+
+                visibleCount.textContent = count;
+            });
+
+            $(document).on('change', '.payment-toggle', function () {
+                const checkbox = this;
+                const row = checkbox.closest('[data-invoice-row]');
+                const label = row.querySelector('.payment-state-label');
+                const previousState = !checkbox.checked;
+                const isPaid = checkbox.checked;
+                const id = checkbox.dataset.invoiceId;
+
+                checkbox.disabled = true;
+
+                $.ajax({
+                    url: '@Url.Action("UpdatePaymentStatus", "Invoice")',
+                    method: 'POST',
+                    data: { id: id, isPaid: isPaid },
+                    headers: { 'RequestVerificationToken': token },
+                    success: function (response) {
+                        if (!response || response.success !== true) {
+                            checkbox.checked = previousState;
+                            showFeedback(response?.message || 'Không thể cập nhật trạng thái thu tiền.', 'danger');
+                            return;
+                        }
+
+                        row.dataset.paid = response.isPaid ? 'true' : 'false';
+                        label.textContent = response.isPaid ? 'Đã thu' : 'Chưa thu';
+                        showFeedback(response.message, 'success');
+                        updateSummary();
+                    },
+                    error: function (xhr) {
+                        checkbox.checked = previousState;
+                        const message = xhr.responseJSON?.message || 'Lỗi kết nối. Trạng thái thu tiền chưa được cập nhật.';
+                        showFeedback(message, 'danger');
+                    },
+                    complete: function () {
+                        checkbox.disabled = false;
+                    }
+                });
+            });
+
+            updateSummary();
+        })();
+    </script>
+}

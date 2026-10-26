@@ -46,8 +46,54 @@ public class InvoiceController : Controller
             .ToListAsync();
 
         ViewBag.BillingMonth = period.ToString("yyyy-MM", CultureInfo.InvariantCulture);
+        ViewBag.BillingMonthLabel = $"T{period.Month} {period.Year}";
+        ViewBag.SystemDate = DateTime.Today.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
+        ViewBag.PaidInvoiceCount = invoices.Count(invoice => invoice.Status == "Paid");
+        ViewBag.UnpaidInvoiceCount = invoices.Count(invoice => invoice.Status != "Paid");
+        ViewBag.CollectedAmount = invoices
+            .Where(invoice => invoice.Status == "Paid")
+            .Sum(invoice => invoice.TotalAmount);
+        ViewBag.OutstandingAmount = invoices
+            .Where(invoice => invoice.Status != "Paid")
+            .Sum(invoice => invoice.TotalAmount);
+        ViewBag.ElectricityAmount = invoices.Sum(invoice => invoice.ElectricityAmount);
+        ViewBag.WaterAmount = invoices.Sum(invoice => invoice.WaterAmount);
         ViewBag.TotalAmount = invoices.Sum(invoice => invoice.TotalAmount);
         return View(invoices);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpdatePaymentStatus(int id, bool isPaid)
+    {
+        var invoice = await _context.Invoices.FirstOrDefaultAsync(item => item.InvoiceId == id);
+
+        if (invoice is null)
+        {
+            return NotFound(new { success = false, message = "Không tìm thấy hóa đơn." });
+        }
+
+        invoice.Status = isPaid ? "Paid" : "Unpaid";
+
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateException)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                success = false,
+                message = "Không thể cập nhật trạng thái thu tiền. Vui lòng thử lại."
+            });
+        }
+
+        return Json(new
+        {
+            success = true,
+            isPaid,
+            message = isPaid ? "Đã ghi nhận hóa đơn đã thu tiền." : "Đã chuyển hóa đơn về trạng thái chưa thu."
+        });
     }
 
     [HttpPost]
