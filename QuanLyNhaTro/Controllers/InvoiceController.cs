@@ -46,6 +46,7 @@ public class InvoiceController : Controller
             .ToListAsync();
 
         ViewBag.BillingMonth = period.ToString("yyyy-MM", CultureInfo.InvariantCulture);
+        ViewBag.CurrentMonth = currentMonth.ToString("yyyy-MM", CultureInfo.InvariantCulture);
         ViewBag.BillingMonthLabel = $"T{period.Month} {period.Year}";
         ViewBag.SystemDate = DateTime.Today.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
         ViewBag.PaidInvoiceCount = invoices.Count(invoice => invoice.Status == "Paid");
@@ -64,16 +65,34 @@ public class InvoiceController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> UpdatePaymentStatus(int id, bool isPaid)
+    public async Task<IActionResult> UpdatePaymentStatus(int id, bool isPaid, string? billingMonth)
     {
-        var invoice = await _context.Invoices.FirstOrDefaultAsync(item => item.InvoiceId == id);
+        var invoice = await _context.Invoices
+            .FirstOrDefaultAsync(item => item.InvoiceId == id);
 
         if (invoice is null)
         {
-            return NotFound(new { success = false, message = "Không tìm thấy hóa đơn." });
+            return NotFound();
         }
 
         invoice.Status = isPaid ? "Paid" : "Unpaid";
+
+        // This invoice consolidates the previous outstanding balance. Once it is marked
+        // paid, close older invoices for the same contract to avoid showing the carried
+        // debt as independently outstanding in earlier periods.
+        if (isPaid && invoice.PreviousDebtAmount > 0m)
+        {
+            var previousInvoices = await _context.Invoices
+                .Where(item => item.ContractId == invoice.ContractId
+                    && item.BillingMonth < invoice.BillingMonth
+                    && item.Status != "Paid")
+                .ToListAsync();
+
+            foreach (var previousInvoice in previousInvoices)
+            {
+                previousInvoice.Status = "Paid";
+            }
+        }
 
         try
         {
@@ -81,19 +100,77 @@ public class InvoiceController : Controller
         }
         catch (DbUpdateException)
         {
-            return StatusCode(StatusCodes.Status500InternalServerError, new
+            TempData["ErrorMessage"] = "Không thể cập nhật trạng thái thu tiền. Vui lòng thử lại.";
+            return RedirectToAction(nameof(Index), new
             {
-                success = false,
-                message = "Không thể cập nhật trạng thái thu tiền. Vui lòng thử lại."
+                billingMonth = invoice.BillingMonth.ToString("yyyy-MM", CultureInfo.InvariantCulture)
             });
         }
 
-        return Json(new
+        TempData["SuccessMessage"] = isPaid
+            ? "Đã ghi nhận hóa đơn đã thu tiền."
+            : "Đã chuyển hóa đơn về trạng thái chưa thu.";
+
+        var returnPeriod = TryParseBillingMonth(billingMonth, out var parsedPeriod)
+            ? parsedPeriod
+            : new DateTime(invoice.BillingMonth.Year, invoice.BillingMonth.Month, 1);
+
+        return RedirectToAction(nameof(Index), new
         {
-            success = true,
-            isPaid,
-            message = isPaid ? "Đã ghi nhận hóa đơn đã thu tiền." : "Đã chuyển hóa đơn về trạng thái chưa thu."
+            billingMonth = returnPeriod.ToString("yyyy-MM", CultureInfo.InvariantCulture)
         });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpdateDiscount(int id, decimal discountAmount, string? billingMonth)
+    {
+        var invoice = await _context.Invoices
+            .FirstOrDefaultAsync(item => item.InvoiceId == id);
+
+        if (invoice is null)
+        {
+            return NotFound();
+        }
+
+        var returnPeriod = TryParseBillingMonth(billingMonth, out var parsedPeriod)
+            ? parsedPeriod
+            : new DateTime(invoice.BillingMonth.Year, invoice.BillingMonth.Month, 1);
+        var returnMonth = returnPeriod.ToString("yyyy-MM", CultureInfo.InvariantCulture);
+
+        if (invoice.Status == "Paid")
+        {
+            TempData["ErrorMessage"] = "Không thể thay đổi tiền giảm trừ sau khi hóa đơn đã được ghi nhận đã thu.";
+            return RedirectToAction(nameof(Index), new { billingMonth = returnMonth });
+        }
+
+        if (discountAmount < 0m)
+        {
+            TempData["ErrorMessage"] = "Tiền giảm trừ không được nhỏ hơn 0.";
+            return RedirectToAction(nameof(Index), new { billingMonth = returnMonth });
+        }
+
+        var amountBeforeDiscount = CalculateAmountBeforeDiscount(invoice);
+        if (discountAmount > amountBeforeDiscount)
+        {
+            TempData["ErrorMessage"] = "Tiền giảm trừ không được lớn hơn tổng tiền trước khi giảm.";
+            return RedirectToAction(nameof(Index), new { billingMonth = returnMonth });
+        }
+
+        invoice.DiscountAmount = discountAmount;
+        invoice.TotalAmount = amountBeforeDiscount - discountAmount;
+
+        try
+        {
+            await _context.SaveChangesAsync();
+            TempData["SuccessMessage"] = $"Đã cập nhật tiền giảm trừ cho hóa đơn {invoice.InvoiceCode}.";
+        }
+        catch (DbUpdateException)
+        {
+            TempData["ErrorMessage"] = "Không thể lưu tiền giảm trừ. Vui lòng thử lại.";
+        }
+
+        return RedirectToAction(nameof(Index), new { billingMonth = returnMonth });
     }
 
     [HttpPost]
@@ -165,6 +242,47 @@ public class InvoiceController : Controller
             .Select(invoice => invoice.ContractId)
             .ToListAsync();
         var existingSet = existingContractIds.ToHashSet();
+
+        // Debt follows the latest bill for each contract. When the latest bill already
+        // carried forward earlier debt, its total is the cumulative balance; otherwise,
+        // sum unpaid legacy invoices, which predate the debt-carry-forward fields.
+        var contractIds = contracts
+            .Select(contract => contract.ContractId)
+            .Distinct()
+            .ToList();
+
+        var previousInvoices = await _context.Invoices
+            .AsNoTracking()
+            .Where(invoice =>
+                contractIds.Contains(invoice.ContractId)
+                && invoice.BillingMonth < period)
+            .OrderByDescending(invoice => invoice.BillingMonth)
+            .ThenByDescending(invoice => invoice.InvoiceId)
+            .ToListAsync();
+
+        var previousDebtByContract = previousInvoices
+            .GroupBy(invoice => invoice.ContractId)
+            .ToDictionary(
+                group => group.Key,
+                group =>
+                {
+                    var history = group
+                        .OrderByDescending(invoice => invoice.BillingMonth)
+                        .ThenByDescending(invoice => invoice.InvoiceId)
+                        .ToList();
+
+                    if (history.Any(invoice => invoice.PreviousDebtAmount > 0m))
+                    {
+                        var latestInvoice = history[0];
+                        return latestInvoice.Status == "Paid"
+                            ? 0m
+                            : latestInvoice.TotalAmount;
+                    }
+
+                    return history
+                        .Where(invoice => invoice.Status != "Paid")
+                        .Sum(invoice => invoice.TotalAmount);
+                });
 
         var conflictingRoomIds = contracts
             .GroupBy(contract => contract.RoomId)
@@ -239,11 +357,19 @@ public class InvoiceController : Controller
                 0,
                 MidpointRounding.AwayFromZero);
             var rentAmount = contract.MonthlyRent;
+            var previousDebtAmount = previousDebtByContract.TryGetValue(
+                contract.ContractId,
+                out var outstandingDebt)
+                ? outstandingDebt
+                : 0m;
+            var discountAmount = 0m;
             var totalAmount = rentAmount
                 + electricityAmount
                 + waterAmount
                 + config.GarbageFee
-                + config.WifiFee;
+                + config.WifiFee
+                + previousDebtAmount
+                - discountAmount;
 
             newInvoices.Add(new Invoice
             {
@@ -267,6 +393,8 @@ public class InvoiceController : Controller
                 WaterAmount = waterAmount,
                 GarbageFee = config.GarbageFee,
                 WifiFee = config.WifiFee,
+                PreviousDebtAmount = previousDebtAmount,
+                DiscountAmount = discountAmount,
                 TotalAmount = totalAmount,
                 Status = "Unpaid"
             });
@@ -330,6 +458,16 @@ public class InvoiceController : Controller
         }
 
         return View(invoice);
+    }
+
+    private static decimal CalculateAmountBeforeDiscount(Invoice invoice)
+    {
+        return invoice.RentAmount
+            + invoice.ElectricityAmount
+            + invoice.WaterAmount
+            + invoice.GarbageFee
+            + invoice.WifiFee
+            + invoice.PreviousDebtAmount;
     }
 
     private static DateTime CurrentMonth()
