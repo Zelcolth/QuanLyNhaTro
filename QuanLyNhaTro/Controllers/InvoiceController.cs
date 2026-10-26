@@ -103,11 +103,33 @@ public class InvoiceController : Controller
         decimal discountAmount,
         string? billingMonth)
     {
+        var wantsJson = string.Equals(
+            Request.Headers["X-Requested-With"].ToString(),
+            "XMLHttpRequest",
+            StringComparison.OrdinalIgnoreCase);
+
+        if (!ModelState.IsValid)
+        {
+            const string message = "Dữ liệu khoản tiền không hợp lệ. Vui lòng kiểm tra lại.";
+            if (wantsJson)
+            {
+                return BadRequest(new { success = false, message });
+            }
+
+            TempData["ErrorMessage"] = message;
+            return RedirectToAction(nameof(Index), new { billingMonth });
+        }
+
         var invoice = await _context.Invoices
             .FirstOrDefaultAsync(item => item.InvoiceId == id);
 
         if (invoice is null)
         {
+            if (wantsJson)
+            {
+                return NotFound(new { success = false, message = "Không tìm thấy hóa đơn." });
+            }
+
             return NotFound();
         }
 
@@ -118,13 +140,25 @@ public class InvoiceController : Controller
 
         if (invoice.Status == "Paid")
         {
-            TempData["ErrorMessage"] = "Không thể sửa khoản tiền của hóa đơn đã ghi nhận đã thu.";
+            const string message = "Không thể sửa khoản tiền của hóa đơn đã ghi nhận đã thu.";
+            if (wantsJson)
+            {
+                return BadRequest(new { success = false, message });
+            }
+
+            TempData["ErrorMessage"] = message;
             return RedirectToAction(nameof(Index), new { billingMonth = returnMonth });
         }
 
         if (rentAmount < 0m || garbageFee < 0m || previousDebtAmount < 0m || discountAmount < 0m)
         {
-            TempData["ErrorMessage"] = "Các khoản tiền không được nhỏ hơn 0.";
+            const string message = "Các khoản tiền không được nhỏ hơn 0.";
+            if (wantsJson)
+            {
+                return BadRequest(new { success = false, message });
+            }
+
+            TempData["ErrorMessage"] = message;
             return RedirectToAction(nameof(Index), new { billingMonth = returnMonth });
         }
 
@@ -137,7 +171,13 @@ public class InvoiceController : Controller
 
         if (discountAmount > amountBeforeDiscount)
         {
-            TempData["ErrorMessage"] = "Tiền giảm trừ không được lớn hơn tổng tiền trước khi giảm.";
+            const string message = "Tiền giảm trừ không được lớn hơn tổng tiền trước khi giảm.";
+            if (wantsJson)
+            {
+                return BadRequest(new { success = false, message });
+            }
+
+            TempData["ErrorMessage"] = message;
             return RedirectToAction(nameof(Index), new { billingMonth = returnMonth });
         }
 
@@ -150,11 +190,30 @@ public class InvoiceController : Controller
         try
         {
             await _context.SaveChangesAsync();
-            TempData["SuccessMessage"] = $"Đã cập nhật hóa đơn {invoice.InvoiceCode}.";
+            var message = $"Đã tự động lưu thay đổi hóa đơn {invoice.InvoiceCode}.";
+
+            if (wantsJson)
+            {
+                return Json(new
+                {
+                    success = true,
+                    invoiceId = invoice.InvoiceId,
+                    totalAmount = invoice.TotalAmount,
+                    message
+                });
+            }
+
+            TempData["SuccessMessage"] = message;
         }
         catch (DbUpdateException)
         {
-            TempData["ErrorMessage"] = "Không thể lưu các khoản tiền. Vui lòng thử lại.";
+            const string message = "Không thể lưu các khoản tiền. Vui lòng thử lại.";
+            if (wantsJson)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { success = false, message });
+            }
+
+            TempData["ErrorMessage"] = message;
         }
 
         return RedirectToAction(nameof(Index), new { billingMonth = returnMonth });
