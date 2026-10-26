@@ -54,7 +54,7 @@
 
 <div id="paymentFeedback" class="alert d-none" role="status" aria-live="polite"></div>
 
-<div class="card mb-3">
+<div class="card border-0 shadow-sm mb-4">
     <div class="card-body">
         <form asp-action="Index" method="get" class="row g-2 align-items-end">
             <div class="col-sm-4 col-md-3">
@@ -153,23 +153,23 @@
 else
 {
     <table class="table table-bordered table-striped table-hover align-middle w-100">
-            <thead class="table-light">
+            <thead class="table-light text-center">
                 <tr>
-                    <th>Mã phòng</th>
-                    <th>Trạng thái thu</th>
+                    <th scope="col" aria-sort="none"><button type="button" class="btn btn-link p-0 fw-semibold text-decoration-none text-dark sort-button" data-sort="room">Mã phòng <span data-sort-indicator aria-hidden="true">↕</span></button></th>
+                    <th scope="col" aria-sort="none"><button type="button" class="btn btn-link p-0 fw-semibold text-decoration-none text-dark sort-button" data-sort="status">Trạng thái thu <span data-sort-indicator aria-hidden="true">↕</span></button></th>
                     <th>Tên khách thuê</th>
-                    <th class="text-end">Tiền phòng</th>
-                    <th class="text-end">Điện cũ<br />@previousMonth.ToString("MM/yyyy")</th>
-                    <th class="text-end">Điện mới<br />@billingPeriod.ToString("MM/yyyy")</th>
-                    <th class="text-end">Số điện dùng</th>
-                    <th class="text-end">Nước cũ<br />@previousMonth.ToString("MM/yyyy")</th>
-                    <th class="text-end">Nước mới<br />@billingPeriod.ToString("MM/yyyy")</th>
-                    <th class="text-end">Số nước dùng</th>
-                    <th class="text-end">Tiền rác</th>
-                    <th class="text-end">Internet</th>
-                    <th class="text-end">Nợ tháng trước</th>
-                    <th class="text-end">Tiền giảm</th>
-                    <th class="text-end">Tổng tiền</th>
+                    <th>Tiền phòng</th>
+                    <th>Điện cũ<br />@previousMonth.ToString("MM/yyyy")</th>
+                    <th>Điện mới<br />@billingPeriod.ToString("MM/yyyy")</th>
+                    <th>Số điện dùng</th>
+                    <th>Nước cũ<br />@previousMonth.ToString("MM/yyyy")</th>
+                    <th>Nước mới<br />@billingPeriod.ToString("MM/yyyy")</th>
+                    <th>Số nước dùng</th>
+                    <th>Tiền rác</th>
+                    <th>Internet</th>
+                    <th>Nợ tháng trước</th>
+                    <th>Tiền giảm</th>
+                    <th>Tổng tiền</th>
                     <th>Trạng thái HĐ</th>
                     <th>Thao tác</th>
                 </tr>
@@ -436,6 +436,72 @@ else
                     });
                 });
             }
+
+            // Click the room or payment-status heading to sort ascending/descending.
+            let activeSort = { key: null, direction: "asc" };
+
+            function getRoomCode(row) {
+                const label = row.dataset.roomKey || "";
+                const match = label.match(/phòng\\s+(.+)$/i);
+                return match ? match[1].trim() : label;
+            }
+
+            function sortInvoiceRows(key, direction) {
+                const multiplier = direction === "asc" ? 1 : -1;
+                const tbody = document.querySelector("table tbody");
+                if (!tbody) return;
+
+                const sortedRows = [...rows].sort((a, b) => {
+                    if (key === "status") {
+                        const aPaid = a.dataset.paid === "true" ? 1 : 0;
+                        const bPaid = b.dataset.paid === "true" ? 1 : 0;
+                        return (aPaid - bPaid) * multiplier;
+                    }
+
+                    const aCode = getRoomCode(a);
+                    const bCode = getRoomCode(b);
+                    const codeComparison = aCode.localeCompare(bCode, "vi", {
+                        numeric: true,
+                        sensitivity: "base"
+                    });
+                    if (codeComparison !== 0) return codeComparison * multiplier;
+
+                    return (a.dataset.roomKey || "").localeCompare(
+                        b.dataset.roomKey || "", "vi", { sensitivity: "base" }
+                    ) * multiplier;
+                });
+
+                sortedRows.forEach(row => tbody.appendChild(row));
+
+                document.querySelectorAll(".sort-button").forEach(button => {
+                    const isActive = button.dataset.sort === key;
+                    const indicator = button.querySelector("[data-sort-indicator]");
+                    if (indicator) {
+                        indicator.textContent = isActive
+                            ? (direction === "asc" ? "↑" : "↓")
+                            : "↕";
+                    }
+
+                    const heading = button.closest("th");
+                    if (heading) {
+                        heading.setAttribute(
+                            "aria-sort",
+                            isActive ? (direction === "asc" ? "ascending" : "descending") : "none"
+                        );
+                    }
+                });
+            }
+
+            document.querySelectorAll(".sort-button").forEach(button => {
+                button.addEventListener("click", () => {
+                    const key = button.dataset.sort;
+                    const direction = activeSort.key === key && activeSort.direction === "asc"
+                        ? "desc"
+                        : "asc";
+                    activeSort = { key, direction };
+                    sortInvoiceRows(key, direction);
+                });
+            });
 
             document.querySelectorAll(".payment-status-form").forEach(form => {
                 const checkbox = form.querySelector(".payment-status-checkbox");
