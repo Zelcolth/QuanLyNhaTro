@@ -59,6 +59,8 @@
     </div>
 }
 
+<div id="paymentFeedback" class="alert d-none" role="status" aria-live="polite"></div>
+
 <div class="card mb-3">
     <div class="card-body">
         <form asp-action="Index" method="get" class="row g-2 align-items-end">
@@ -78,43 +80,43 @@
     <div class="col-6 col-md-3">
         <div class="card h-100"><div class="card-body">
             <div class="small text-muted">Phòng chưa thu</div>
-            <div class="fs-4 fw-semibold">@unpaidCount</div>
+            <div class="fs-4 fw-semibold" id="unpaidCount">@unpaidCount</div>
         </div></div>
     </div>
     <div class="col-6 col-md-3">
         <div class="card h-100"><div class="card-body">
             <div class="small text-muted">Phòng đã thu</div>
-            <div class="fs-4 fw-semibold">@paidCount</div>
+            <div class="fs-4 fw-semibold" id="paidCount">@paidCount</div>
         </div></div>
     </div>
     <div class="col-6 col-md-3">
         <div class="card h-100"><div class="card-body">
             <div class="small text-muted">Tổng tiền đã thu</div>
-            <div class="fw-semibold">@collectedAmount.ToString("N0") đ</div>
+            <div class="fw-semibold" id="collectedAmount">@collectedAmount.ToString("N0") đ</div>
         </div></div>
     </div>
     <div class="col-6 col-md-3">
         <div class="card h-100"><div class="card-body">
             <div class="small text-muted">Tổng tiền chưa thu</div>
-            <div class="fw-semibold">@outstandingAmount.ToString("N0") đ</div>
+            <div class="fw-semibold" id="outstandingAmount">@outstandingAmount.ToString("N0") đ</div>
         </div></div>
     </div>
     <div class="col-6 col-md-4">
         <div class="card h-100"><div class="card-body">
             <div class="small text-muted">Tổng tiền điện</div>
-            <div class="fw-semibold">@electricityTotal.ToString("N0") đ</div>
+            <div class="fw-semibold" id="electricityTotal">@electricityTotal.ToString("N0") đ</div>
         </div></div>
     </div>
     <div class="col-6 col-md-4">
         <div class="card h-100"><div class="card-body">
             <div class="small text-muted">Tổng tiền nước</div>
-            <div class="fw-semibold">@waterTotal.ToString("N0") đ</div>
+            <div class="fw-semibold" id="waterTotal">@waterTotal.ToString("N0") đ</div>
         </div></div>
     </div>
     <div class="col-12 col-md-4">
         <div class="card h-100"><div class="card-body">
             <div class="small text-muted">Tổng giá trị hóa đơn</div>
-            <div class="fw-semibold">@revenueTotal.ToString("N0") đ</div>
+            <div class="fw-semibold" id="revenueTotal">@revenueTotal.ToString("N0") đ</div>
         </div></div>
     </div>
 </div>
@@ -181,7 +183,12 @@ else
                 };
                 var amountFormId = $"amount-form-{invoice.InvoiceId}";
 
-                <tr data-invoice-row data-room-key="@invoice.RoomLabelSnapshot">
+                <tr data-invoice-row
+                    data-room-key="@invoice.RoomLabelSnapshot"
+                    data-paid="@(isPaid ? "true" : "false")"
+                    data-total="@invoice.TotalAmount.ToString(CultureInfo.InvariantCulture)"
+                    data-electricity="@invoice.ElectricityAmount.ToString(CultureInfo.InvariantCulture)"
+                    data-water="@invoice.WaterAmount.ToString(CultureInfo.InvariantCulture)">
                     <td>
                         <form id="@amountFormId" asp-action="UpdateAmounts" method="post">
                             @Html.AntiForgeryToken()
@@ -260,6 +267,29 @@ else
         (() => {
             const roomFilter = document.getElementById("roomFilter");
             const rows = Array.from(document.querySelectorAll("[data-invoice-row]"));
+            const feedback = document.getElementById("paymentFeedback");
+            const moneyFormatter = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 });
+
+            const formatMoney = value => moneyFormatter.format(value) + " đ";
+
+            function updateSummary() {
+                const paidRows = rows.filter(row => row.dataset.paid === "true");
+                const unpaidRows = rows.filter(row => row.dataset.paid !== "true");
+                const sum = (items, key) => items.reduce((total, row) => total + Number(row.dataset[key] || 0), 0);
+
+                document.getElementById("paidCount").textContent = paidRows.length;
+                document.getElementById("unpaidCount").textContent = unpaidRows.length;
+                document.getElementById("collectedAmount").textContent = formatMoney(sum(paidRows, "total"));
+                document.getElementById("outstandingAmount").textContent = formatMoney(sum(unpaidRows, "total"));
+                document.getElementById("electricityTotal").textContent = formatMoney(sum(rows, "electricity"));
+                document.getElementById("waterTotal").textContent = formatMoney(sum(rows, "water"));
+                document.getElementById("revenueTotal").textContent = formatMoney(sum(rows, "total"));
+            }
+
+            function showFeedback(message, success) {
+                feedback.className = "alert " + (success ? "alert-success" : "alert-danger");
+                feedback.textContent = message;
+            }
 
             if (roomFilter) {
                 roomFilter.addEventListener("change", () => {
@@ -285,20 +315,33 @@ else
                             body: new FormData(form),
                             headers: { "X-Requested-With": "XMLHttpRequest" }
                         });
-                        const result = await response.json();
-                        if (!response.ok || !result.success) {
+
+                        let result;
+                        try {
+                            result = await response.json();
+                        } catch {
+                            throw new Error("Máy chủ không trả về phản hồi hợp lệ. Vui lòng thử lại.");
+                        }
+
+                        if (!response.ok || result.success !== true) {
                             throw new Error(result.message || "Không thể cập nhật trạng thái thu.");
                         }
 
+                        const row = form.closest("[data-invoice-row]");
+                        row.dataset.paid = result.isPaid ? "true" : "false";
                         label.textContent = result.isPaid ? "Đã thu" : "Chưa thu";
-                        window.location.reload();
+                        showFeedback(result.message, true);
+                        updateSummary();
                     } catch (error) {
                         checkbox.checked = previousValue;
+                        showFeedback(error.message || "Không thể cập nhật trạng thái thu.", false);
+                    } finally {
                         checkbox.disabled = false;
-                        window.alert(error.message || "Không thể cập nhật trạng thái thu.");
                     }
                 });
             });
+
+            updateSummary();
         })();
     </script>
 }
