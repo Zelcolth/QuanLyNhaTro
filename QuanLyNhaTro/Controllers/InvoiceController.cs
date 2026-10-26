@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QuanLyNhaTro.Data;
 using QuanLyNhaTro.Models;
+using QuanLyNhaTro.ViewModels;
 
 namespace QuanLyNhaTro.Controllers;
 
@@ -45,22 +46,16 @@ public class InvoiceController : Controller
             .ThenBy(invoice => invoice.InvoiceCode)
             .ToListAsync();
 
-        ViewBag.BillingMonth = period.ToString("yyyy-MM", CultureInfo.InvariantCulture);
-        ViewBag.CurrentMonth = currentMonth.ToString("yyyy-MM", CultureInfo.InvariantCulture);
-        ViewBag.BillingMonthLabel = $"T{period.Month} {period.Year}";
-        ViewBag.SystemDate = DateTime.Today.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
-        ViewBag.PaidInvoiceCount = invoices.Count(invoice => invoice.Status == "Paid");
-        ViewBag.UnpaidInvoiceCount = invoices.Count(invoice => invoice.Status != "Paid");
-        ViewBag.CollectedAmount = invoices
-            .Where(invoice => invoice.Status == "Paid")
-            .Sum(invoice => invoice.TotalAmount);
-        ViewBag.OutstandingAmount = invoices
-            .Where(invoice => invoice.Status != "Paid")
-            .Sum(invoice => invoice.TotalAmount);
-        ViewBag.ElectricityAmount = invoices.Sum(invoice => invoice.ElectricityAmount);
-        ViewBag.WaterAmount = invoices.Sum(invoice => invoice.WaterAmount);
-        ViewBag.TotalAmount = invoices.Sum(invoice => invoice.TotalAmount);
-        return View(invoices);
+        var model = new InvoiceIndexViewModel
+        {
+            BillingMonth = period.ToString("yyyy-MM", CultureInfo.InvariantCulture),
+            CurrentMonth = currentMonth.ToString("yyyy-MM", CultureInfo.InvariantCulture),
+            BillingMonthLabel = $"T{period.Month} {period.Year}",
+            PreviousMonthLabel = period.AddMonths(-1).ToString("MM/yyyy", CultureInfo.InvariantCulture),
+            Invoices = invoices.Select(InvoiceItemViewModel.FromInvoice).ToList()
+        };
+
+        return View(model);
     }
 
     [HttpPost]
