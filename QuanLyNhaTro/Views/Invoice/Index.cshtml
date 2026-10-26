@@ -8,28 +8,30 @@
     var parsedMonth = DateTime.ParseExact(billingMonth, "yyyy-MM", CultureInfo.InvariantCulture);
     var previousMonth = parsedMonth.AddMonths(-1);
     var invoices = Model.ToList();
-    var roomOptions = invoices.Select(invoice => invoice.RoomLabelSnapshot)
+    var roomOptions = invoices
+        .Select(invoice => invoice.RoomLabelSnapshot)
         .Where(label => !string.IsNullOrWhiteSpace(label))
         .Distinct()
         .OrderBy(label => label)
         .ToList();
+
     var paidCount = invoices.Count(invoice => invoice.Status == "Paid");
     var unpaidCount = invoices.Count - paidCount;
     var collectedAmount = invoices.Where(invoice => invoice.Status == "Paid").Sum(invoice => invoice.TotalAmount);
     var outstandingAmount = invoices.Where(invoice => invoice.Status != "Paid").Sum(invoice => invoice.TotalAmount);
     var electricityTotal = invoices.Sum(invoice => invoice.ElectricityAmount);
     var waterTotal = invoices.Sum(invoice => invoice.WaterAmount);
-    var revenueTotal = invoices.Sum(invoice => invoice.TotalAmount);
+    var invoiceTotal = invoices.Sum(invoice => invoice.TotalAmount);
 }
 
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
     <div>
         <h1 class="mb-1">Hóa đơn @ViewBag.BillingMonthLabel</h1>
-        <div class="text-muted">Quản lý và theo dõi thu tiền theo kỳ</div>
+        <div class="text-muted">Quản lý hóa đơn và theo dõi thu tiền theo kỳ.</div>
     </div>
     <div class="d-flex flex-wrap gap-2">
         <a asp-controller="UtilityReading" asp-action="Index" asp-route-readingMonth="@billingMonth"
-           class="btn btn-outline-secondary">Nhập chỉ số điện nước</a>
+           class="btn btn-outline-secondary">Điện nước</a>
         <form asp-action="GenerateMonth" method="post" class="m-0">
             @Html.AntiForgeryToken()
             <input type="hidden" name="billingMonth" value="@billingMonth" />
@@ -59,6 +61,8 @@
     </div>
 }
 
+<div id="paymentFeedback" class="alert d-none" role="status" aria-live="polite"></div>
+
 <div class="card mb-3">
     <div class="card-body">
         <form asp-action="Index" method="get" class="row g-2 align-items-end">
@@ -75,48 +79,46 @@
 </div>
 
 <div class="row g-3 mb-4">
-    <div class="col-6 col-md-4 col-xl">
+    <div class="col-6 col-md-4 col-xl-3">
         <div class="card h-100"><div class="card-body">
-            <div class="small text-muted">Phòng chưa thu</div>
-            <div class="fs-4 fw-semibold">@unpaidCount</div>
-            <div class="small text-muted">phòng</div>
+            <div class="text-muted small">Phòng chưa thu</div>
+            <div class="fs-4 fw-semibold" id="unpaidCount">@unpaidCount</div>
         </div></div>
     </div>
-    <div class="col-6 col-md-4 col-xl">
+    <div class="col-6 col-md-4 col-xl-3">
         <div class="card h-100"><div class="card-body">
-            <div class="small text-muted">Phòng đã thu</div>
-            <div class="fs-4 fw-semibold">@paidCount</div>
-            <div class="small text-muted">phòng</div>
+            <div class="text-muted small">Phòng đã thu</div>
+            <div class="fs-4 fw-semibold" id="paidCount">@paidCount</div>
         </div></div>
     </div>
-    <div class="col-6 col-md-4 col-xl">
+    <div class="col-6 col-md-4 col-xl-3">
         <div class="card h-100"><div class="card-body">
-            <div class="small text-muted">Tổng tiền đã thu</div>
-            <div class="fw-semibold">@collectedAmount.ToString("N0") đ</div>
+            <div class="text-muted small">Tổng tiền đã thu</div>
+            <div class="fw-semibold" id="collectedAmount">@collectedAmount.ToString("N0") đ</div>
         </div></div>
     </div>
-    <div class="col-6 col-md-4 col-xl">
+    <div class="col-6 col-md-4 col-xl-3">
         <div class="card h-100"><div class="card-body">
-            <div class="small text-muted">Tổng tiền chưa thu</div>
-            <div class="fw-semibold">@outstandingAmount.ToString("N0") đ</div>
+            <div class="text-muted small">Tổng tiền chưa thu</div>
+            <div class="fw-semibold" id="outstandingAmount">@outstandingAmount.ToString("N0") đ</div>
         </div></div>
     </div>
-    <div class="col-6 col-md-4 col-xl">
+    <div class="col-6 col-md-4 col-xl-3">
         <div class="card h-100"><div class="card-body">
-            <div class="small text-muted">Tổng tiền điện</div>
-            <div class="fw-semibold">@electricityTotal.ToString("N0") đ</div>
+            <div class="text-muted small">Tổng tiền điện</div>
+            <div class="fw-semibold" id="electricityTotal">@electricityTotal.ToString("N0") đ</div>
         </div></div>
     </div>
-    <div class="col-6 col-md-4 col-xl">
+    <div class="col-6 col-md-4 col-xl-3">
         <div class="card h-100"><div class="card-body">
-            <div class="small text-muted">Tổng tiền nước</div>
-            <div class="fw-semibold">@waterTotal.ToString("N0") đ</div>
+            <div class="text-muted small">Tổng tiền nước</div>
+            <div class="fw-semibold" id="waterTotal">@waterTotal.ToString("N0") đ</div>
         </div></div>
     </div>
-    <div class="col-12 col-md-4 col-xl">
+    <div class="col-12 col-md-4 col-xl-3">
         <div class="card h-100"><div class="card-body">
-            <div class="small text-muted">Tổng giá trị hóa đơn</div>
-            <div class="fw-semibold">@revenueTotal.ToString("N0") đ</div>
+            <div class="text-muted small">Tổng giá trị hóa đơn</div>
+            <div class="fw-semibold" id="invoiceTotal">@invoiceTotal.ToString("N0") đ</div>
         </div></div>
     </div>
 </div>
@@ -133,7 +135,8 @@
         </select>
     </div>
     <div class="col-sm-6 col-md-8 text-muted small">
-        Các khoản tiền có thể chỉnh sửa trên hóa đơn chưa thu. Nợ tháng trước được nhập thủ công sau khi đối chiếu tiền đã nhận.
+        Có thể chỉnh tiền phòng, tiền rác, nợ tháng trước và tiền giảm trên hóa đơn chưa thu.
+        Nợ tháng trước được nhập thủ công sau khi đối chiếu các khoản tiền đã nhận.
     </div>
 </div>
 
@@ -149,9 +152,9 @@ else
         <table class="table table-bordered table-striped table-hover table-sm align-middle">
             <thead class="table-light">
                 <tr>
-                    <th>Mã phòng / hóa đơn</th>
+                    <th>Mã phòng</th>
                     <th>Trạng thái thu</th>
-                    <th>Người thuê</th>
+                    <th>Khách thuê</th>
                     <th class="text-end">Tiền phòng</th>
                     <th class="text-end">Điện cũ<br />@previousMonth.ToString("MM/yyyy")</th>
                     <th class="text-end">Điện mới<br />@parsedMonth.ToString("MM/yyyy")</th>
@@ -178,12 +181,34 @@ else
                     "Active" => "Đang hiệu lực",
                     "Expired" => "Hết hạn",
                     "Terminated" => "Đã kết thúc",
+                    "Completed" => "Đã kết thúc",
                     "Draft" => "Bản nháp",
+                    "Cancelled" => "Đã hủy",
                     _ => contractStatus
                 };
+                var amountBeforeDiscount = invoice.RentAmount
+                    + invoice.ElectricityAmount
+                    + invoice.WaterAmount
+                    + invoice.GarbageFee
+                    + invoice.WifiFee
+                    + invoice.PreviousDebtAmount;
+                var amountFormId = $"amounts-{invoice.InvoiceId}";
 
-                <tr data-invoice-row data-room-key="@invoice.RoomLabelSnapshot">
+                <tr data-invoice-row
+                    data-room-key="@invoice.RoomLabelSnapshot"
+                    data-paid="@(isPaid ? "true" : "false")"
+                    data-total="@invoice.TotalAmount.ToString(CultureInfo.InvariantCulture)"
+                    data-electricity="@invoice.ElectricityAmount.ToString(CultureInfo.InvariantCulture)"
+                    data-water="@invoice.WaterAmount.ToString(CultureInfo.InvariantCulture)">
                     <td>
+                        @if (!isPaid)
+                        {
+                            <form id="@amountFormId" asp-action="UpdateAmounts" method="post" class="d-none">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@invoice.InvoiceId" />
+                                <input type="hidden" name="billingMonth" value="@billingMonth" />
+                            </form>
+                        }
                         <div class="fw-semibold">@invoice.RoomLabelSnapshot</div>
                         <div class="small text-muted">@invoice.InvoiceCode</div>
                     </td>
@@ -194,75 +219,92 @@ else
                             <div class="form-check">
                                 <input class="form-check-input payment-status-checkbox" type="checkbox"
                                        name="isPaid" value="true" checked="@isPaid"
-                                       disabled="@(isPaid ? "disabled" : null)"
                                        aria-label="Đánh dấu đã thu hóa đơn @invoice.InvoiceCode" />
                                 <label class="form-check-label payment-status-label">@(isPaid ? "Đã thu" : "Chưa thu")</label>
                             </div>
                         </form>
                     </td>
                     <td>@invoice.TenantNamesSnapshot</td>
-                    <td class="text-end text-nowrap">@invoice.RentAmount.ToString("N0") đ</td>
+                    <td class="text-end">
+                        @if (!isPaid)
+                        {
+                            <input form="@amountFormId" name="rentAmount" type="number"
+                                   class="form-control form-control-sm text-end" style="min-width: 115px;"
+                                   min="0" max="9999999999999999.99" step="1000"
+                                   value="@invoice.RentAmount.ToString(CultureInfo.InvariantCulture)"
+                                   aria-label="Tiền phòng @invoice.InvoiceCode" required />
+                        }
+                        else
+                        {
+                            @invoice.RentAmount.ToString("N0")
+                        }
+                    </td>
                     <td class="text-end">@invoice.PreviousElectricityReading.ToString("N2")</td>
                     <td class="text-end">@invoice.CurrentElectricityReading.ToString("N2")</td>
                     <td class="text-end">@invoice.ElectricityConsumption.ToString("N2")</td>
                     <td class="text-end">@invoice.PreviousWaterReading.ToString("N2")</td>
                     <td class="text-end">@invoice.CurrentWaterReading.ToString("N2")</td>
                     <td class="text-end">@invoice.WaterConsumption.ToString("N2")</td>
-                    <td class="text-end text-nowrap">@invoice.GarbageFee.ToString("N0") đ</td>
-                    <td class="text-end text-nowrap">@invoice.WifiFee.ToString("N0") đ</td>
-                    <td class="text-end text-nowrap">@invoice.PreviousDebtAmount.ToString("N0") đ</td>
-                    <td class="text-end text-nowrap">@invoice.DiscountAmount.ToString("N0") đ</td>
+                    <td class="text-end">
+                        @if (!isPaid)
+                        {
+                            <input form="@amountFormId" name="garbageFee" type="number"
+                                   class="form-control form-control-sm text-end" style="min-width: 105px;"
+                                   min="0" max="9999999999999999.99" step="1000"
+                                   value="@invoice.GarbageFee.ToString(CultureInfo.InvariantCulture)"
+                                   aria-label="Tiền rác @invoice.InvoiceCode" required />
+                        }
+                        else
+                        {
+                            @invoice.GarbageFee.ToString("N0")
+                        }
+                    </td>
+                    <td class="text-end">@invoice.WifiFee.ToString("N0")</td>
+                    <td class="text-end">
+                        @if (!isPaid)
+                        {
+                            <input form="@amountFormId" name="previousDebtAmount" type="number"
+                                   class="form-control form-control-sm text-end" style="min-width: 115px;"
+                                   min="0" max="9999999999999999.99" step="1000"
+                                   value="@invoice.PreviousDebtAmount.ToString(CultureInfo.InvariantCulture)"
+                                   aria-label="Nợ tháng trước @invoice.InvoiceCode" required />
+                        }
+                        else
+                        {
+                            @invoice.PreviousDebtAmount.ToString("N0")
+                        }
+                    </td>
+                    <td class="text-end">
+                        @if (!isPaid)
+                        {
+                            <input form="@amountFormId" name="discountAmount" type="number"
+                                   class="form-control form-control-sm text-end" style="min-width: 105px;"
+                                   min="0" max="@amountBeforeDiscount.ToString(CultureInfo.InvariantCulture)" step="1000"
+                                   value="@invoice.DiscountAmount.ToString(CultureInfo.InvariantCulture)"
+                                   aria-label="Tiền giảm @invoice.InvoiceCode" required />
+                        }
+                        else
+                        {
+                            @invoice.DiscountAmount.ToString("N0")
+                        }
+                    </td>
                     <td class="text-end fw-semibold text-nowrap">@invoice.TotalAmount.ToString("N0") đ</td>
                     <td class="text-nowrap">@contractStatusLabel</td>
                     <td>
                         <div class="d-flex flex-column gap-1">
+                            @if (!isPaid)
+                            {
+                                <button type="submit" form="@amountFormId" class="btn btn-sm btn-primary">Lưu khoản tiền</button>
+                            }
                             <a asp-action="Details" asp-route-id="@invoice.InvoiceId"
                                class="btn btn-sm btn-outline-primary">Chi tiết HĐ</a>
-                            <a asp-controller="RentalContract" asp-action="Details" asp-route-id="@invoice.ContractId"
-                               class="btn btn-sm btn-outline-danger">Trả phòng</a>
+                            <button type="button" class="btn btn-sm btn-outline-danger" disabled
+                                    title="Chức năng trả phòng và quyết toán tiền cọc sẽ được triển khai riêng.">
+                                Trả phòng
+                            </button>
                         </div>
                     </td>
                 </tr>
-                @if (!isPaid)
-                {
-                    <tr data-invoice-edit-row data-room-key="@invoice.RoomLabelSnapshot">
-                        <td colspan="17" class="bg-body-tertiary">
-                            <form asp-action="UpdateAmounts" method="post" class="row g-2 align-items-end">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="id" value="@invoice.InvoiceId" />
-                                <input type="hidden" name="billingMonth" value="@billingMonth" />
-                                <div class="col-6 col-md-2">
-                                    <label class="form-label small mb-1" for="rent-@invoice.InvoiceId">Tiền phòng</label>
-                                    <input id="rent-@invoice.InvoiceId" name="rentAmount" type="number"
-                                           class="form-control form-control-sm" min="0" step="1000"
-                                           value="@invoice.RentAmount.ToString(CultureInfo.InvariantCulture)" required />
-                                </div>
-                                <div class="col-6 col-md-2">
-                                    <label class="form-label small mb-1" for="garbage-@invoice.InvoiceId">Tiền rác</label>
-                                    <input id="garbage-@invoice.InvoiceId" name="garbageFee" type="number"
-                                           class="form-control form-control-sm" min="0" step="1000"
-                                           value="@invoice.GarbageFee.ToString(CultureInfo.InvariantCulture)" required />
-                                </div>
-                                <div class="col-6 col-md-2">
-                                    <label class="form-label small mb-1" for="debt-@invoice.InvoiceId">Nợ tháng trước</label>
-                                    <input id="debt-@invoice.InvoiceId" name="previousDebtAmount" type="number"
-                                           class="form-control form-control-sm" min="0" step="1000"
-                                           value="@invoice.PreviousDebtAmount.ToString(CultureInfo.InvariantCulture)" required />
-                                </div>
-                                <div class="col-6 col-md-2">
-                                    <label class="form-label small mb-1" for="discount-@invoice.InvoiceId">Tiền giảm</label>
-                                    <input id="discount-@invoice.InvoiceId" name="discountAmount" type="number"
-                                           class="form-control form-control-sm" min="0" step="1000"
-                                           value="@invoice.DiscountAmount.ToString(CultureInfo.InvariantCulture)" required />
-                                </div>
-                                <div class="col-12 col-md-4">
-                                    <button type="submit" class="btn btn-sm btn-primary">Lưu các khoản tiền</button>
-                                    <span class="small text-muted ms-2">Tổng tiền tự tính lại khi lưu</span>
-                                </div>
-                            </form>
-                        </td>
-                    </tr>
-                }
             }
             </tbody>
         </table>
@@ -273,7 +315,31 @@ else
     <script>
         (() => {
             const roomFilter = document.getElementById("roomFilter");
-            const rows = Array.from(document.querySelectorAll("[data-invoice-row], [data-invoice-edit-row]"));
+            const rows = Array.from(document.querySelectorAll("[data-invoice-row]"));
+            const feedback = document.getElementById("paymentFeedback");
+            const formatter = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 });
+
+            const formatMoney = value => formatter.format(value) + " đ";
+
+            function updateSummary() {
+                const paidRows = rows.filter(row => row.dataset.paid === "true");
+                const unpaidRows = rows.filter(row => row.dataset.paid !== "true");
+                const sum = (sourceRows, key) =>
+                    sourceRows.reduce((total, row) => total + Number(row.dataset[key] || 0), 0);
+
+                document.getElementById("paidCount").textContent = paidRows.length;
+                document.getElementById("unpaidCount").textContent = unpaidRows.length;
+                document.getElementById("collectedAmount").textContent = formatMoney(sum(paidRows, "total"));
+                document.getElementById("outstandingAmount").textContent = formatMoney(sum(unpaidRows, "total"));
+                document.getElementById("electricityTotal").textContent = formatMoney(sum(rows, "electricity"));
+                document.getElementById("waterTotal").textContent = formatMoney(sum(rows, "water"));
+                document.getElementById("invoiceTotal").textContent = formatMoney(sum(rows, "total"));
+            }
+
+            function showFeedback(message, isSuccess) {
+                feedback.className = "alert " + (isSuccess ? "alert-success" : "alert-danger");
+                feedback.textContent = message;
+            }
 
             if (roomFilter) {
                 roomFilter.addEventListener("change", () => {
@@ -290,7 +356,7 @@ else
                 if (!checkbox) return;
 
                 checkbox.addEventListener("change", async () => {
-                    const previousValue = !checkbox.checked;
+                    const previousState = !checkbox.checked;
                     checkbox.disabled = true;
 
                     try {
@@ -299,25 +365,33 @@ else
                             body: new FormData(form),
                             headers: { "X-Requested-With": "XMLHttpRequest" }
                         });
-                        const result = await response.json();
-                        if (!response.ok || !result.success) {
+
+                        let result;
+                        try {
+                            result = await response.json();
+                        } catch {
+                            throw new Error("Máy chủ không trả về phản hồi hợp lệ. Vui lòng thử lại.");
+                        }
+
+                        if (!response.ok || result.success !== true) {
                             throw new Error(result.message || "Không thể cập nhật trạng thái thu.");
                         }
 
+                        const row = form.closest("[data-invoice-row]");
+                        row.dataset.paid = result.isPaid ? "true" : "false";
                         label.textContent = result.isPaid ? "Đã thu" : "Chưa thu";
-                        if (result.isPaid) {
-                            form.closest("tr").querySelectorAll("button, input").forEach(control => control.disabled = true);
-                        } else {
-                            checkbox.disabled = false;
-                        }
-                        window.location.reload();
+                        showFeedback(result.message, true);
+                        updateSummary();
                     } catch (error) {
-                        checkbox.checked = previousValue;
+                        checkbox.checked = previousState;
+                        showFeedback(error.message || "Không thể cập nhật trạng thái thu.", false);
+                    } finally {
                         checkbox.disabled = false;
-                        window.alert(error.message || "Không thể cập nhật trạng thái thu.");
                     }
                 });
             });
+
+            updateSummary();
         })();
     </script>
 }
