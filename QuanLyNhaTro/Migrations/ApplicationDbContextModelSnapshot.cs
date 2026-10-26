@@ -42,66 +42,127 @@ namespace QuanLyNhaTro.Migrations
                     b.ToTable("Buildings");
                 });
 
-            modelBuilder.Entity("QuanLyNhaTro.Models.UtilityReading", b =>
+            modelBuilder.Entity("QuanLyNhaTro.Models.ContractTenant", b =>
                 {
-                    b.Property<int>("UtilityReadingId")
-                        .ValueGeneratedOnAdd()
+                    b.Property<int>("ContractId")
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("UtilityReadingId"));
-
-                    b.Property<decimal>("ElectricityReading")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<DateTime>("ReadingMonth")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("RecordedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("RoomId")
+                    b.Property<int>("TenantId")
                         .HasColumnType("int");
 
-                    b.Property<decimal>("WaterReading")
-                        .HasColumnType("decimal(18,2)");
+                    b.Property<bool>("IsPrimaryTenant")
+                        .HasColumnType("bit");
 
-                    b.HasKey("UtilityReadingId");
+                    b.Property<string>("RelationshipToPrimaryTenant")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
-                    b.HasIndex("RoomId", "ReadingMonth")
-                        .IsUnique();
+                    b.HasKey("ContractId", "TenantId");
 
-                    b.ToTable("UtilityReadings");
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("ContractTenants");
                 });
 
-            modelBuilder.Entity("QuanLyNhaTro.Models.User", b =>
+            modelBuilder.Entity("QuanLyNhaTro.Models.Invoice", b =>
                 {
-                    b.Property<int>("UserId")
+                    b.Property<int>("InvoiceId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("UserId"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("InvoiceId"));
 
-                    b.Property<string>("FullName")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
+                    b.Property<DateTime>("BillingMonth")
+                        .HasColumnType("date");
 
-                    b.Property<string>("PasswordHash")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("Username")
+                    b.Property<string>("ContractCodeSnapshot")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.HasKey("UserId");
+                    b.Property<int>("ContractId")
+                        .HasColumnType("int");
 
-                    b.HasIndex("Username")
+                    b.Property<decimal>("CurrentElectricityReading")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CurrentWaterReading")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("ElectricityAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("ElectricityConsumption")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("ElectricityUnitPrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("GarbageFee")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("InvoiceCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("IssuedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<decimal>("PreviousElectricityReading")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("PreviousWaterReading")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("RentAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("RoomLabelSnapshot")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("TenantNamesSnapshot")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("WaterAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("WaterConsumption")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("WaterUnitPrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("WifiFee")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("InvoiceId");
+
+                    b.HasIndex("BillingMonth");
+
+                    b.HasIndex("InvoiceCode")
                         .IsUnique();
 
-                    b.ToTable("Users");
+                    b.HasIndex("ContractId", "BillingMonth")
+                        .IsUnique();
+
+                    b.ToTable("Invoices");
                 });
 
             modelBuilder.Entity("QuanLyNhaTro.Models.RentalContract", b =>
@@ -149,28 +210,6 @@ namespace QuanLyNhaTro.Migrations
                     b.HasIndex("RoomId");
 
                     b.ToTable("RentalContracts");
-                });
-
-            modelBuilder.Entity("QuanLyNhaTro.Models.ContractTenant", b =>
-                {
-                    b.Property<int>("ContractId")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("IsPrimaryTenant")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("RelationshipToPrimaryTenant")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<int>("TenantId")
-                        .HasColumnType("int");
-
-                    b.HasKey("ContractId", "TenantId");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("ContractTenants");
                 });
 
             modelBuilder.Entity("QuanLyNhaTro.Models.Room", b =>
@@ -254,9 +293,6 @@ namespace QuanLyNhaTro.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TenantId"));
 
-                    b.Property<int?>("UserId")
-                        .HasColumnType("int");
-
                     b.Property<int?>("BirthYear")
                         .HasColumnType("int");
 
@@ -279,6 +315,9 @@ namespace QuanLyNhaTro.Migrations
                     b.Property<string>("Phone")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("UserId")
+                        .HasColumnType("int");
+
                     b.HasKey("TenantId");
 
                     b.HasIndex("UserId")
@@ -288,16 +327,66 @@ namespace QuanLyNhaTro.Migrations
                     b.ToTable("TenantProfiles");
                 });
 
-            modelBuilder.Entity("QuanLyNhaTro.Models.RentalContract", b =>
+            modelBuilder.Entity("QuanLyNhaTro.Models.User", b =>
                 {
-                    b.HasOne("QuanLyNhaTro.Models.Room", "Room")
-                        .WithMany()
-                        .HasForeignKey("RoomId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                    b.Property<int>("UserId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
 
-                    b.Navigation("Room");
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("UserId"));
 
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("UserId");
+
+                    b.HasIndex("Username")
+                        .IsUnique();
+
+                    b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("QuanLyNhaTro.Models.UtilityReading", b =>
+                {
+                    b.Property<int>("UtilityReadingId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("UtilityReadingId"));
+
+                    b.Property<decimal>("ElectricityReading")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("ReadingMonth")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("RecordedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("RoomId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("WaterReading")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("UtilityReadingId");
+
+                    b.HasIndex("RoomId", "ReadingMonth")
+                        .IsUnique();
+
+                    b.ToTable("UtilityReadings");
                 });
 
             modelBuilder.Entity("QuanLyNhaTro.Models.ContractTenant", b =>
@@ -319,6 +408,28 @@ namespace QuanLyNhaTro.Migrations
                     b.Navigation("Tenant");
                 });
 
+            modelBuilder.Entity("QuanLyNhaTro.Models.Invoice", b =>
+                {
+                    b.HasOne("QuanLyNhaTro.Models.RentalContract", "Contract")
+                        .WithMany()
+                        .HasForeignKey("ContractId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Contract");
+                });
+
+            modelBuilder.Entity("QuanLyNhaTro.Models.RentalContract", b =>
+                {
+                    b.HasOne("QuanLyNhaTro.Models.Room", "Room")
+                        .WithMany()
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Room");
+                });
+
             modelBuilder.Entity("QuanLyNhaTro.Models.Room", b =>
                 {
                     b.HasOne("QuanLyNhaTro.Models.Building", "Building")
@@ -330,9 +441,14 @@ namespace QuanLyNhaTro.Migrations
                     b.Navigation("Building");
                 });
 
-            modelBuilder.Entity("QuanLyNhaTro.Models.Building", b =>
+            modelBuilder.Entity("QuanLyNhaTro.Models.TenantProfile", b =>
                 {
-                    b.Navigation("Rooms");
+                    b.HasOne("QuanLyNhaTro.Models.User", "User")
+                        .WithOne()
+                        .HasForeignKey("QuanLyNhaTro.Models.TenantProfile", "UserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("QuanLyNhaTro.Models.UtilityReading", b =>
@@ -346,14 +462,18 @@ namespace QuanLyNhaTro.Migrations
                     b.Navigation("Room");
                 });
 
+            modelBuilder.Entity("QuanLyNhaTro.Models.Building", b =>
+                {
+                    b.Navigation("Rooms");
+                });
+
+            modelBuilder.Entity("QuanLyNhaTro.Models.RentalContract", b =>
+                {
+                    b.Navigation("ContractTenants");
+                });
+
             modelBuilder.Entity("QuanLyNhaTro.Models.TenantProfile", b =>
                 {
-                    b.HasOne("QuanLyNhaTro.Models.User", "User")
-                        .WithOne()
-                        .HasForeignKey("QuanLyNhaTro.Models.TenantProfile", "UserId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("User");
                     b.Navigation("ContractTenants");
                 });
 #pragma warning restore 612, 618
