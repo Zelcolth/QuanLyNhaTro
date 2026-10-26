@@ -18,6 +18,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<ContractTenant> ContractTenants => Set<ContractTenant>();
     public DbSet<SystemConfig> SystemConfigs => Set<SystemConfig>();
     public DbSet<UtilityReading> UtilityReadings => Set<UtilityReading>();
+    public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<User> Users => Set<User>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -123,6 +124,63 @@ public class ApplicationDbContext : DbContext
             entity.Property(config => config.AccountName)
                 .HasMaxLength(100)
                 .HasColumnType("nvarchar(100)");
+        });
+
+        modelBuilder.Entity<Invoice>(entity =>
+        {
+            entity.Property(invoice => invoice.BillingMonth)
+                .HasColumnType("date");
+
+            entity.Property(invoice => invoice.InvoiceCode)
+                .HasMaxLength(50)
+                .IsRequired();
+
+            entity.Property(invoice => invoice.RoomLabelSnapshot)
+                .HasMaxLength(250)
+                .IsRequired();
+
+            entity.Property(invoice => invoice.TenantNamesSnapshot)
+                .HasMaxLength(1000)
+                .IsRequired();
+
+            entity.Property(invoice => invoice.ContractCodeSnapshot)
+                .HasMaxLength(100)
+                .IsRequired();
+
+            entity.Property(invoice => invoice.Status)
+                .HasMaxLength(20)
+                .IsRequired();
+
+            entity.Property(invoice => invoice.Notes)
+                .HasMaxLength(1000);
+
+            entity.Property(invoice => invoice.RentAmount).HasColumnType("decimal(18,2)");
+            entity.Property(invoice => invoice.PreviousElectricityReading).HasColumnType("decimal(18,2)");
+            entity.Property(invoice => invoice.CurrentElectricityReading).HasColumnType("decimal(18,2)");
+            entity.Property(invoice => invoice.ElectricityConsumption).HasColumnType("decimal(18,2)");
+            entity.Property(invoice => invoice.ElectricityUnitPrice).HasColumnType("decimal(18,2)");
+            entity.Property(invoice => invoice.ElectricityAmount).HasColumnType("decimal(18,2)");
+            entity.Property(invoice => invoice.PreviousWaterReading).HasColumnType("decimal(18,2)");
+            entity.Property(invoice => invoice.CurrentWaterReading).HasColumnType("decimal(18,2)");
+            entity.Property(invoice => invoice.WaterConsumption).HasColumnType("decimal(18,2)");
+            entity.Property(invoice => invoice.WaterUnitPrice).HasColumnType("decimal(18,2)");
+            entity.Property(invoice => invoice.WaterAmount).HasColumnType("decimal(18,2)");
+            entity.Property(invoice => invoice.GarbageFee).HasColumnType("decimal(18,2)");
+            entity.Property(invoice => invoice.WifiFee).HasColumnType("decimal(18,2)");
+            entity.Property(invoice => invoice.TotalAmount).HasColumnType("decimal(18,2)");
+
+            entity.HasIndex(invoice => invoice.InvoiceCode)
+                .IsUnique();
+
+            entity.HasIndex(invoice => new { invoice.ContractId, invoice.BillingMonth })
+                .IsUnique();
+
+            entity.HasIndex(invoice => invoice.BillingMonth);
+
+            entity.HasOne(invoice => invoice.Contract)
+                .WithMany()
+                .HasForeignKey(invoice => invoice.ContractId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

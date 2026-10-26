@@ -51,6 +51,11 @@
                                    asp-controller="UtilityReading" asp-action="Index">Điện, nước</a>
                             </li>
                             <li class="nav-item">
+                                <a class="nav-link @(currentController == "Invoice" ? "active fw-semibold" : "")"
+                                   aria-current="@(currentController == "Invoice" ? "page" : null)"
+                                   asp-controller="Invoice" asp-action="Index">Hóa đơn</a>
+                            </li>
+                            <li class="nav-item">
                                 <a class="nav-link @(currentController == "SystemConfig" ? "active fw-semibold" : "")"
                                    aria-current="@(currentController == "SystemConfig" ? "page" : null)"
                                    asp-controller="SystemConfig" asp-action="Index">Cấu hình</a>

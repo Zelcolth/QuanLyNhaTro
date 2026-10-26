@@ -1,0 +1,138 @@
+@model IEnumerable<QuanLyNhaTro.Models.Invoice>
+
+@{
+    ViewData["Title"] = "Hóa đơn";
+    var billingMonth = ViewBag.BillingMonth as string ?? DateTime.Today.ToString("yyyy-MM");
+    var invoices = Model.ToList();
+    var totalAmount = ViewBag.TotalAmount is decimal amount ? amount : 0m;
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+    <div>
+        <h1 class="h3 mb-1">Quản lý hóa đơn</h1>
+        <p class="text-muted mb-0">Lập hóa đơn theo tháng từ hợp đồng, chỉ số điện nước và đơn giá đã cấu hình.</p>
+    </div>
+</div>
+
+@if (TempData["SuccessMessage"] is string successMessage)
+{
+    <div class="alert alert-success" role="alert">@successMessage</div>
+}
+@if (TempData["ErrorMessage"] is string errorMessage)
+{
+    <div class="alert alert-danger" role="alert">@errorMessage</div>
+}
+@if (TempData["GenerationWarnings"] is string warnings)
+{
+    <div class="alert alert-warning" role="alert">
+        <strong>Một số phòng chưa được lập hóa đơn:</strong> @warnings
+    </div>
+}
+
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <div class="row g-3 align-items-end">
+            <div class="col-12 col-md-4">
+                <form asp-action="Index" method="get">
+                    <label for="billingMonth" class="form-label">Kỳ hóa đơn</label>
+                    <div class="input-group">
+                        <input id="billingMonth" name="billingMonth" type="month" class="form-control"
+                               value="@billingMonth" max="@DateTime.Today.ToString("yyyy-MM")" required />
+                        <button type="submit" class="btn btn-outline-secondary">Xem</button>
+                    </div>
+                </form>
+            </div>
+            <div class="col-12 col-md-8 d-flex flex-wrap justify-content-md-end align-items-end gap-2">
+                <form asp-action="GenerateMonth" method="post" class="m-0">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="billingMonth" value="@billingMonth" />
+                    <button type="submit" class="btn btn-primary">
+                        Lập hóa đơn cho tháng đã chọn
+                    </button>
+                </form>
+            </div>
+        </div>
+        <p class="form-text mb-0 mt-2">
+            Chỉ lập tự động cho hợp đồng bao phủ trọn tháng và phòng đã có chỉ số của tháng trước lẫn tháng đang lập.
+            Hóa đơn đã tồn tại sẽ được bỏ qua để tránh lập trùng.
+        </p>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-12 col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small">Số hóa đơn trong kỳ</div>
+                <div class="fs-3 fw-semibold">@invoices.Count</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small">Tổng giá trị hóa đơn</div>
+                <div class="fs-3 fw-semibold">@totalAmount.ToString("N0") <span class="fs-6 fw-normal">VNĐ</span></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Mã hóa đơn</th>
+                    <th>Khu nhà / phòng</th>
+                    <th>Người thuê</th>
+                    <th class="text-end">Tổng tiền</th>
+                    <th>Trạng thái</th>
+                    <th class="text-end">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (invoices.Count == 0)
+                {
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-5">
+                            Chưa có hóa đơn cho kỳ @DateTime.ParseExact(billingMonth, "yyyy-MM", System.Globalization.CultureInfo.InvariantCulture).ToString("MM/yyyy").
+                        </td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var invoice in invoices)
+                    {
+                        <tr>
+                            <td>
+                                <div class="fw-semibold">@invoice.InvoiceCode</div>
+                                <div class="small text-muted">@invoice.BillingMonth.ToString("MM/yyyy")</div>
+                            </td>
+                            <td>@invoice.RoomLabelSnapshot</td>
+                            <td>@invoice.TenantNamesSnapshot</td>
+                            <td class="text-end fw-semibold">@invoice.TotalAmount.ToString("N0") VNĐ</td>
+                            <td>
+                                @if (invoice.Status == "Paid")
+                                {
+                                    <span class="badge text-bg-success">Đã thanh toán</span>
+                                }
+                                else if (invoice.Status == "PartiallyPaid")
+                                {
+                                    <span class="badge text-bg-warning">Thanh toán một phần</span>
+                                }
+                                else
+                                {
+                                    <span class="badge text-bg-secondary">Chưa thanh toán</span>
+                                }
+                            </td>
+                            <td class="text-end">
+                                <a asp-action="Details" asp-route-id="@invoice.InvoiceId" class="btn btn-sm btn-outline-primary">Chi tiết</a>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
