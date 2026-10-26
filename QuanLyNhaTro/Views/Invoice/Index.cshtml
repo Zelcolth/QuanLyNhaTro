@@ -1,40 +1,33 @@
-@model IEnumerable<QuanLyNhaTro.Models.Invoice>
+@model QuanLyNhaTro.ViewModels.InvoiceIndexViewModel
 @using System.Globalization
 
 @{
     ViewData["Title"] = "Quản lý hóa đơn";
-    var billingMonth = ViewBag.BillingMonth as string ?? DateTime.Today.ToString("yyyy-MM", CultureInfo.InvariantCulture);
-    var currentMonth = ViewBag.CurrentMonth as string ?? DateTime.Today.ToString("yyyy-MM", CultureInfo.InvariantCulture);
-    var parsedMonth = DateTime.ParseExact(billingMonth, "yyyy-MM", CultureInfo.InvariantCulture);
-    var previousMonth = parsedMonth.AddMonths(-1);
-    var invoices = Model.ToList();
-    var roomOptions = invoices.Select(invoice => invoice.RoomLabelSnapshot)
-        .Where(label => !string.IsNullOrWhiteSpace(label))
-        .Distinct()
-        .OrderBy(label => label)
-        .ToList();
-    var paidCount = invoices.Count(invoice => invoice.Status == "Paid");
-    var unpaidCount = invoices.Count - paidCount;
-    var collectedAmount = invoices.Where(invoice => invoice.Status == "Paid").Sum(invoice => invoice.TotalAmount);
-    var outstandingAmount = invoices.Where(invoice => invoice.Status != "Paid").Sum(invoice => invoice.TotalAmount);
-    var electricityTotal = invoices.Sum(invoice => invoice.ElectricityAmount);
-    var waterTotal = invoices.Sum(invoice => invoice.WaterAmount);
-    var revenueTotal = invoices.Sum(invoice => invoice.TotalAmount);
+    var billingPeriod = DateTime.ParseExact(Model.BillingMonth, "yyyy-MM", CultureInfo.InvariantCulture);
+    var previousMonth = billingPeriod.AddMonths(-1);
 }
 
-<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
     <div>
-        <h1 class="mb-1">Hóa đơn @ViewBag.BillingMonthLabel</h1>
+        <h1 class="mb-1">Hóa đơn tháng @Model.BillingMonthLabel</h1>
         <div class="text-muted">Quản lý và theo dõi thu tiền theo kỳ</div>
     </div>
-    <div class="d-flex flex-wrap gap-2">
-        <a asp-controller="UtilityReading" asp-action="Index" asp-route-readingMonth="@billingMonth"
-           class="btn btn-outline-secondary">Nhập chỉ số điện nước</a>
-        <form asp-action="GenerateMonth" method="post" class="m-0">
-            @Html.AntiForgeryToken()
-            <input type="hidden" name="billingMonth" value="@billingMonth" />
-            <button type="submit" class="btn btn-primary">Lập hóa đơn</button>
-        </form>
+
+    <div class="d-flex flex-column align-items-start align-items-xl-end gap-2">
+        <div class="d-flex flex-wrap gap-2">
+            <button type="button" class="btn btn-primary" disabled title="Chức năng sẽ được bổ sung sau">In PDF</button>
+            <button type="button" class="btn btn-secondary" disabled title="Chức năng sẽ được bổ sung sau">Xuất ảnh hóa đơn</button>
+            <button type="button" class="btn btn-success" disabled title="Chức năng sẽ được bổ sung sau">Xuất Excel</button>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a asp-controller="UtilityReading" asp-action="Index" asp-route-readingMonth="@Model.BillingMonth"
+               class="btn btn-outline-secondary">Nhập chỉ số điện nước</a>
+            <form asp-action="GenerateMonth" method="post" class="m-0">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="billingMonth" value="@Model.BillingMonth" />
+                <button type="submit" class="btn btn-primary">Lập hóa đơn</button>
+            </form>
+        </div>
     </div>
 </div>
 
@@ -66,8 +59,8 @@
         <form asp-action="Index" method="get" class="row g-2 align-items-end">
             <div class="col-sm-4 col-md-3">
                 <label for="billingMonth" class="form-label">Kỳ hóa đơn</label>
-                <input id="billingMonth" name="billingMonth" type="month" value="@billingMonth"
-                       max="@currentMonth" class="form-control" required />
+                <input id="billingMonth" name="billingMonth" type="month" value="@Model.BillingMonth"
+                       max="@Model.CurrentMonth" class="form-control" required />
             </div>
             <div class="col-auto">
                 <button type="submit" class="btn btn-outline-primary">Xem kỳ</button>
@@ -76,88 +69,102 @@
     </div>
 </div>
 
-<div class="row g-3 mb-4">
-    <div class="col-6 col-md-3">
-        <div class="card h-100"><div class="card-body">
-            <div class="small text-muted">Phòng chưa thu</div>
-            <div class="fs-4 fw-semibold" id="unpaidCount">@unpaidCount</div>
-        </div></div>
+<div class="row row-cols-1 row-cols-sm-2 row-cols-xl-4 g-3 mb-4">
+    <div class="col">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-muted mb-1">Phòng chưa thu</div>
+                <div class="fs-4 fw-semibold" id="unpaidCount">@Model.UnpaidCount</div>
+            </div>
+        </div>
     </div>
-    <div class="col-6 col-md-3">
-        <div class="card h-100"><div class="card-body">
-            <div class="small text-muted">Phòng đã thu</div>
-            <div class="fs-4 fw-semibold" id="paidCount">@paidCount</div>
-        </div></div>
+    <div class="col">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-muted mb-1">Phòng đã thu</div>
+                <div class="fs-4 fw-semibold" id="paidCount">@Model.PaidCount</div>
+            </div>
+        </div>
     </div>
-    <div class="col-6 col-md-3">
-        <div class="card h-100"><div class="card-body">
-            <div class="small text-muted">Tổng tiền đã thu</div>
-            <div class="fw-semibold" id="collectedAmount">@collectedAmount.ToString("N0") đ</div>
-        </div></div>
+    <div class="col">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-muted mb-1">Tổng tiền đã thu</div>
+                <div class="fs-4 fw-semibold text-nowrap" id="collectedAmount">@Model.CollectedAmount.ToString("N0") đ</div>
+            </div>
+        </div>
     </div>
-    <div class="col-6 col-md-3">
-        <div class="card h-100"><div class="card-body">
-            <div class="small text-muted">Tổng tiền chưa thu</div>
-            <div class="fw-semibold" id="outstandingAmount">@outstandingAmount.ToString("N0") đ</div>
-        </div></div>
+    <div class="col">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-muted mb-1">Tổng tiền chưa thu</div>
+                <div class="fs-4 fw-semibold text-nowrap" id="outstandingAmount">@Model.OutstandingAmount.ToString("N0") đ</div>
+            </div>
+        </div>
     </div>
-    <div class="col-6 col-md-4">
-        <div class="card h-100"><div class="card-body">
-            <div class="small text-muted">Tổng tiền điện</div>
-            <div class="fw-semibold" id="electricityTotal">@electricityTotal.ToString("N0") đ</div>
-        </div></div>
+    <div class="col">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-muted mb-1">Tổng tiền điện</div>
+                <div class="fs-4 fw-semibold text-nowrap" id="electricityTotal">@Model.ElectricityTotal.ToString("N0") đ</div>
+            </div>
+        </div>
     </div>
-    <div class="col-6 col-md-4">
-        <div class="card h-100"><div class="card-body">
-            <div class="small text-muted">Tổng tiền nước</div>
-            <div class="fw-semibold" id="waterTotal">@waterTotal.ToString("N0") đ</div>
-        </div></div>
+    <div class="col">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-muted mb-1">Tổng tiền nước</div>
+                <div class="fs-4 fw-semibold text-nowrap" id="waterTotal">@Model.WaterTotal.ToString("N0") đ</div>
+            </div>
+        </div>
     </div>
-    <div class="col-12 col-md-4">
-        <div class="card h-100"><div class="card-body">
-            <div class="small text-muted">Tổng giá trị hóa đơn</div>
-            <div class="fw-semibold" id="revenueTotal">@revenueTotal.ToString("N0") đ</div>
-        </div></div>
+    <div class="col">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-muted mb-1">Tổng doanh thu tháng</div>
+                <div class="fs-4 fw-semibold text-nowrap" id="revenueTotal">@Model.RevenueTotal.ToString("N0") đ</div>
+            </div>
+        </div>
     </div>
 </div>
 
 <div class="row g-2 align-items-end mb-3">
-    <div class="col-sm-6 col-md-4">
+    <div class="col-sm-6 col-md-4 col-lg-3">
         <label for="roomFilter" class="form-label">Lọc theo phòng</label>
         <select id="roomFilter" class="form-select">
             <option value="">Tất cả phòng</option>
-            @foreach (var room in roomOptions)
+            @foreach (var room in Model.RoomOptions)
             {
                 <option value="@room">@room</option>
             }
         </select>
     </div>
-    <div class="col-sm-6 col-md-8 text-muted small">
-        Có thể chỉnh tiền phòng, tiền rác, nợ tháng trước và tiền giảm ngay trên dòng hóa đơn chưa thu. Nợ tháng trước không tự động chuyển từ hóa đơn cũ.
+    <div class="col-12 col-md-8 col-lg-9 text-muted">
+        Có thể điều chỉnh tiền phòng, tiền rác, nợ tháng trước và tiền giảm cho hóa đơn chưa thu. Nợ tháng trước được đối chiếu và nhập thủ công.
     </div>
 </div>
 
-@if (invoices.Count == 0)
+@if (Model.Invoices.Count == 0)
 {
     <div class="alert alert-info">
-        Chưa có hóa đơn kỳ @parsedMonth.ToString("MM/yyyy"). Nhập đủ chỉ số điện nước rồi chọn “Lập hóa đơn”.
+        Chưa có hóa đơn kỳ @billingPeriod.ToString("MM/yyyy"). Nhập đủ chỉ số điện nước rồi chọn “Lập hóa đơn”.
     </div>
 }
 else
 {
     <div class="table-responsive">
-        <table class="table table-bordered table-striped table-hover table-sm align-middle">
+        <table class="table table-bordered table-striped table-hover align-middle" style="min-width: 1900px;">
             <thead class="table-light">
                 <tr>
-                    <th>Mã phòng / hóa đơn</th>
+                    <th>Mã phòng</th>
                     <th>Trạng thái thu</th>
-                    <th>Người thuê</th>
+                    <th>Tên khách thuê</th>
                     <th class="text-end">Tiền phòng</th>
                     <th class="text-end">Điện cũ<br />@previousMonth.ToString("MM/yyyy")</th>
-                    <th class="text-end">Điện mới<br />@parsedMonth.ToString("MM/yyyy")</th>
+                    <th class="text-end">Điện mới<br />@billingPeriod.ToString("MM/yyyy")</th>
                     <th class="text-end">Số điện dùng</th>
                     <th class="text-end">Nước cũ<br />@previousMonth.ToString("MM/yyyy")</th>
-                    <th class="text-end">Nước mới<br />@parsedMonth.ToString("MM/yyyy")</th>
+                    <th class="text-end">Nước mới<br />@billingPeriod.ToString("MM/yyyy")</th>
                     <th class="text-end">Số nước dùng</th>
                     <th class="text-end">Tiền rác</th>
                     <th class="text-end">Internet</th>
@@ -169,23 +176,13 @@ else
                 </tr>
             </thead>
             <tbody>
-            @foreach (var invoice in invoices)
+            @foreach (var invoice in Model.Invoices)
             {
-                var isPaid = invoice.Status == "Paid";
-                var contractStatus = invoice.Contract?.Status ?? "";
-                var contractStatusLabel = contractStatus switch
-                {
-                    "Active" => "Đang hiệu lực",
-                    "Expired" => "Hết hạn",
-                    "Terminated" => "Đã kết thúc",
-                    "Draft" => "Bản nháp",
-                    _ => contractStatus
-                };
                 var amountFormId = $"amount-form-{invoice.InvoiceId}";
 
                 <tr data-invoice-row
-                    data-room-key="@invoice.RoomLabelSnapshot"
-                    data-paid="@(isPaid ? "true" : "false")"
+                    data-room-key="@invoice.RoomLabel"
+                    data-paid="@(invoice.IsPaid ? "true" : "false")"
                     data-total="@invoice.TotalAmount.ToString(CultureInfo.InvariantCulture)"
                     data-electricity="@invoice.ElectricityAmount.ToString(CultureInfo.InvariantCulture)"
                     data-water="@invoice.WaterAmount.ToString(CultureInfo.InvariantCulture)">
@@ -193,66 +190,73 @@ else
                         <form id="@amountFormId" asp-action="UpdateAmounts" method="post">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="id" value="@invoice.InvoiceId" />
-                            <input type="hidden" name="billingMonth" value="@billingMonth" />
+                            <input type="hidden" name="billingMonth" value="@Model.BillingMonth" />
                         </form>
-                        <div class="fw-semibold">@invoice.RoomLabelSnapshot</div>
-                        <div class="small text-muted">@invoice.InvoiceCode</div>
+                        <div class="fw-semibold text-nowrap">@invoice.RoomLabel</div>
+                        <div class="text-muted small">@invoice.InvoiceCode</div>
                     </td>
-                    <td>
+                    <td class="text-nowrap">
                         <form asp-action="UpdatePaymentStatus" method="post" class="payment-status-form">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="id" value="@invoice.InvoiceId" />
                             <div class="form-check">
                                 <input class="form-check-input payment-status-checkbox" type="checkbox"
-                                       name="isPaid" value="true" checked="@(isPaid ? "checked" : null)"
+                                       name="isPaid" value="true" checked="@(invoice.IsPaid ? "checked" : null)"
                                        aria-label="Đánh dấu đã thu hóa đơn @invoice.InvoiceCode" />
-                                <label class="form-check-label payment-status-label">@(isPaid ? "Đã thu" : "Chưa thu")</label>
+                                <label class="form-check-label payment-status-label">@(invoice.IsPaid ? "Đã thu" : "Chưa thu")</label>
                             </div>
                         </form>
                     </td>
-                    <td>@invoice.TenantNamesSnapshot</td>
+                    <td>@invoice.TenantNames</td>
                     <td>
                         <input form="@amountFormId" name="rentAmount" type="number"
-                               class="form-control form-control-sm amount-input" min="0" step="1000"
+                               class="form-control amount-input" min="0" step="1000"
                                value="@invoice.RentAmount.ToString(CultureInfo.InvariantCulture)"
-                               aria-label="Tiền phòng" required disabled="@isPaid" />
+                               aria-label="Tiền phòng" required disabled="@(invoice.IsPaid ? "disabled" : null)" />
                     </td>
                     <td class="text-end text-nowrap">@invoice.PreviousElectricityReading.ToString("N2")</td>
                     <td class="text-end text-nowrap">@invoice.CurrentElectricityReading.ToString("N2")</td>
-                    <td class="text-end text-nowrap">@invoice.ElectricityConsumption.ToString("N2")</td>
+                    <td class="text-end text-nowrap" title="Đơn giá: @invoice.ElectricityUnitPrice.ToString("N0") đ/kWh">@invoice.ElectricityConsumption.ToString("N2")</td>
                     <td class="text-end text-nowrap">@invoice.PreviousWaterReading.ToString("N2")</td>
                     <td class="text-end text-nowrap">@invoice.CurrentWaterReading.ToString("N2")</td>
-                    <td class="text-end text-nowrap">@invoice.WaterConsumption.ToString("N2")</td>
+                    <td class="text-end text-nowrap" title="Đơn giá: @invoice.WaterUnitPrice.ToString("N0") đ/m³">@invoice.WaterConsumption.ToString("N2")</td>
                     <td>
                         <input form="@amountFormId" name="garbageFee" type="number"
-                               class="form-control form-control-sm amount-input" min="0" step="1000"
+                               class="form-control amount-input" min="0" step="1000"
                                value="@invoice.GarbageFee.ToString(CultureInfo.InvariantCulture)"
-                               aria-label="Tiền rác" required disabled="@isPaid" />
+                               aria-label="Tiền rác" required disabled="@(invoice.IsPaid ? "disabled" : null)" />
                     </td>
                     <td class="text-end text-nowrap">@invoice.WifiFee.ToString("N0") đ</td>
                     <td>
                         <input form="@amountFormId" name="previousDebtAmount" type="number"
-                               class="form-control form-control-sm amount-input" min="0" step="1000"
+                               class="form-control amount-input" min="0" step="1000"
                                value="@invoice.PreviousDebtAmount.ToString(CultureInfo.InvariantCulture)"
-                               aria-label="Nợ tháng trước" required disabled="@isPaid" />
+                               aria-label="Nợ tháng trước" required disabled="@(invoice.IsPaid ? "disabled" : null)" />
                     </td>
                     <td>
                         <input form="@amountFormId" name="discountAmount" type="number"
-                               class="form-control form-control-sm amount-input" min="0" step="1000"
+                               class="form-control amount-input" min="0" step="1000"
                                value="@invoice.DiscountAmount.ToString(CultureInfo.InvariantCulture)"
-                               aria-label="Tiền giảm trừ" required disabled="@isPaid" />
+                               aria-label="Tiền giảm trừ" required disabled="@(invoice.IsPaid ? "disabled" : null)" />
                     </td>
                     <td class="text-end fw-semibold text-nowrap">@invoice.TotalAmount.ToString("N0") đ</td>
-                    <td class="text-nowrap">@contractStatusLabel</td>
+                    <td class="text-nowrap">@invoice.ContractStatusLabel</td>
                     <td>
-                        <div class="d-flex flex-column gap-1">
-                            <button type="submit" form="@amountFormId" class="btn btn-sm btn-primary" disabled="@isPaid">
-                                Lưu tiền
-                            </button>
+                        <div class="d-flex flex-column gap-2">
                             <a asp-action="Details" asp-route-id="@invoice.InvoiceId"
-                               class="btn btn-sm btn-outline-secondary">Chi tiết HĐ</a>
-                            <a asp-controller="RentalContract" asp-action="Details" asp-route-id="@invoice.ContractId"
-                               class="btn btn-sm btn-outline-secondary">Hợp đồng</a>
+                               class="btn btn-sm btn-primary text-nowrap">Chi tiết/In HĐ</a>
+                            @if (invoice.ContractStatus == "Active")
+                            {
+                                <a asp-controller="RentalContract" asp-action="Details" asp-route-id="@invoice.ContractId"
+                                   class="btn btn-sm btn-danger text-nowrap">Trả phòng</a>
+                            }
+                            else
+                            {
+                                <a asp-controller="RentalContract" asp-action="Details" asp-route-id="@invoice.ContractId"
+                                   class="btn btn-sm btn-outline-danger text-nowrap">Hợp đồng</a>
+                            }
+                            <button type="submit" form="@amountFormId" class="btn btn-sm btn-outline-primary text-nowrap"
+                                    disabled="@(invoice.IsPaid ? "disabled" : null)">Lưu tiền</button>
                         </div>
                     </td>
                 </tr>
@@ -269,7 +273,6 @@ else
             const rows = Array.from(document.querySelectorAll("[data-invoice-row]"));
             const feedback = document.getElementById("paymentFeedback");
             const moneyFormatter = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 });
-
             const formatMoney = value => moneyFormatter.format(value) + " đ";
 
             function updateSummary() {
