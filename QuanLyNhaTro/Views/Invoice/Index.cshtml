@@ -64,7 +64,7 @@
             <div class="d-flex flex-wrap align-items-center gap-2">
                 <a asp-action="Index" asp-route-billingMonth="@previousMonth.ToString("yyyy-MM")"
                    class="btn btn-outline-secondary" aria-label="Xem kỳ hóa đơn trước">‹ Tháng trước</a>
-                <form asp-action="Index" method="get" class="d-flex flex-wrap align-items-center gap-2">
+                <form asp-action="Index" method="get" class="d-flex align-items-center gap-2">
                     <label class="form-label mb-0 fw-semibold" for="billingMonth">Kỳ:</label>
                     <input id="billingMonth" name="billingMonth" type="month" value="@Model.BillingMonth"
                            max="@Model.CurrentMonth" class="form-control" required />
