@@ -167,6 +167,8 @@ public class ApplicationDbContext : DbContext
             entity.Property(invoice => invoice.WaterAmount).HasColumnType("decimal(18,2)");
             entity.Property(invoice => invoice.GarbageFee).HasColumnType("decimal(18,2)");
             entity.Property(invoice => invoice.WifiFee).HasColumnType("decimal(18,2)");
+            entity.Property(invoice => invoice.PreviousDebtAmount).HasColumnType("decimal(18,2)");
+            entity.Property(invoice => invoice.DiscountAmount).HasColumnType("decimal(18,2)");
             entity.Property(invoice => invoice.TotalAmount).HasColumnType("decimal(18,2)");
 
             entity.HasIndex(invoice => invoice.InvoiceCode)

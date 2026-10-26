@@ -89,6 +89,9 @@ namespace QuanLyNhaTro.Migrations
                     b.Property<decimal>("CurrentWaterReading")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<decimal>("DiscountAmount")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<decimal>("ElectricityAmount")
                         .HasColumnType("decimal(18,2)");
 
@@ -112,6 +115,9 @@ namespace QuanLyNhaTro.Migrations
                     b.Property<string>("Notes")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
+
+                    b.Property<decimal>("PreviousDebtAmount")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("PreviousElectricityReading")
                         .HasColumnType("decimal(18,2)");
