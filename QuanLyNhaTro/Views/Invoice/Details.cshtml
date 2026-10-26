@@ -5,83 +5,58 @@
     var isPaid = Model.Status == "Paid";
 }
 
-<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
-    <h1>Chi tiết hóa đơn @Model.InvoiceCode</h1>
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div>
+        <h1 class="mb-1">Chi tiết hóa đơn</h1>
+        <div class="text-muted">@Model.InvoiceCode</div>
+    </div>
     <a asp-action="Index" asp-route-billingMonth="@Model.BillingMonth.ToString("yyyy-MM")"
        class="btn btn-outline-secondary">Quay lại danh sách</a>
 </div>
 
-<p class="mb-1"><strong>Kỳ hóa đơn:</strong> @Model.BillingMonth.ToString("MM/yyyy")</p>
-<p class="mb-1"><strong>Ngày lập:</strong> @Model.IssuedAt.ToString("dd/MM/yyyy HH:mm")</p>
-<p class="mb-1"><strong>Trạng thái thu:</strong> @(isPaid ? "Đã thu" : "Chưa thu")</p>
-<p class="mb-1"><strong>Khu nhà / phòng:</strong> @Model.RoomLabelSnapshot</p>
-<p class="mb-1"><strong>Người thuê:</strong> @Model.TenantNamesSnapshot</p>
-<p class="mb-4"><strong>Mã hợp đồng:</strong> @Model.ContractCodeSnapshot</p>
+<div class="card mb-3">
+    <div class="card-header">Thông tin hóa đơn</div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-4"><strong>Kỳ hóa đơn:</strong> @Model.BillingMonth.ToString("MM/yyyy")</div>
+            <div class="col-md-4"><strong>Ngày lập:</strong> @Model.IssuedAt.ToString("dd/MM/yyyy HH:mm")</div>
+            <div class="col-md-4"><strong>Trạng thái thu:</strong> @(isPaid ? "Đã thu" : "Chưa thu")</div>
+            <div class="col-md-6"><strong>Khu nhà / phòng:</strong> @Model.RoomLabelSnapshot</div>
+            <div class="col-md-6"><strong>Người thuê:</strong> @Model.TenantNamesSnapshot</div>
+            <div class="col-12"><strong>Mã hợp đồng:</strong> @Model.ContractCodeSnapshot</div>
+        </div>
+    </div>
+</div>
 
 <div class="table-responsive">
-    <table class="table table-striped table-bordered align-middle">
+    <table class="table table-bordered table-striped align-middle">
         <thead class="table-light">
-            <tr>
-                <th>Khoản thu</th>
-                <th>Diễn giải</th>
-                <th class="text-end">Thành tiền</th>
-            </tr>
+            <tr><th>Khoản thu</th><th>Diễn giải</th><th class="text-end">Thành tiền</th></tr>
         </thead>
         <tbody>
-            <tr>
-                <td>Tiền thuê phòng</td>
-                <td>Giá thuê theo hợp đồng</td>
-                <td class="text-end">@Model.RentAmount.ToString("N0") VNĐ</td>
-            </tr>
+            <tr><td>Tiền thuê phòng</td><td>Giá thuê theo hóa đơn</td><td class="text-end">@Model.RentAmount.ToString("N0") đ</td></tr>
             <tr>
                 <td>Tiền điện</td>
-                <td>
-                    Chỉ số: @Model.PreviousElectricityReading.ToString("N2") → @Model.CurrentElectricityReading.ToString("N2") kWh;
-                    tiêu thụ @Model.ElectricityConsumption.ToString("N2") kWh × @Model.ElectricityUnitPrice.ToString("N0") VNĐ/kWh
-                </td>
-                <td class="text-end">@Model.ElectricityAmount.ToString("N0") VNĐ</td>
+                <td>Chỉ số @Model.PreviousElectricityReading.ToString("N2") → @Model.CurrentElectricityReading.ToString("N2") kWh; dùng @Model.ElectricityConsumption.ToString("N2") kWh × @Model.ElectricityUnitPrice.ToString("N0") đ/kWh</td>
+                <td class="text-end">@Model.ElectricityAmount.ToString("N0") đ</td>
             </tr>
             <tr>
                 <td>Tiền nước</td>
-                <td>
-                    Chỉ số: @Model.PreviousWaterReading.ToString("N2") → @Model.CurrentWaterReading.ToString("N2") m³;
-                    tiêu thụ @Model.WaterConsumption.ToString("N2") m³ × @Model.WaterUnitPrice.ToString("N0") VNĐ/m³
-                </td>
-                <td class="text-end">@Model.WaterAmount.ToString("N0") VNĐ</td>
+                <td>Chỉ số @Model.PreviousWaterReading.ToString("N2") → @Model.CurrentWaterReading.ToString("N2") m³; dùng @Model.WaterConsumption.ToString("N2") m³ × @Model.WaterUnitPrice.ToString("N0") đ/m³</td>
+                <td class="text-end">@Model.WaterAmount.ToString("N0") đ</td>
             </tr>
-            <tr>
-                <td>Phí rác</td>
-                <td>Phụ phí theo cấu hình tại thời điểm lập hóa đơn</td>
-                <td class="text-end">@Model.GarbageFee.ToString("N0") VNĐ</td>
-            </tr>
-            <tr>
-                <td>Phí Internet</td>
-                <td>Phụ phí theo cấu hình tại thời điểm lập hóa đơn</td>
-                <td class="text-end">@Model.WifiFee.ToString("N0") VNĐ</td>
-            </tr>
-            <tr>
-                <td>Nợ tháng trước</td>
-                <td>Số dư chưa thanh toán được chuyển từ kỳ trước</td>
-                <td class="text-end">@Model.PreviousDebtAmount.ToString("N0") VNĐ</td>
-            </tr>
-            <tr>
-                <td>Tiền giảm trừ</td>
-                <td>Khoản giảm được áp dụng cho hóa đơn này</td>
-                <td class="text-end">-@Model.DiscountAmount.ToString("N0") VNĐ</td>
-            </tr>
+            <tr><td>Tiền rác</td><td>Phí được ghi nhận cho hóa đơn này</td><td class="text-end">@Model.GarbageFee.ToString("N0") đ</td></tr>
+            <tr><td>Internet</td><td>Phí được ghi nhận cho hóa đơn này</td><td class="text-end">@Model.WifiFee.ToString("N0") đ</td></tr>
+            <tr><td>Nợ tháng trước</td><td>Khoản nợ được người quản lý nhập sau khi đối chiếu</td><td class="text-end">@Model.PreviousDebtAmount.ToString("N0") đ</td></tr>
+            <tr><td>Tiền giảm trừ</td><td>Khoản giảm áp dụng cho kỳ này</td><td class="text-end">-@Model.DiscountAmount.ToString("N0") đ</td></tr>
         </tbody>
         <tfoot class="table-light">
-            <tr>
-                <th colspan="2" class="text-end">Tổng cần thanh toán</th>
-                <th class="text-end">@Model.TotalAmount.ToString("N0") VNĐ</th>
-            </tr>
+            <tr><th colspan="2" class="text-end">Tổng cần thanh toán</th><th class="text-end">@Model.TotalAmount.ToString("N0") đ</th></tr>
         </tfoot>
     </table>
 </div>
 
 @if (!string.IsNullOrWhiteSpace(Model.Notes))
 {
-    <div class="alert alert-secondary mt-3">
-        <strong>Ghi chú:</strong> @Model.Notes
-    </div>
+    <div class="alert alert-secondary mt-3"><strong>Ghi chú:</strong> @Model.Notes</div>
 }
