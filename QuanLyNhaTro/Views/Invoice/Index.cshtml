@@ -442,7 +442,7 @@ else
 
             function getRoomCode(row) {
                 const label = row.dataset.roomKey || "";
-                const match = label.match(/phòng\\s+(.+)$/i);
+                const match = label.match(/phòng\s+(.+)$/i);
                 return match ? match[1].trim() : label;
             }
 
