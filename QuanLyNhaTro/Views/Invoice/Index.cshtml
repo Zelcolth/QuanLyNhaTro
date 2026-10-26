@@ -5,6 +5,10 @@
     ViewData["Title"] = "Quản lý hóa đơn";
     var billingPeriod = DateTime.ParseExact(Model.BillingMonth, "yyyy-MM", CultureInfo.InvariantCulture);
     var previousMonth = billingPeriod.AddMonths(-1);
+    var nextMonth = billingPeriod.AddMonths(1);
+    var currentMonth = DateTime.ParseExact(Model.CurrentMonth, "yyyy-MM", CultureInfo.InvariantCulture);
+    var canGoNext = nextMonth <= currentMonth;
+    var paidPercent = Model.Invoices.Count == 0 ? 0 : Model.PaidCount * 100 / Model.Invoices.Count;
 }
 
 <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
@@ -56,36 +60,40 @@
 
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-body">
-        <form asp-action="Index" method="get" class="row g-2 align-items-end">
-            <div class="col-sm-4 col-md-3">
-                <label for="billingMonth" class="form-label">Kỳ hóa đơn</label>
-                <input id="billingMonth" name="billingMonth" type="month" value="@Model.BillingMonth"
-                       max="@Model.CurrentMonth" class="form-control" required />
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <a asp-action="Index" asp-route-billingMonth="@previousMonth.ToString("yyyy-MM")"
+                   class="btn btn-outline-secondary" aria-label="Xem kỳ hóa đơn trước">‹ Tháng trước</a>
+                <form asp-action="Index" method="get" class="d-flex flex-wrap align-items-center gap-2">
+                    <label class="form-label mb-0 fw-semibold" for="billingMonth">Kỳ:</label>
+                    <input id="billingMonth" name="billingMonth" type="month" value="@Model.BillingMonth"
+                           max="@Model.CurrentMonth" class="form-control" required />
+                    <button type="submit" class="btn btn-outline-primary">Xem</button>
+                </form>
+                @if (canGoNext)
+                {
+                    <a asp-action="Index" asp-route-billingMonth="@nextMonth.ToString("yyyy-MM")"
+                       class="btn btn-outline-secondary" aria-label="Xem kỳ hóa đơn sau">Tháng sau ›</a>
+                }
+                else
+                {
+                    <button type="button" class="btn btn-outline-secondary" disabled>Tháng sau ›</button>
+                }
             </div>
-            <div class="col-auto">
-                <button type="submit" class="btn btn-outline-primary">Xem kỳ</button>
+            <div class="text-md-end">
+                <div class="fw-semibold">Hóa đơn tháng @billingPeriod.ToString("MM/yyyy")</div>
+                <div class="small text-muted" id="paidInvoiceCount">@Model.PaidCount/@Model.Invoices.Count phòng đã thu tiền</div>
             </div>
-        </form>
+        </div>
+        <div class="progress mt-3" style="height: 7px;" role="progressbar"
+             aria-label="Tiến độ thu tiền hóa đơn" aria-valuenow="@paidPercent"
+             aria-valuemin="0" aria-valuemax="100">
+            <div id="paidProgressBar" class="progress-bar bg-success" style="width: @paidPercent%"></div>
+        </div>
     </div>
 </div>
 
-<div class="row row-cols-1 row-cols-sm-2 row-cols-xl-4 g-3 mb-4">
-    <div class="col">
-        <div class="card h-100">
-            <div class="card-body">
-                <div class="text-muted mb-1">Phòng chưa thu</div>
-                <div class="fs-4 fw-semibold" id="unpaidCount">@Model.UnpaidCount</div>
-            </div>
-        </div>
-    </div>
-    <div class="col">
-        <div class="card h-100">
-            <div class="card-body">
-                <div class="text-muted mb-1">Phòng đã thu</div>
-                <div class="fs-4 fw-semibold" id="paidCount">@Model.PaidCount</div>
-            </div>
-        </div>
-    </div>
+<div class="row row-cols-1 row-cols-sm-2 row-cols-xl-3 g-3 mb-4">
     <div class="col">
         <div class="card h-100">
             <div class="card-body">
@@ -302,8 +310,16 @@ else
                 const unpaidRows = rows.filter(row => row.dataset.paid !== "true");
                 const sum = (items, key) => items.reduce((total, row) => total + Number(row.dataset[key] || 0), 0);
 
-                document.getElementById("paidCount").textContent = paidRows.length;
-                document.getElementById("unpaidCount").textContent = unpaidRows.length;
+                const paidPercent = rows.length ? Math.round(paidRows.length * 100 / rows.length) : 0;
+                const paidCountDisplay = document.getElementById("paidInvoiceCount");
+                const paidProgressBar = document.getElementById("paidProgressBar");
+                if (paidCountDisplay) paidCountDisplay.textContent = `${paidRows.length}/${rows.length} phòng đã thu tiền`;
+                if (paidProgressBar) {
+                    paidProgressBar.style.width = paidPercent + "%";
+                    const progress = paidProgressBar.closest('[role="progressbar"]');
+                    if (progress) progress.setAttribute("aria-valuenow", String(paidPercent));
+                }
+
                 document.getElementById("collectedAmount").textContent = formatMoney(sum(paidRows, "total"));
                 document.getElementById("outstandingAmount").textContent = formatMoney(sum(unpaidRows, "total"));
                 document.getElementById("electricityTotal").textContent = formatMoney(sum(rows, "electricity"));
