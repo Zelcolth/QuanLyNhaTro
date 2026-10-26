@@ -8,7 +8,7 @@ public sealed class InvoiceItemViewModel
     public int ContractId { get; init; }
     public string InvoiceCode { get; init; } = string.Empty;
     public string RoomLabel { get; init; } = string.Empty;
-    public string TenantNames { get; init; } = string.Empty;
+    public string TenantName { get; init; } = string.Empty;
     public string Status { get; init; } = "Unpaid";
     public string ContractStatus { get; init; } = string.Empty;
 
@@ -50,7 +50,9 @@ public sealed class InvoiceItemViewModel
             ContractId = invoice.ContractId,
             InvoiceCode = invoice.InvoiceCode,
             RoomLabel = invoice.RoomLabelSnapshot,
-            TenantNames = invoice.TenantNamesSnapshot,
+            TenantName = invoice.TenantNamesSnapshot
+                .Split(", ", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                .FirstOrDefault() ?? invoice.TenantNamesSnapshot,
             Status = invoice.Status,
             ContractStatus = invoice.Contract?.Status ?? string.Empty,
             RentAmount = invoice.RentAmount,
