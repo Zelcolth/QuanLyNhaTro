@@ -256,8 +256,9 @@ else
                                class="btn btn-sm btn-primary text-nowrap">Chi tiết/In HĐ</a>
                             @if (invoice.ContractStatus == "Active")
                             {
-                                <a asp-controller="RentalContract" asp-action="Details" asp-route-id="@invoice.ContractId"
-                                   class="btn btn-sm btn-danger text-nowrap">Trả phòng</a>
+                                <button type="button" class="btn btn-sm btn-danger text-nowrap" disabled
+                                        title="Chức năng trả phòng sẽ được triển khai ở đợt báo cáo sau"
+                                        aria-disabled="true">Trả phòng</button>
                             }
                             else
                             {
