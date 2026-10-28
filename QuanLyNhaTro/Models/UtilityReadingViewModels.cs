@@ -16,10 +16,12 @@ public class UtilityReadingFormViewModel
     [Display(Name = "Kỳ ghi chỉ số")]
     public string ReadingMonth { get; set; } = DateTime.Today.ToString("yyyy-MM");
 
+    [Required(ErrorMessage = "Vui lòng nhập chỉ số điện mới.")]
     [Range(typeof(decimal), "0", "9999999999999999.99", ErrorMessage = "Chỉ số điện phải là số không âm hợp lệ.")]
     [Display(Name = "Chỉ số điện mới (kWh)")]
     public decimal ElectricityReading { get; set; }
 
+    [Required(ErrorMessage = "Vui lòng nhập chỉ số nước mới.")]
     [Range(typeof(decimal), "0", "9999999999999999.99", ErrorMessage = "Chỉ số nước phải là số không âm hợp lệ.")]
     [Display(Name = "Chỉ số nước mới (m³)")]
     public decimal WaterReading { get; set; }
@@ -66,8 +68,9 @@ public class UtilityReadingListItemViewModel
 
 public class UtilityReadingBatchViewModel
 {
-    [Required]
+    [Required(ErrorMessage = "Vui lòng chọn kỳ ghi chỉ số.")]
     [RegularExpression(@"^\d{4}-(0[1-9]|1[0-2])$", ErrorMessage = "Kỳ ghi chỉ số không hợp lệ.")]
+    [Display(Name = "Kỳ ghi chỉ số")]
     public string ReadingMonth { get; set; } = DateTime.Today.ToString("yyyy-MM");
 
     public string CurrentMonth { get; set; } = DateTime.Today.ToString("yyyy-MM");
