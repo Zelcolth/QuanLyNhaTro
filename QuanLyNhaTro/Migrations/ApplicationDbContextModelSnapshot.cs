@@ -171,6 +171,37 @@ namespace QuanLyNhaTro.Migrations
                     b.ToTable("Invoices");
                 });
 
+            modelBuilder.Entity("QuanLyNhaTro.Models.InvoicePeriodConfig", b =>
+                {
+                    b.Property<int>("InvoicePeriodConfigId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("InvoicePeriodConfigId"));
+
+                    b.Property<DateTime>("BillingMonth")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("ElectricityPrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("GarbageFee")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("WaterPrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("WifiFee")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("InvoicePeriodConfigId");
+
+                    b.HasIndex("BillingMonth")
+                        .IsUnique();
+
+                    b.ToTable("InvoicePeriodConfigs");
+                });
+
             modelBuilder.Entity("QuanLyNhaTro.Models.RentalContract", b =>
                 {
                     b.Property<int>("ContractId")

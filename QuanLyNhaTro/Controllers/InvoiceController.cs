@@ -240,19 +240,12 @@ public class InvoiceController : Controller
         }
 
         var periodEnd = period.AddMonths(1).AddDays(-1);
-        var config = await _context.SystemConfigs
+        var periodConfig = await _context.InvoicePeriodConfigs
+            .FirstOrDefaultAsync(item => item.BillingMonth == period);
+        var currentConfig = await _context.SystemConfigs
             .AsNoTracking()
             .OrderBy(item => item.ConfigId)
             .FirstOrDefaultAsync();
-
-        if (config is null)
-        {
-            TempData["ErrorMessage"] = "Chưa có cấu hình đơn giá. Hãy hoàn tất mục Cấu hình trước khi lập hóa đơn.";
-            return RedirectToAction(nameof(Index), new
-            {
-                billingMonth = period.ToString("yyyy-MM", CultureInfo.InvariantCulture)
-            });
-        }
 
         // Only bill contracts that cover the entire month. Partial-month move-in/move-out
         // settlement is intentionally kept for the later contract-termination workflow.
@@ -283,11 +276,47 @@ public class InvoiceController : Controller
             });
         }
 
-        var existingContractIds = await _context.Invoices
+        var existingInvoices = await _context.Invoices
             .Where(invoice => invoice.BillingMonth == period)
-            .Select(invoice => invoice.ContractId)
+            .AsNoTracking()
             .ToListAsync();
-        var existingSet = existingContractIds.ToHashSet();
+        var existingSet = existingInvoices
+            .Select(invoice => invoice.ContractId)
+            .ToHashSet();
+
+        var isNewPeriodConfig = false;
+        string? legacyPriceWarning = null;
+
+        if (periodConfig is null)
+        {
+            if (existingInvoices.Count > 0)
+            {
+                // Backfill older periods from existing invoices rather than current settings.
+                // When legacy invoices differ, use the most common value as the reference.
+                periodConfig = CreatePeriodConfigFromExistingInvoices(period, existingInvoices);
+                isNewPeriodConfig = true;
+
+                if (existingInvoices.Select(invoice => invoice.ElectricityUnitPrice).Distinct().Count() > 1
+                    || existingInvoices.Select(invoice => invoice.WaterUnitPrice).Distinct().Count() > 1
+                    || existingInvoices.Select(invoice => invoice.WifiFee).Distinct().Count() > 1)
+                {
+                    legacyPriceWarning = $"Kỳ {period:MM/yyyy} đã có hóa đơn với đơn giá điện, nước hoặc phí Wi-Fi không đồng nhất. Hệ thống dùng mức xuất hiện nhiều nhất làm bộ giá tham chiếu cho hóa đơn còn thiếu; vui lòng kiểm tra các hóa đơn cũ.";
+                }
+            }
+            else if (currentConfig is not null)
+            {
+                periodConfig = CreatePeriodConfigFromSystemConfig(period, currentConfig);
+                isNewPeriodConfig = true;
+            }
+            else
+            {
+                TempData["ErrorMessage"] = "Chưa có cấu hình đơn giá. Hãy hoàn tất mục Cấu hình trước khi lập hóa đơn.";
+                return RedirectToAction(nameof(Index), new
+                {
+                    billingMonth = period.ToString("yyyy-MM", CultureInfo.InvariantCulture)
+                });
+            }
+        }
 
         var conflictingRoomIds = contracts
             .GroupBy(contract => contract.RoomId)
@@ -354,11 +383,11 @@ public class InvoiceController : Controller
             }
 
             var electricityAmount = decimal.Round(
-                electricityConsumption * config.ElectricityPrice,
+                electricityConsumption * periodConfig.ElectricityPrice,
                 0,
                 MidpointRounding.AwayFromZero);
             var waterAmount = decimal.Round(
-                waterConsumption * config.WaterPrice,
+                waterConsumption * periodConfig.WaterPrice,
                 0,
                 MidpointRounding.AwayFromZero);
             var rentAmount = contract.MonthlyRent;
@@ -369,8 +398,8 @@ public class InvoiceController : Controller
             var totalAmount = rentAmount
                 + electricityAmount
                 + waterAmount
-                + config.GarbageFee
-                + config.WifiFee
+                + periodConfig.GarbageFee
+                + periodConfig.WifiFee
                 + previousDebtAmount
                 - discountAmount;
 
@@ -387,15 +416,15 @@ public class InvoiceController : Controller
                 PreviousElectricityReading = previousReading.ElectricityReading,
                 CurrentElectricityReading = currentReading.ElectricityReading,
                 ElectricityConsumption = electricityConsumption,
-                ElectricityUnitPrice = config.ElectricityPrice,
+                ElectricityUnitPrice = periodConfig.ElectricityPrice,
                 ElectricityAmount = electricityAmount,
                 PreviousWaterReading = previousReading.WaterReading,
                 CurrentWaterReading = currentReading.WaterReading,
                 WaterConsumption = waterConsumption,
-                WaterUnitPrice = config.WaterPrice,
+                WaterUnitPrice = periodConfig.WaterPrice,
                 WaterAmount = waterAmount,
-                GarbageFee = config.GarbageFee,
-                WifiFee = config.WifiFee,
+                GarbageFee = periodConfig.GarbageFee,
+                WifiFee = periodConfig.WifiFee,
                 PreviousDebtAmount = previousDebtAmount,
                 DiscountAmount = discountAmount,
                 TotalAmount = totalAmount,
@@ -403,17 +432,28 @@ public class InvoiceController : Controller
             });
         }
 
+        var shouldSavePeriodConfig = isNewPeriodConfig
+            && (existingInvoices.Count > 0 || newInvoices.Count > 0);
+
         if (newInvoices.Count > 0)
         {
             _context.Invoices.AddRange(newInvoices);
+        }
 
+        if (shouldSavePeriodConfig)
+        {
+            _context.InvoicePeriodConfigs.Add(periodConfig!);
+        }
+
+        if (newInvoices.Count > 0 || shouldSavePeriodConfig)
+        {
             try
             {
                 await _context.SaveChangesAsync();
             }
             catch (DbUpdateException)
             {
-                TempData["ErrorMessage"] = "Không thể lưu hóa đơn. Có thể dữ liệu đã được thay đổi hoặc hóa đơn đã được lập ở phiên khác; hãy tải lại trang và kiểm tra.";
+                TempData["ErrorMessage"] = "Không thể lưu hóa đơn hoặc bộ đơn giá của kỳ. Có thể dữ liệu đã được thay đổi hoặc hóa đơn đã được lập ở phiên khác; hãy tải lại trang và kiểm tra.";
                 return RedirectToAction(nameof(Index), new
                 {
                     billingMonth = period.ToString("yyyy-MM", CultureInfo.InvariantCulture)
@@ -423,7 +463,7 @@ public class InvoiceController : Controller
 
         if (newInvoices.Count > 0)
         {
-            TempData["SuccessMessage"] = $"Đã lập {newInvoices.Count} hóa đơn cho kỳ {period:MM/yyyy}. Tổng giá trị: {newInvoices.Sum(invoice => invoice.TotalAmount):N0} VNĐ."
+            TempData["SuccessMessage"] = $"Đã lập {newInvoices.Count} hóa đơn cho kỳ {period:MM/yyyy} theo bộ đơn giá đã lưu. Tổng giá trị: {newInvoices.Sum(invoice => invoice.TotalAmount):N0} VNĐ."
                 + (alreadyCreatedCount > 0 ? $" Bỏ qua {alreadyCreatedCount} hóa đơn đã tồn tại." : string.Empty);
         }
         else if (alreadyCreatedCount > 0 && errors.Count == 0)
@@ -435,10 +475,21 @@ public class InvoiceController : Controller
             TempData["ErrorMessage"] = "Không tạo được hóa đơn mới cho kỳ này.";
         }
 
-        if (errors.Count > 0)
+        var generationWarnings = new List<string>();
+        if (!string.IsNullOrWhiteSpace(legacyPriceWarning))
         {
-            TempData["GenerationWarnings"] = string.Join(" | ", errors.Take(5))
-                + (errors.Count > 5 ? $" | Còn {errors.Count - 5} phòng cần kiểm tra." : string.Empty);
+            generationWarnings.Add(legacyPriceWarning);
+        }
+
+        generationWarnings.AddRange(errors.Take(5));
+        if (errors.Count > 5)
+        {
+            generationWarnings.Add($"Còn {errors.Count - 5} phòng cần kiểm tra.");
+        }
+
+        if (generationWarnings.Count > 0)
+        {
+            TempData["GenerationWarnings"] = string.Join(" | ", generationWarnings);
         }
 
         return RedirectToAction(nameof(Index), new
@@ -461,6 +512,46 @@ public class InvoiceController : Controller
         }
 
         return View(invoice);
+    }
+
+    private static InvoicePeriodConfig CreatePeriodConfigFromSystemConfig(
+        DateTime period,
+        SystemConfig config)
+    {
+        return new InvoicePeriodConfig
+        {
+            BillingMonth = period,
+            ElectricityPrice = config.ElectricityPrice,
+            WaterPrice = config.WaterPrice,
+            GarbageFee = config.GarbageFee,
+            WifiFee = config.WifiFee
+        };
+    }
+
+    private static InvoicePeriodConfig CreatePeriodConfigFromExistingInvoices(
+        DateTime period,
+        IReadOnlyCollection<Invoice> invoices)
+    {
+        return new InvoicePeriodConfig
+        {
+            BillingMonth = period,
+            ElectricityPrice = MostCommonAmount(invoices.Select(invoice => invoice.ElectricityUnitPrice)),
+            WaterPrice = MostCommonAmount(invoices.Select(invoice => invoice.WaterUnitPrice)),
+            // Garbage may be edited per invoice, so the most common existing value is the best
+            // available estimate of the period's default when backfilling legacy invoices.
+            GarbageFee = MostCommonAmount(invoices.Select(invoice => invoice.GarbageFee)),
+            WifiFee = MostCommonAmount(invoices.Select(invoice => invoice.WifiFee))
+        };
+    }
+
+    private static decimal MostCommonAmount(IEnumerable<decimal> amounts)
+    {
+        return amounts
+            .GroupBy(amount => amount)
+            .OrderByDescending(group => group.Count())
+            .ThenBy(group => group.Key)
+            .First()
+            .Key;
     }
 
     private static decimal CalculateAmountBeforeDiscount(Invoice invoice)

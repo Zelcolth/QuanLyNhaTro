@@ -19,6 +19,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<SystemConfig> SystemConfigs => Set<SystemConfig>();
     public DbSet<UtilityReading> UtilityReadings => Set<UtilityReading>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
+    public DbSet<InvoicePeriodConfig> InvoicePeriodConfigs => Set<InvoicePeriodConfig>();
     public DbSet<User> Users => Set<User>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -124,6 +125,27 @@ public class ApplicationDbContext : DbContext
             entity.Property(config => config.AccountName)
                 .HasMaxLength(100)
                 .HasColumnType("nvarchar(100)");
+        });
+
+        modelBuilder.Entity<InvoicePeriodConfig>(entity =>
+        {
+            entity.Property(config => config.BillingMonth)
+                .HasColumnType("date");
+
+            entity.Property(config => config.ElectricityPrice)
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(config => config.WaterPrice)
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(config => config.GarbageFee)
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(config => config.WifiFee)
+                .HasColumnType("decimal(18,2)");
+
+            entity.HasIndex(config => config.BillingMonth)
+                .IsUnique();
         });
 
         modelBuilder.Entity<Invoice>(entity =>
