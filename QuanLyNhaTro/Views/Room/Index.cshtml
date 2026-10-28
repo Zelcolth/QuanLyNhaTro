@@ -2,6 +2,8 @@
 
 @{
     ViewData["Title"] = "Quản lý phòng";
+    var invoicedRoomIds = ViewBag.InvoicedRoomIds as HashSet<int> ?? new HashSet<int>();
+    var invoiceBillingMonthLabel = ViewBag.InvoiceBillingMonthLabel as string ?? "";
 }
 
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -67,7 +69,8 @@ else
                     <th>Mã phòng</th>
                     <th>Giá thuê niêm yết/tháng</th>
                     <th>Số người tối đa</th>
-                    <th>Trạng thái</th>
+                    <th>Trạng thái phòng</th>
+                    <th>Trạng thái hóa đơn (@invoiceBillingMonthLabel)</th>
                     <th class="text-end">Thao tác</th>
                 </tr>
             </thead>
@@ -81,12 +84,23 @@ else
                     "Maintenance" => "Bảo trì",
                     _ => room.Status
                 };
+                var hasInvoiceForCurrentMonth = invoicedRoomIds.Contains(room.RoomId);
                 <tr>
                     <td>@room.Building.BuildingName</td>
                     <td>@room.RoomCode</td>
                     <td>@room.MonthlyRent.ToString("N0")</td>
                     <td>@room.MaxOccupants</td>
                     <td>@statusText</td>
+                    <td>
+                        @if (hasInvoiceForCurrentMonth)
+                        {
+                            <span class="badge text-bg-success">Đã có HĐ</span>
+                        }
+                        else
+                        {
+                            <span class="badge text-bg-secondary">Chưa có HĐ</span>
+                        }
+                    </td>
                     <td class="text-end">
                         <a asp-action="Details" asp-route-id="@room.RoomId" class="btn btn-sm btn-outline-info">Chi tiết</a>
                         <a asp-action="Edit" asp-route-id="@room.RoomId" class="btn btn-sm btn-outline-primary">Sửa</a>

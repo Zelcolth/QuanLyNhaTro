@@ -35,10 +35,20 @@ public class RoomController : Controller
             .ThenBy(room => room.RoomCode)
             .ToListAsync();
 
+        var today = DateTime.Today;
+        var currentBillingMonth = new DateTime(today.Year, today.Month, 1);
+        var invoicedRoomIds = await _context.Invoices
+            .Where(invoice => invoice.BillingMonth == currentBillingMonth)
+            .Select(invoice => invoice.Contract.RoomId)
+            .Distinct()
+            .ToListAsync();
+
         ViewBag.TotalRooms = rooms.Count;
         ViewBag.AvailableRooms = rooms.Count(room => room.Status == "Available");
         ViewBag.OccupiedRooms = rooms.Count(room => room.Status == "Occupied");
         ViewBag.MaintenanceRooms = rooms.Count(room => room.Status == "Maintenance");
+        ViewBag.InvoicedRoomIds = invoicedRoomIds.ToHashSet();
+        ViewBag.InvoiceBillingMonthLabel = currentBillingMonth.ToString("MM/yyyy");
 
         return View(rooms);
     }
