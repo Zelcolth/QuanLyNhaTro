@@ -48,7 +48,7 @@
                             <li class="nav-item">
                                 <a class="nav-link @(currentController == "UtilityReading" ? "active fw-semibold" : "")"
                                    aria-current="@(currentController == "UtilityReading" ? "page" : null)"
-                                   asp-controller="UtilityReading" asp-action="Index">Điện, nước</a>
+                                   asp-controller="UtilityReading" asp-action="Index">Điện nước</a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link @(currentController == "Invoice" ? "active fw-semibold" : "")"
@@ -64,9 +64,6 @@
                                 <a class="nav-link @(currentController == "Account" ? "active fw-semibold" : "")"
                                    aria-current="@(currentController == "Account" ? "page" : null)"
                                    asp-controller="Account" asp-action="ChangePassword">Đổi mật khẩu</a>
-                            </li>
-                            <li class="nav-item">
-                                <span class="nav-link text-secondary">@(User.Identity?.Name)</span>
                             </li>
                             <li class="nav-item d-flex align-items-center">
                                 <form asp-controller="Account" asp-action="Logout" method="post" class="m-0">

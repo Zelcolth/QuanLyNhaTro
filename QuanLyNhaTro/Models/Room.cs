@@ -8,7 +8,6 @@
 
         public string RoomCode { get; set; } = string.Empty;
 
-
         public decimal MonthlyRent { get; set; }
 
         public int MaxOccupants { get; set; } = 1;
