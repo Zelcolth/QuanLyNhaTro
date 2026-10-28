@@ -4,18 +4,22 @@ namespace QuanLyNhaTro.Models;
 
 public class SystemConfigViewModel : IValidatableObject
 {
+    [Required(ErrorMessage = "Vui lòng nhập đơn giá điện.")]
     [Range(typeof(decimal), "0.01", "10000000", ErrorMessage = "Đơn giá điện phải lớn hơn 0.")]
     [Display(Name = "Đơn giá điện (VNĐ/kWh)")]
     public decimal ElectricityPrice { get; set; }
 
+    [Required(ErrorMessage = "Vui lòng nhập đơn giá nước.")]
     [Range(typeof(decimal), "0.01", "10000000", ErrorMessage = "Đơn giá nước phải lớn hơn 0.")]
     [Display(Name = "Đơn giá nước (VNĐ/m³)")]
     public decimal WaterPrice { get; set; }
 
+    [Required(ErrorMessage = "Vui lòng nhập phí rác; có thể nhập 0.")]
     [Range(typeof(decimal), "0", "10000000", ErrorMessage = "Phí rác không được âm.")]
     [Display(Name = "Phí rác hàng tháng (VNĐ)")]
     public decimal GarbageFee { get; set; }
 
+    [Required(ErrorMessage = "Vui lòng nhập phí Wi-Fi; có thể nhập 0.")]
     [Range(typeof(decimal), "0", "10000000", ErrorMessage = "Phí Wi-Fi không được âm.")]
     [Display(Name = "Phí Wi-Fi hàng tháng (VNĐ)")]
     public decimal WifiFee { get; set; }
