@@ -7,6 +7,7 @@ public class UtilityReadingFormViewModel
 {
     public int UtilityReadingId { get; set; }
 
+    [Required(ErrorMessage = "Vui lòng chọn phòng.")]
     [Range(1, int.MaxValue, ErrorMessage = "Vui lòng chọn phòng.")]
     [Display(Name = "Phòng")]
     public int RoomId { get; set; }
