@@ -43,11 +43,26 @@ public class RoomController : Controller
             .Distinct()
             .ToListAsync();
 
+        var currentBillingPeriodEnd = currentBillingMonth.AddMonths(1).AddDays(-1);
+        var billableRoomIds = await _context.RentalContracts
+            .Where(contract =>
+                contract.Status != "Draft"
+                && contract.Status != "Cancelled"
+                && contract.StartDate.Date <= currentBillingMonth
+                && (
+                    (contract.ActualEndDate == null && contract.EndDate.Date >= currentBillingPeriodEnd)
+                    || (contract.ActualEndDate != null && contract.ActualEndDate.Value.Date >= currentBillingPeriodEnd)
+                ))
+            .Select(contract => contract.RoomId)
+            .Distinct()
+            .ToListAsync();
+
         ViewBag.TotalRooms = rooms.Count;
         ViewBag.AvailableRooms = rooms.Count(room => room.Status == "Available");
         ViewBag.OccupiedRooms = rooms.Count(room => room.Status == "Occupied");
         ViewBag.MaintenanceRooms = rooms.Count(room => room.Status == "Maintenance");
         ViewBag.InvoicedRoomIds = invoicedRoomIds.ToHashSet();
+        ViewBag.BillableRoomIds = billableRoomIds.ToHashSet();
         ViewBag.InvoiceBillingMonthLabel = currentBillingMonth.ToString("MM/yyyy");
 
         return View(rooms);

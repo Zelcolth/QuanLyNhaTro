@@ -3,6 +3,7 @@
 @{
     ViewData["Title"] = "Quản lý phòng";
     var invoicedRoomIds = ViewBag.InvoicedRoomIds as HashSet<int> ?? new HashSet<int>();
+    var billableRoomIds = ViewBag.BillableRoomIds as HashSet<int> ?? new HashSet<int>();
     var invoiceBillingMonthLabel = ViewBag.InvoiceBillingMonthLabel as string ?? "";
 }
 
@@ -85,6 +86,7 @@ else
                     _ => room.Status
                 };
                 var hasInvoiceForCurrentMonth = invoicedRoomIds.Contains(room.RoomId);
+                var hasBillableContractForCurrentMonth = billableRoomIds.Contains(room.RoomId);
                 <tr>
                     <td>@room.Building.BuildingName</td>
                     <td>@room.RoomCode</td>
@@ -96,9 +98,13 @@ else
                         {
                             <span class="badge text-bg-success">Đã có HĐ</span>
                         }
+                        else if (hasBillableContractForCurrentMonth)
+                        {
+                            <span class="badge text-bg-warning text-dark">Chưa lập HĐ</span>
+                        }
                         else
                         {
-                            <span class="badge text-bg-secondary">Chưa có HĐ</span>
+                            <span class="badge text-bg-secondary">Không phát sinh</span>
                         }
                     </td>
                     <td class="text-end">
