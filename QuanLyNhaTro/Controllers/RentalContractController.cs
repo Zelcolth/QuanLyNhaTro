@@ -449,6 +449,7 @@ public class RentalContractController : Controller
         var endDate = model.EndDate.Date;
         var today = DateTime.Today;
 
+        LocalizeContractBindingErrors();
         ModelState.Remove(nameof(RentalContractFormViewModel.ContractCode));
 
         if (string.IsNullOrWhiteSpace(model.ContractCode))
@@ -464,12 +465,12 @@ public class RentalContractController : Controller
 
         if (model.StartDate == default)
         {
-            ModelState.AddModelError(nameof(model.StartDate), "Vui lòng nhập ngày bắt đầu.");
+            SetSingleFieldError(nameof(model.StartDate), "Vui lòng nhập ngày bắt đầu.");
         }
 
         if (model.EndDate == default)
         {
-            ModelState.AddModelError(nameof(model.EndDate), "Vui lòng nhập ngày kết thúc.");
+            SetSingleFieldError(nameof(model.EndDate), "Vui lòng nhập ngày kết thúc.");
         }
 
         if (model.StartDate != default
@@ -477,16 +478,6 @@ public class RentalContractController : Controller
             && startDate >= endDate)
         {
             ModelState.AddModelError(nameof(model.EndDate), "Ngày bắt đầu phải sớm hơn ngày kết thúc.");
-        }
-
-        if (model.MonthlyRent <= 0)
-        {
-            ModelState.AddModelError(nameof(model.MonthlyRent), "Giá thuê thỏa thuận phải lớn hơn 0.");
-        }
-
-        if (model.Deposit < 0)
-        {
-            ModelState.AddModelError(nameof(model.Deposit), "Tiền đặt cọc không được âm.");
         }
 
         var room = await _context.Rooms
@@ -497,7 +488,10 @@ public class RentalContractController : Controller
 
         if (room is null)
         {
-            ModelState.AddModelError(nameof(model.RoomId), "Vui lòng chọn một phòng tồn tại.");
+            if (model.RoomId > 0)
+            {
+                ModelState.AddModelError(nameof(model.RoomId), "Phòng được chọn không tồn tại.");
+            }
         }
         else if (room.Status == "Maintenance")
         {
@@ -534,7 +528,8 @@ public class RentalContractController : Controller
             }
         }
 
-        if (!model.PrimaryTenantId.HasValue || !distinctTenantIds.Contains(model.PrimaryTenantId.Value))
+        if (model.PrimaryTenantId.HasValue
+            && !distinctTenantIds.Contains(model.PrimaryTenantId.Value))
         {
             ModelState.AddModelError(nameof(model.PrimaryTenantId), "Hãy chọn một người đại diện trong số những người đã thêm vào hợp đồng.");
         }
@@ -567,6 +562,53 @@ public class RentalContractController : Controller
                 ModelState.AddModelError(nameof(model.RoomId), "Phòng đã có hợp đồng đang hiệu lực bị chồng lấn thời gian.");
             }
         }
+    }
+
+    private void LocalizeContractBindingErrors()
+    {
+        LocalizeBindingError(nameof(RentalContractFormViewModel.RoomId),
+            "Vui lòng chọn phòng.", "Phòng được chọn không hợp lệ.");
+        LocalizeBindingError(nameof(RentalContractFormViewModel.MonthlyRent),
+            "Vui lòng nhập giá thuê thỏa thuận.", "Giá thuê thỏa thuận phải là số hợp lệ.");
+        LocalizeBindingError(nameof(RentalContractFormViewModel.Deposit),
+            "Vui lòng nhập tiền đặt cọc. Có thể nhập 0.", "Tiền đặt cọc phải là số hợp lệ.");
+        LocalizeBindingError(nameof(RentalContractFormViewModel.StartDate),
+            "Vui lòng nhập ngày bắt đầu.", "Ngày bắt đầu không hợp lệ.");
+        LocalizeBindingError(nameof(RentalContractFormViewModel.EndDate),
+            "Vui lòng nhập ngày kết thúc.", "Ngày kết thúc không hợp lệ.");
+    }
+
+    private void LocalizeBindingError(string field, string emptyMessage, string invalidMessage)
+    {
+        if (!ModelState.TryGetValue(field, out var entry)
+            || !entry.Errors.Any(error => error.Exception is not null))
+        {
+            return;
+        }
+
+        var rawValue = entry.RawValue;
+        var attemptedValue = entry.AttemptedValue;
+        ModelState.Remove(field);
+        ModelState.SetModelValue(field, rawValue, attemptedValue);
+        ModelState.AddModelError(
+            field,
+            string.IsNullOrWhiteSpace(attemptedValue) ? emptyMessage : invalidMessage);
+    }
+
+    private void SetSingleFieldError(string field, string message)
+    {
+        object? rawValue = null;
+        string? attemptedValue = null;
+
+        if (ModelState.TryGetValue(field, out var entry))
+        {
+            rawValue = entry.RawValue;
+            attemptedValue = entry.AttemptedValue;
+        }
+
+        ModelState.Remove(field);
+        ModelState.SetModelValue(field, rawValue, attemptedValue);
+        ModelState.AddModelError(field, message);
     }
 
     private async Task<bool> HasOverlappingActiveContractAsync(
