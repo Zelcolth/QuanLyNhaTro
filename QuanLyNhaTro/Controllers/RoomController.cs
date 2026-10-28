@@ -78,6 +78,7 @@ public class RoomController : Controller
     {
         ModelState.Remove(nameof(Room.Building));
         room.RoomCode = room.RoomCode?.Trim() ?? string.Empty;
+        LocalizeRoomBindingErrors();
         await ValidateRoomAsync(room);
 
         if (!ModelState.IsValid)
@@ -146,6 +147,7 @@ public class RoomController : Controller
         }
 
         room.RoomCode = room.RoomCode?.Trim() ?? string.Empty;
+        LocalizeRoomBindingErrors();
         await ValidateRoomAsync(room, room.RoomId);
 
         if (!ModelState.IsValid)
@@ -243,38 +245,25 @@ public class RoomController : Controller
 
     private async Task ValidateRoomAsync(Room room, int? roomId = null)
     {
-        if (string.IsNullOrWhiteSpace(room.RoomCode))
-        {
-            ModelState.AddModelError(nameof(Room.RoomCode), "Vui lòng nhập mã phòng.");
-        }
-
-        if (room.MonthlyRent <= 0)
-        {
-            ModelState.AddModelError(nameof(Room.MonthlyRent), "Giá thuê niêm yết phải lớn hơn 0.");
-        }
-
-        if (room.MaxOccupants < 1)
-        {
-            ModelState.AddModelError(nameof(Room.MaxOccupants), "Số người tối đa phải ít nhất là 1.");
-        }
-
         var hasCurrentActiveContract = room.RoomId > 0
             && await HasCurrentActiveContractAsync(room.RoomId);
         var occupiedStatusAllowed = room.Status == "Occupied" && hasCurrentActiveContract;
 
-        if (string.IsNullOrWhiteSpace(room.Status)
-            || (!RoomStatuses.ContainsKey(room.Status) && !occupiedStatusAllowed))
+        if (!string.IsNullOrWhiteSpace(room.Status)
+            && !RoomStatuses.ContainsKey(room.Status)
+            && !occupiedStatusAllowed)
         {
             ModelState.AddModelError(nameof(Room.Status), "Trạng thái phòng không hợp lệ. Trạng thái Đang thuê được xác định từ hợp đồng đang hiệu lực.");
         }
 
-        var buildingExists = await _context.Buildings
-            .AsNoTracking()
-            .AnyAsync(building => building.BuildingId == room.BuildingId);
+        var buildingExists = room.BuildingId > 0
+            && await _context.Buildings
+                .AsNoTracking()
+                .AnyAsync(building => building.BuildingId == room.BuildingId);
 
-        if (!buildingExists)
+        if (room.BuildingId > 0 && !buildingExists)
         {
-            ModelState.AddModelError(nameof(Room.BuildingId), "Vui lòng chọn một tòa nhà tồn tại.");
+            ModelState.AddModelError(nameof(Room.BuildingId), "Tòa nhà đã chọn không tồn tại.");
         }
 
         if (!string.IsNullOrWhiteSpace(room.RoomCode) && buildingExists)
@@ -297,6 +286,39 @@ public class RoomController : Controller
         {
             ModelState.AddModelError(nameof(Room.Status), "Không thể đặt phòng là Trống vì phòng đang có hợp đồng hiệu lực.");
         }
+    }
+
+    private void LocalizeRoomBindingErrors()
+    {
+        LocalizeBindingError(
+            nameof(Room.BuildingId),
+            "Vui lòng chọn tòa nhà.",
+            "Tòa nhà đã chọn không hợp lệ.");
+        LocalizeBindingError(
+            nameof(Room.MonthlyRent),
+            "Vui lòng nhập giá thuê niêm yết.",
+            "Giá thuê niêm yết phải là số hợp lệ.");
+        LocalizeBindingError(
+            nameof(Room.MaxOccupants),
+            "Vui lòng nhập số người tối đa.",
+            "Số người tối đa phải là số nguyên hợp lệ.");
+    }
+
+    private void LocalizeBindingError(string field, string emptyMessage, string invalidMessage)
+    {
+        if (!ModelState.TryGetValue(field, out var entry)
+            || !entry.Errors.Any(error => error.Exception is not null))
+        {
+            return;
+        }
+
+        var rawValue = entry.RawValue;
+        var attemptedValue = entry.AttemptedValue;
+        ModelState.Remove(field);
+        ModelState.SetModelValue(field, rawValue, attemptedValue);
+        ModelState.AddModelError(
+            field,
+            string.IsNullOrWhiteSpace(attemptedValue) ? emptyMessage : invalidMessage);
     }
 
     private async Task<bool> HasCurrentActiveContractAsync(int roomId)
