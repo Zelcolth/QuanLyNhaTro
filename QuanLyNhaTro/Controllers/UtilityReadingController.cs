@@ -313,7 +313,8 @@ public class UtilityReadingController : Controller
             ModelState.AddModelError(nameof(model.ReadingMonth), "Không thể ghi chỉ số cho một kỳ trong tương lai.");
         }
 
-        if (!await _context.Rooms.AnyAsync(room => room.RoomId == model.RoomId))
+        if (model.RoomId > 0
+            && !await _context.Rooms.AnyAsync(room => room.RoomId == model.RoomId))
         {
             ModelState.AddModelError(nameof(model.RoomId), "Phòng được chọn không tồn tại.");
         }
