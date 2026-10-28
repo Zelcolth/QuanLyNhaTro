@@ -21,6 +21,7 @@ namespace QuanLyNhaTro.Models
         [Display(Name = "Giá thuê niêm yết")]
         public decimal MonthlyRent { get; set; }
 
+        [Required(ErrorMessage = "Vui lòng nhập số người tối đa.")]
         [Range(1, int.MaxValue, ErrorMessage = "Số người tối đa phải ít nhất là 1.")]
         [Display(Name = "Số người tối đa")]
         public int MaxOccupants { get; set; } = 1;
