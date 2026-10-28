@@ -283,6 +283,7 @@ else
             const amountNames = ["rentAmount", "garbageFee", "previousDebtAmount", "discountAmount"];
             const saveTimers = new WeakMap();
             const saveInProgress = new WeakMap();
+            const editVersions = new WeakMap();
 
             function showFeedback(message, success) {
                 feedback.className = "alert " + (success ? "alert-success" : "alert-danger");
@@ -352,71 +353,84 @@ else
                 if (currentSave) return currentSave;
 
                 const form = row.querySelector("form[id^='amount-form-']");
-                const inputs = Array.from(row.querySelectorAll(".amount-input"));
-                if (!form || inputs.length !== amountNames.length) return false;
-
-                if (inputs.some(input => input.value.trim() === "" || !Number.isFinite(Number(input.value)) || Number(input.value) < 0)) {
-                    showFeedback("Vui lòng nhập đầy đủ các khoản tiền không âm. Thay đổi chưa được lưu.", false);
+                if (!form || row.querySelectorAll(".amount-input").length !== amountNames.length) {
                     return false;
                 }
 
-                const formData = new FormData(form);
-                amountNames.forEach(name => {
-                    const input = row.querySelector(`.amount-input[name="${name}"]`);
-                    formData.set(name, input.value);
-                });
-                const submittedValues = Object.fromEntries(amountNames.map(name => {
-                    const input = row.querySelector(`.amount-input[name="${name}"]`);
-                    return [name, input.value];
-                }));
-
-                inputs.forEach(input => input.disabled = true);
-
                 const request = (async () => {
-                    try {
-                        const response = await fetch(form.action, {
-                            method: "POST",
-                            body: formData,
-                            headers: { "X-Requested-With": "XMLHttpRequest" }
-                        });
-
-                        let result;
-                        try {
-                            result = await response.json();
-                        } catch {
-                            throw new Error("Máy chủ không trả về phản hồi hợp lệ. Vui lòng thử lại.");
+                    // If the user edits while a request is in flight, save the latest values
+                    // again after the current request completes instead of losing that edit.
+                    while (true) {
+                        const inputs = Array.from(row.querySelectorAll(".amount-input"));
+                        if (inputs.some(input =>
+                            input.value.trim() === ""
+                            || !Number.isFinite(Number(input.value))
+                            || Number(input.value) < 0)) {
+                            showFeedback("Vui lòng nhập đầy đủ các khoản tiền không âm. Thay đổi chưa được lưu.", false);
+                            return false;
                         }
 
-                        if (!response.ok || result.success !== true) {
-                            throw new Error(result.message || "Không thể tự động lưu các khoản tiền.");
-                        }
-
-                        row.dataset.total = String(Number(result.totalAmount));
-                        row.dataset.savedTotal = row.dataset.total;
-                        amountNames.forEach(name => {
+                        const submittedVersion = editVersions.get(row) || 0;
+                        const formData = new FormData(form);
+                        const submittedValues = Object.fromEntries(amountNames.map(name => {
                             const input = row.querySelector(`.amount-input[name="${name}"]`);
-                            input.dataset.savedValue = submittedValues[name];
-                        });
+                            formData.set(name, input.value);
+                            return [name, input.value];
+                        }));
 
-                        const totalCell = row.querySelector(".invoice-total-cell");
-                        if (totalCell) totalCell.textContent = formatMoney(result.totalAmount);
-                        updateSummary();
-                        showFeedback(result.message || "Đã tự động lưu các khoản tiền.", true);
-                        return true;
-                    } catch (error) {
-                        restoreSavedAmounts(row);
-                        showFeedback(error.message || "Không thể tự động lưu các khoản tiền.", false);
-                        return false;
-                    } finally {
-                        inputs.forEach(input => {
-                            input.disabled = row.dataset.paid === "true";
-                        });
-                        saveInProgress.delete(row);
+                        try {
+                            const response = await fetch(form.action, {
+                                method: "POST",
+                                body: formData,
+                                headers: { "X-Requested-With": "XMLHttpRequest" }
+                            });
+
+                            let result;
+                            try {
+                                result = await response.json();
+                            } catch {
+                                throw new Error("Máy chủ không trả về phản hồi hợp lệ. Vui lòng thử lại.");
+                            }
+
+                            if (!response.ok || result.success !== true) {
+                                throw new Error(result.message || "Không thể tự động lưu các khoản tiền.");
+                            }
+
+                            // Remember the successfully saved snapshot even if newer edits exist.
+                            amountNames.forEach(name => {
+                                const input = row.querySelector(`.amount-input[name="${name}"]`);
+                                input.dataset.savedValue = submittedValues[name];
+                            });
+                            row.dataset.savedTotal = String(Number(result.totalAmount));
+
+                            // Preserve the live total and submit again if anything changed in flight.
+                            if ((editVersions.get(row) || 0) !== submittedVersion) {
+                                continue;
+                            }
+
+                            row.dataset.total = row.dataset.savedTotal;
+                            const totalCell = row.querySelector(".invoice-total-cell");
+                            if (totalCell) totalCell.textContent = formatMoney(result.totalAmount);
+                            updateSummary();
+                            showFeedback(result.message || "Đã tự động lưu các khoản tiền.", true);
+                            return true;
+                        } catch (error) {
+                            // Do not erase newer text the user typed while this request was running.
+                            if ((editVersions.get(row) || 0) === submittedVersion) {
+                                restoreSavedAmounts(row);
+                            }
+                            showFeedback(error.message || "Không thể tự động lưu các khoản tiền.", false);
+                            return false;
+                        }
                     }
                 })();
 
                 saveInProgress.set(row, request);
-                return request;
+                try {
+                    return await request;
+                } finally {
+                    saveInProgress.delete(row);
+                }
             }
 
             function scheduleAmountSave(row) {
@@ -434,6 +448,7 @@ else
                 row.querySelectorAll(".amount-input").forEach(input => {
                     input.dataset.savedValue = input.value;
                     input.addEventListener("input", () => {
+                        editVersions.set(row, (editVersions.get(row) || 0) + 1);
                         updateRowTotal(row);
                         scheduleAmountSave(row);
                     });
