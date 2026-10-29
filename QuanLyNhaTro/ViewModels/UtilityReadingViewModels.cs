@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc.Rendering;
 
-namespace QuanLyNhaTro.Models;
+namespace QuanLyNhaTro.ViewModels;
 
 public class UtilityReadingFormViewModel
 {

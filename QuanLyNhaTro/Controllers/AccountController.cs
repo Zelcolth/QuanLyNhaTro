@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QuanLyNhaTro.Data;
 using QuanLyNhaTro.Models;
+using QuanLyNhaTro.ViewModels;
 
 namespace QuanLyNhaTro.Controllers;
 

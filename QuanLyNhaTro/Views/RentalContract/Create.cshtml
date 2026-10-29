@@ -1,4 +1,4 @@
-@model QuanLyNhaTro.Models.RentalContractFormViewModel
+@model QuanLyNhaTro.ViewModels.RentalContractFormViewModel
 
 @{
     ViewData["Title"] = "Thêm hợp đồng thuê";
@@ -30,7 +30,7 @@
         <label asp-for="RoomId" class="form-label">Phòng</label>
         <select asp-for="RoomId" class="form-select" id="RoomId">
             <option value="">-- Chọn phòng --</option>
-            @foreach (QuanLyNhaTro.Models.RoomOptionViewModel roomOption in ViewBag.Rooms)
+            @foreach (QuanLyNhaTro.ViewModels.RoomOptionViewModel roomOption in ViewBag.Rooms)
             {
                 <option value="@roomOption.RoomId"
                         data-monthly-rent="@roomOption.MonthlyRent.ToString(System.Globalization.CultureInfo.InvariantCulture)">

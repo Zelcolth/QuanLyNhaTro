@@ -1,4 +1,4 @@
-namespace QuanLyNhaTro.Models;
+namespace QuanLyNhaTro.ViewModels;
 
 public class RoomOptionViewModel
 {
