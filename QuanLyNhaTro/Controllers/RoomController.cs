@@ -208,7 +208,8 @@ public class RoomController : Controller
             return RedirectToAction(nameof(Index), new { openOccupants = id });
         }
 
-        if (relationshipToPrimaryTenant?.Trim().Length > 100)
+        if (relationshipToPrimaryTenant is not null
+            && relationshipToPrimaryTenant.Trim().Length > 100)
         {
             TempData["ErrorMessage"] = "Quan hệ với người đứng tên không được vượt quá 100 ký tự.";
             return RedirectToAction(nameof(Index), new { openOccupants = id });
@@ -284,7 +285,8 @@ public class RoomController : Controller
             return RedirectToAction(nameof(Index), new { openOccupants = id });
         }
 
-        if (relationshipToPrimaryTenant?.Trim().Length > 100)
+        if (relationshipToPrimaryTenant is not null
+            && relationshipToPrimaryTenant.Trim().Length > 100)
         {
             TempData["ErrorMessage"] = "Quan hệ với người đứng tên không được vượt quá 100 ký tự.";
             return RedirectToAction(nameof(Index), new { openOccupants = id });
