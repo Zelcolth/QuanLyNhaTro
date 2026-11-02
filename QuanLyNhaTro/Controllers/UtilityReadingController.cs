@@ -95,16 +95,14 @@ public class UtilityReadingController : Controller
             row.ErrorMessage = null;
             row.WasSavedThisRequest = false;
 
-            var electricityMissing = !row.ElectricityReading.HasValue;
-            var waterMissing = !row.WaterReading.HasValue;
-
-            if (electricityMissing && waterMissing)
+            if (row.ElectricityReading is not decimal electricityReading
+                || row.WaterReading is not decimal waterReading)
             {
-                continue;
-            }
+                if (row.ElectricityReading is null && row.WaterReading is null)
+                {
+                    continue;
+                }
 
-            if (electricityMissing || waterMissing)
-            {
                 row.ErrorMessage = "Cần nhập đủ cả chỉ số điện và nước hoặc để trống cả hai ô.";
                 errorCount++;
                 continue;
@@ -120,7 +118,7 @@ public class UtilityReadingController : Controller
                 .FirstOrDefault();
             var existing = currentByRoom.GetValueOrDefault(room.RoomId);
 
-            if (row.ElectricityReading.Value < 0 || row.WaterReading.Value < 0)
+            if (electricityReading < 0 || waterReading < 0)
             {
                 row.ErrorMessage = "Chỉ số không được là số âm.";
             }
@@ -133,14 +131,14 @@ public class UtilityReadingController : Controller
                 row.ErrorMessage = $"Cần ghi kỳ {next.ReadingMonth.AddMonths(-1):MM/yyyy} trước kỳ {next.ReadingMonth:MM/yyyy}.";
             }
             else if (previous is not null
-                && (row.ElectricityReading.Value < previous.ElectricityReading
-                    || row.WaterReading.Value < previous.WaterReading))
+                && (electricityReading < previous.ElectricityReading
+                    || waterReading < previous.WaterReading))
             {
                 row.ErrorMessage = $"Chỉ số mới phải lớn hơn hoặc bằng chỉ số kỳ {previous.ReadingMonth:MM/yyyy}.";
             }
             else if (next is not null
-                && (row.ElectricityReading.Value > next.ElectricityReading
-                    || row.WaterReading.Value > next.WaterReading))
+                && (electricityReading > next.ElectricityReading
+                    || waterReading > next.WaterReading))
             {
                 row.ErrorMessage = $"Chỉ số mới không được lớn hơn chỉ số kỳ sau ({next.ReadingMonth:MM/yyyy}).";
             }
@@ -157,8 +155,8 @@ public class UtilityReadingController : Controller
                 {
                     RoomId = room.RoomId,
                     ReadingMonth = period,
-                    ElectricityReading = row.ElectricityReading.Value,
-                    WaterReading = row.WaterReading.Value,
+                    ElectricityReading = electricityReading,
+                    WaterReading = waterReading,
                     RecordedAt = DateTime.Now
                 };
                 _context.UtilityReadings.Add(existing);
@@ -167,8 +165,8 @@ public class UtilityReadingController : Controller
             }
             else
             {
-                existing.ElectricityReading = row.ElectricityReading.Value;
-                existing.WaterReading = row.WaterReading.Value;
+                existing.ElectricityReading = electricityReading;
+                existing.WaterReading = waterReading;
                 existing.RecordedAt = DateTime.Now;
                 _context.UtilityReadings.Update(existing);
             }
@@ -584,7 +582,7 @@ public class UtilityReadingController : Controller
             }
             if (row.ElectricityReading.HasValue)
             {
-                worksheet.Cell(excelRow, 4).Value = (double)row.ElectricityReading.Value;
+                worksheet.Cell(excelRow, 4).Value = (double)electricityReading;
             }
             if (row.PreviousWaterReading.HasValue)
             {
@@ -592,7 +590,7 @@ public class UtilityReadingController : Controller
             }
             if (row.WaterReading.HasValue)
             {
-                worksheet.Cell(excelRow, 6).Value = (double)row.WaterReading.Value;
+                worksheet.Cell(excelRow, 6).Value = (double)waterReading;
             }
         }
 
