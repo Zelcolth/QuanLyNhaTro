@@ -13,12 +13,9 @@
         <div class="alert alert-warning" id="overlapWarning" role="alert">
             <p class="mb-2">@overlapWarning</p>
             <p class="mb-2">Để tiếp tục, xác nhận lưu bản nháp dù đang có xung đột lịch.</p>
-            <button type="submit" name="confirmOverlap" value="true" id="confirmOverlapButton" class="btn btn-warning">
-                Vẫn lưu bản nháp
-            </button>
+            <button type="submit" name="confirmOverlap" value="true" id="confirmOverlapButton" class="btn btn-warning">Vẫn lưu bản nháp</button>
         </div>
     }
-
 
     <div class="mb-3">
         <label asp-for="ContractCode" class="form-label">Mã hợp đồng</label>
@@ -41,81 +38,28 @@
         <span asp-validation-for="RoomId" class="text-danger"></span>
     </div>
 
+    @if (Model.TenantOptions.Count == 0)
+    {
+        <div class="alert alert-warning">
+            Chưa có hồ sơ người thuê. Hãy <a asp-controller="Tenant" asp-action="Create">thêm người thuê</a> trước khi lập hợp đồng.
+        </div>
+    }
+    else
+    {
     <div class="mb-3">
-        <label class="form-label">Người thuê trong hợp đồng</label>
-        <div class="form-text mb-2">Chỉ hiển thị người đã thêm vào hợp đồng. Chọn một người làm đại diện; nhập quan hệ cho các người thuê còn lại.</div>
-
-        @if (Model.TenantOptions.Count == 0)
-        {
-            <div class="alert alert-warning">
-                Chưa có hồ sơ người thuê. Hãy <a asp-controller="Tenant" asp-action="Create">thêm người thuê</a> trước khi lập hợp đồng.
-            </div>
-        }
-        else
-        {
-            <div id="selectedTenantList"
-                 class="mb-3"
-                 data-primary-tenant-id="@Model.PrimaryTenantId"></div>
-
-            <button class="btn btn-outline-primary"
-                    type="button"
-                    data-bs-toggle="collapse"
-                    data-bs-target="#tenantPicker"
-                    aria-expanded="false"
-                    aria-controls="tenantPicker">
-                <span aria-hidden="true">+</span> Thêm người thuê
-            </button>
-
-            <div class="collapse mt-3" id="tenantPicker">
-                <div class="card card-body">
-                    <label for="tenantSearch" class="form-label">Tìm theo tên hoặc số điện thoại</label>
-                    <input id="tenantSearch" type="search" class="form-control mb-3"
-                           placeholder="Nhập tên hoặc số điện thoại..." />
-
-                    <table class="table table-sm table-hover align-middle">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Chọn</th>
-                                    <th>Người thuê</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                            @for (var i = 0; i < Model.TenantOptions.Count; i++)
-                            {
-                                <tr class="tenant-picker-row"
-                                    data-tenant-id="@Model.TenantOptions[i].TenantId"
-                                    data-tenant-name="@Model.TenantOptions[i].FullName"
-                                    data-tenant-phone="@Model.TenantOptions[i].Phone"
-                                    data-relationship="@Model.TenantOptions[i].RelationshipToPrimaryTenant">
-                                    <td class="text-center">
-                                        <input type="hidden" asp-for="TenantOptions[i].TenantId" />
-                                        <input asp-for="TenantOptions[i].IsSelected" class="form-check-input tenant-picker-checkbox" />
-                                    </td>
-                                    <td>
-                                        <div>@Model.TenantOptions[i].FullName</div>
-                                        <small class="text-muted">@Model.TenantOptions[i].Phone</small>
-                                    </td>
-                                    <td>
-                                        <span asp-validation-for="TenantOptions[i].RelationshipToPrimaryTenant"
-                                              class="text-danger tenant-relationship-validation"></span>
-                                    </td>
-                                </tr>
-                            }
-                            </tbody>
-        </table>
-                    <div class="d-flex justify-content-end">
-                        <button class="btn btn-secondary" type="button"
-                                data-bs-toggle="collapse" data-bs-target="#tenantPicker">
-                            Hoàn tất chọn
-                        </button>
-                    </div>
-                </div>
-            </div>
-        }
-        <span asp-validation-for="TenantOptions" class="text-danger"></span>
+        <label asp-for="PrimaryTenantId" class="form-label">Người đứng tên hợp đồng</label>
+        <select asp-for="PrimaryTenantId" class="form-select">
+            <option value="">-- Chọn người đứng tên --</option>
+            @foreach (var tenant in Model.TenantOptions)
+            {
+                <option value="@tenant.TenantId">@tenant.FullName — @(string.IsNullOrWhiteSpace(tenant.Phone) ? "Chưa có SĐT" : tenant.Phone)</option>
+            }
+        </select>
         <span asp-validation-for="PrimaryTenantId" class="text-danger"></span>
+        <div class="form-text">Khi lập hợp đồng chỉ chọn một người đứng tên. Người ở cùng sẽ được bổ sung sau khi kích hoạt hợp đồng.</div>
     </div>
+
+    }
 
     <div class="row">
         <div class="col-md-6 mb-3">
@@ -149,12 +93,11 @@
         <span asp-validation-for="Terms" class="text-danger"></span>
     </div>
 
-    <button type="submit" class="btn btn-primary">Lưu</button>
+    <button type="submit" class="btn btn-primary">Lưu bản nháp</button>
     <a asp-action="Index" class="btn btn-secondary">Hủy</a>
 </form>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
-    <partial name="_TenantRelationshipScripts" />
     <partial name="_OverlapWarningScripts" />
 }

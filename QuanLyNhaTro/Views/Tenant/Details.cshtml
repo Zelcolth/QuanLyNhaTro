@@ -2,6 +2,9 @@
 
 @{
     ViewData["Title"] = "Chi tiết người thuê";
+    var contractHistory = ViewBag.ContractHistory as List<QuanLyNhaTro.Models.ContractTenant>
+        ?? new List<QuanLyNhaTro.Models.ContractTenant>();
+    var currentDate = DateTime.Today;
 }
 
 <h1>Chi tiết người thuê</h1>
@@ -38,6 +41,62 @@
             <dt class="col-sm-4">Ghi chú</dt>
             <dd class="col-sm-8">@(Model.Notes ?? "Chưa có")</dd>
         </dl>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-header"><strong>Lịch sử thuê phòng</strong></div>
+    <div class="card-body p-0">
+        @if (contractHistory.Count == 0)
+        {
+            <div class="p-3 text-muted">Người này chưa có hợp đồng thuê được lưu trong hệ thống.</div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-striped table-bordered align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Mã hợp đồng</th>
+                            <th>Phòng</th>
+                            <th>Vai trò</th>
+                            <th>Thời gian thuê</th>
+                            <th>Trạng thái</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var assignment in contractHistory)
+                    {
+                        var contract = assignment.Contract;
+                        var isCurrent = contract.Status == "Active"
+                            && contract.StartDate.Date <= currentDate
+                            && contract.EndDate.Date >= currentDate;
+                        var statusText = isCurrent ? "Đang cư trú" : contract.Status switch
+                        {
+                            "Draft" => "Bản nháp",
+                            "Expired" => "Đã hết hạn",
+                            "Terminated" => "Đã chấm dứt",
+                            "Completed" => "Đã hoàn thành",
+                            "Cancelled" => "Đã hủy",
+                            _ => contract.Status
+                        };
+                        <tr>
+                            <td>@contract.ContractCode</td>
+                            <td>@contract.Room.Building.BuildingName - @contract.Room.RoomCode</td>
+                            <td>@(assignment.IsPrimaryTenant ? "Người đứng tên" : "Người ở phụ")</td>
+                            <td>@contract.StartDate.ToString("dd/MM/yyyy") – @((contract.ActualEndDate ?? contract.EndDate).ToString("dd/MM/yyyy"))</td>
+                            <td>@statusText</td>
+                            <td>
+                                <a asp-controller="RentalContract" asp-action="Details" asp-route-id="@contract.ContractId"
+                                   class="btn btn-sm btn-outline-info">Chi tiết</a>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
     </div>
 </div>
 

@@ -2,6 +2,8 @@
 
 @{
     ViewData["Title"] = "Quản lý người thuê";
+    var linkedTenantIds = ViewBag.LinkedTenantIds as HashSet<int> ?? new HashSet<int>();
+    var currentlyRentingTenantIds = ViewBag.CurrentlyRentingTenantIds as HashSet<int> ?? new HashSet<int>();
 }
 
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -29,8 +31,8 @@
     <div class="col-6 col-lg-3">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-body">
-                <div class="small text-secondary mb-1">Chưa thuê hiện tại</div>
-                <div class="fs-3 fw-semibold">@ViewBag.NotCurrentlyRentingTenants</div>
+                <div class="small text-secondary mb-1">Đã từng thuê / chưa thuê</div>
+                <div class="fs-3 fw-semibold">@ViewBag.FormerTenants</div>
             </div>
         </div>
     </div>
@@ -59,6 +61,7 @@ else
                     <th>Số điện thoại</th>
                     <th>Ngày sinh / Năm sinh</th>
                     <th>Số CCCD/CMND</th>
+                    <th>Quá trình thuê</th>
                     <th class="text-end">Thao tác</th>
                 </tr>
             </thead>
@@ -70,10 +73,31 @@ else
                     <td>@(string.IsNullOrWhiteSpace(tenant.Phone) ? "Chưa có" : tenant.Phone)</td>
                     <td>@(tenant.DateOfBirth?.ToString("dd/MM/yyyy") ?? (tenant.BirthYear.HasValue ? $"Năm {tenant.BirthYear.Value}" : "Chưa xác minh"))</td>
                     <td>@(tenant.IdentityNumber ?? "Chưa có")</td>
+                    <td>
+                        @if (currentlyRentingTenantIds.Contains(tenant.TenantId))
+                        {
+                            <span class="badge text-bg-success">Đang cư trú</span>
+                        }
+                        else if (linkedTenantIds.Contains(tenant.TenantId))
+                        {
+                            <span class="badge text-bg-secondary">Đã từng thuê</span>
+                        }
+                        else
+                        {
+                            <span class="badge text-bg-light text-dark">Chưa có lịch sử thuê</span>
+                        }
+                    </td>
                     <td class="text-end">
                         <a asp-action="Details" asp-route-id="@tenant.TenantId" class="btn btn-sm btn-outline-info">Chi tiết</a>
                         <a asp-action="Edit" asp-route-id="@tenant.TenantId" class="btn btn-sm btn-outline-primary">Sửa</a>
-                        <a asp-action="Delete" asp-route-id="@tenant.TenantId" class="btn btn-sm btn-outline-danger">Xóa</a>
+                        @if (!linkedTenantIds.Contains(tenant.TenantId))
+                        {
+                            <a asp-action="Delete" asp-route-id="@tenant.TenantId" class="btn btn-sm btn-outline-danger">Xóa</a>
+                        }
+                        else
+                        {
+                            <span class="small text-muted">Đã lưu hồ sơ</span>
+                        }
                     </td>
                 </tr>
             }

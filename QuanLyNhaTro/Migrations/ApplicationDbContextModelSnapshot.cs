@@ -249,6 +249,9 @@ namespace QuanLyNhaTro.Migrations
                     b.Property<DateTime?>("ActualEndDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("ExpectedMoveOutDate")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("ContractCode")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");

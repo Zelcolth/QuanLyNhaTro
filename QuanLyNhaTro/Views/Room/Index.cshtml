@@ -5,6 +5,8 @@
     var invoicedRoomIds = ViewBag.InvoicedRoomIds as HashSet<int> ?? new HashSet<int>();
     var billableRoomIds = ViewBag.BillableRoomIds as HashSet<int> ?? new HashSet<int>();
     var invoiceBillingMonthLabel = ViewBag.InvoiceBillingMonthLabel as string ?? "";
+    var moveOutDatesByRoom = ViewBag.MoveOutDatesByRoom as Dictionary<int, DateTime> ?? new Dictionary<int, DateTime>();
+    var expiringDatesByRoom = ViewBag.ExpiringDatesByRoom as Dictionary<int, DateTime> ?? new Dictionary<int, DateTime>();
 }
 
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -92,7 +94,23 @@ else
                     <td>@room.RoomCode</td>
                     <td>@room.MonthlyRent.ToString("N0")</td>
                     <td>@room.MaxOccupants</td>
-                    <td>@statusText</td>
+                    <td>
+                        <div>@statusText</div>
+                        @if (moveOutDatesByRoom.TryGetValue(room.RoomId, out var moveOutDate))
+                        {
+                            <div class="mt-1">
+                                <span class="badge text-bg-warning">Khách hẹn trả phòng</span>
+                                <small class="d-block text-muted">Dự kiến @moveOutDate.ToString("dd/MM/yyyy")</small>
+                            </div>
+                        }
+                        @if (expiringDatesByRoom.TryGetValue(room.RoomId, out var expiringDate))
+                        {
+                            <div class="mt-1">
+                                <span class="badge text-bg-danger">Hợp đồng sắp hết hiệu lực</span>
+                                <small class="d-block text-muted">Kết thúc @expiringDate.ToString("dd/MM/yyyy")</small>
+                            </div>
+                        }
+                    </td>
                     <td>
                         @if (hasInvoiceForCurrentMonth)
                         {

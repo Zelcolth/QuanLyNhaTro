@@ -61,6 +61,38 @@ public class RoomController : Controller
         ViewBag.AvailableRooms = rooms.Count(room => room.Status == "Available");
         ViewBag.OccupiedRooms = rooms.Count(room => room.Status == "Occupied");
         ViewBag.MaintenanceRooms = rooms.Count(room => room.Status == "Maintenance");
+        var activeContractNotices = await _context.RentalContracts
+            .AsNoTracking()
+            .Where(contract => contract.Status == "Active"
+                && contract.StartDate.Date <= today
+                && contract.EndDate.Date >= today)
+            .Select(contract => new
+            {
+                contract.RoomId,
+                contract.ExpectedMoveOutDate,
+                contract.EndDate
+            })
+            .ToListAsync();
+
+        var moveOutDatesByRoom = activeContractNotices
+            .Where(contract => contract.ExpectedMoveOutDate.HasValue)
+            .GroupBy(contract => contract.RoomId)
+            .ToDictionary(
+                group => group.Key,
+                group => group.OrderBy(contract => contract.ExpectedMoveOutDate).First().ExpectedMoveOutDate!.Value);
+
+        const int contractExpiryWarningDays = 30;
+        var expiringDatesByRoom = activeContractNotices
+            .Where(contract => contract.EndDate.Date >= today
+                && contract.EndDate.Date <= today.AddDays(contractExpiryWarningDays))
+            .GroupBy(contract => contract.RoomId)
+            .ToDictionary(
+                group => group.Key,
+                group => group.OrderBy(contract => contract.EndDate).First().EndDate);
+
+        ViewBag.MoveOutDatesByRoom = moveOutDatesByRoom;
+        ViewBag.ExpiringDatesByRoom = expiringDatesByRoom;
+        ViewBag.ContractExpiryWarningDays = contractExpiryWarningDays;
         ViewBag.InvoicedRoomIds = invoicedRoomIds.ToHashSet();
         ViewBag.BillableRoomIds = billableRoomIds.ToHashSet();
         ViewBag.InvoiceBillingMonthLabel = currentBillingMonth.ToString("MM/yyyy");

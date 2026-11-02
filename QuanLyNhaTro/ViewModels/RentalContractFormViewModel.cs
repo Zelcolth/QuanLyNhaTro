@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace QuanLyNhaTro.ViewModels;
 
@@ -38,9 +38,12 @@ public class RentalContractFormViewModel
     [Display(Name = "Điều khoản")]
     public string? Terms { get; set; }
 
-    [Required(ErrorMessage = "Hãy chọn một người đại diện trong số những người đã thêm vào hợp đồng.")]
-    [Display(Name = "Người đại diện")]
+    [Required(ErrorMessage = "Vui lòng chọn người đứng tên hợp đồng.")]
+    [Range(1, int.MaxValue, ErrorMessage = "Vui lòng chọn người đứng tên hợp đồng.")]
+    [Display(Name = "Người đứng tên hợp đồng")]
     public int? PrimaryTenantId { get; set; }
+
+    public string ContractStatus { get; set; } = "Draft";
 
     public List<ContractTenantOptionInput> TenantOptions { get; set; } = new();
 }
@@ -48,14 +51,6 @@ public class RentalContractFormViewModel
 public class ContractTenantOptionInput
 {
     public int TenantId { get; set; }
-
     public string FullName { get; set; } = string.Empty;
-
     public string Phone { get; set; } = string.Empty;
-
-    public bool IsSelected { get; set; }
-
-    [StringLength(100, ErrorMessage = "Quan hệ với người đại diện không được vượt quá 100 ký tự.")]
-    [Display(Name = "Quan hệ với người đại diện")]
-    public string? RelationshipToPrimaryTenant { get; set; }
 }
