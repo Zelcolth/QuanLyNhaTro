@@ -336,6 +336,9 @@ public class InvoiceController : Controller
             }
 
             var tenantNames = string.Join(", ", contract.ContractTenants
+                .Where(assignment =>
+                    (!assignment.JoinedAt.HasValue || assignment.JoinedAt.Value.Date <= periodEnd)
+                    && (!assignment.LeftAt.HasValue || assignment.LeftAt.Value.Date >= period))
                 .OrderByDescending(assignment => assignment.IsPrimaryTenant)
                 .ThenBy(assignment => assignment.Tenant.FullName)
                 .Select(assignment => assignment.Tenant.FullName.Trim())
