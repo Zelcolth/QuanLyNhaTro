@@ -608,7 +608,7 @@ public class UtilityReadingController : Controller
         worksheet.Column(5).Style.Protection.Locked = true;
         worksheet.Column(4).Style.Protection.Locked = false;
         worksheet.Column(6).Style.Protection.Locked = false;
-        worksheet.Protect("QuanLyNhaTro");
+        worksheet.Protect();
 
         worksheet.Cell(model.Rooms.Count + 4, 1).Value =
             "Chỉ sửa cột Điện kỳ này và Nước kỳ này. Không thay đổi RoomId hoặc thứ tự/cấu trúc cột.";
@@ -784,9 +784,7 @@ public class UtilityReadingController : Controller
                 Rooms = importedRows
             });
         }
-        catch (Exception exception) when (
-            exception is not InvalidDataException
-            && exception is not OperationCanceledException)
+        catch (Exception exception) when (exception is not OperationCanceledException)
         {
             TempData["ErrorMessage"] = "Không thể đọc file Excel. Hãy kiểm tra file có phải định dạng .xlsx hợp lệ và không bị hỏng.";
             return RedirectToAction(nameof(Index), new

@@ -37,10 +37,17 @@ public class TenantController : Controller
             .Select(assignment => assignment.TenantId)
             .Distinct()
             .ToListAsync();
+        var previouslyRentedTenantIds = await _context.ContractTenants
+            .AsNoTracking()
+            .Where(assignment => assignment.Contract.Status != "Draft"
+                && assignment.Contract.Status != "Cancelled")
+            .Select(assignment => assignment.TenantId)
+            .Distinct()
+            .ToListAsync();
 
         ViewBag.TotalTenants = tenants.Count;
         ViewBag.CurrentlyRentingTenants = currentlyRentingTenantIds.Count;
-        ViewBag.FormerTenants = linkedTenantIds.Except(currentlyRentingTenantIds).Count();
+        ViewBag.FormerTenants = previouslyRentedTenantIds.Except(currentlyRentingTenantIds).Count();
         ViewBag.LinkedTenantIds = linkedTenantIds.ToHashSet();
         ViewBag.CurrentlyRentingTenantIds = currentlyRentingTenantIds.ToHashSet();
 
