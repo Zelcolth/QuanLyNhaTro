@@ -45,9 +45,14 @@ public class TenantController : Controller
             .Distinct()
             .ToListAsync();
 
+        var formerTenantIds = previouslyRentedTenantIds
+            .Except(currentlyRentingTenantIds)
+            .ToHashSet();
+
         ViewBag.TotalTenants = tenants.Count;
         ViewBag.CurrentlyRentingTenants = currentlyRentingTenantIds.Count;
-        ViewBag.FormerTenants = previouslyRentedTenantIds.Except(currentlyRentingTenantIds).Count();
+        ViewBag.FormerTenants = formerTenantIds.Count;
+        ViewBag.FormerTenantIds = formerTenantIds;
         ViewBag.LinkedTenantIds = linkedTenantIds.ToHashSet();
         ViewBag.CurrentlyRentingTenantIds = currentlyRentingTenantIds.ToHashSet();
 

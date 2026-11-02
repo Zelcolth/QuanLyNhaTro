@@ -4,6 +4,7 @@
     ViewData["Title"] = "Quản lý người thuê";
     var linkedTenantIds = ViewBag.LinkedTenantIds as HashSet<int> ?? new HashSet<int>();
     var currentlyRentingTenantIds = ViewBag.CurrentlyRentingTenantIds as HashSet<int> ?? new HashSet<int>();
+    var formerTenantIds = ViewBag.FormerTenantIds as HashSet<int> ?? new HashSet<int>();
 }
 
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -78,7 +79,7 @@ else
                         {
                             <span class="badge text-bg-success">Đang cư trú</span>
                         }
-                        else if (linkedTenantIds.Contains(tenant.TenantId))
+                        else if (formerTenantIds.Contains(tenant.TenantId))
                         {
                             <span class="badge text-bg-secondary">Đã từng thuê</span>
                         }
