@@ -19,11 +19,6 @@
 
     <div class="d-flex flex-column align-items-start align-items-xl-end gap-2">
         <div class="d-flex flex-wrap gap-2">
-            <button type="button" class="btn btn-primary" disabled title="Chức năng sẽ được bổ sung sau">In PDF</button>
-            <button type="button" class="btn btn-secondary" disabled title="Chức năng sẽ được bổ sung sau">Xuất ảnh hóa đơn</button>
-            <button type="button" class="btn btn-success" disabled title="Chức năng sẽ được bổ sung sau">Xuất Excel</button>
-        </div>
-        <div class="d-flex flex-wrap gap-2">
             <a asp-controller="UtilityReading" asp-action="Index" asp-route-readingMonth="@Model.BillingMonth"
                class="btn btn-outline-secondary">Nhập chỉ số điện nước</a>
             <form asp-action="GenerateMonth" method="post" class="m-0">
@@ -243,7 +238,7 @@ else
                     <td>
                         <div class="d-flex flex-column gap-2">
                             <a asp-action="Details" asp-route-id="@invoice.InvoiceId"
-                               class="btn btn-sm btn-primary text-nowrap">Chi tiết/In HĐ</a>
+                               class="btn btn-sm btn-primary text-nowrap">Chi tiết</a>
                             @if (invoice.RemainingAmount > 0m)
                             {
                                 <a asp-action="CreateReceipt" asp-route-invoiceId="@invoice.InvoiceId"

@@ -607,6 +607,17 @@ public class InvoiceController : Controller
     }
 
     [HttpGet]
+    public async Task<IActionResult> PrintInvoice(int id)
+    {
+        var invoice = await _context.Invoices
+            .Include(item => item.Receipts)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.InvoiceId == id);
+
+        return invoice is null ? NotFound() : View(invoice);
+    }
+
+    [HttpGet]
     public async Task<IActionResult> Details(int id)
     {
         var invoice = await _context.Invoices

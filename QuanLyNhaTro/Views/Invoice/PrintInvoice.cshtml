@@ -1,0 +1,159 @@
+@model QuanLyNhaTro.Models.Invoice
+
+@{
+    Layout = null;
+    var paidAmount = Model.Receipts.Sum(receipt => receipt.Amount);
+    var isLegacyPaid = paidAmount == 0m && Model.Status == "Paid";
+    if (isLegacyPaid)
+    {
+        paidAmount = Model.TotalAmount;
+    }
+    var remainingAmount = Math.Max(Model.TotalAmount - paidAmount, 0m);
+    var paymentStatus = remainingAmount <= 0m
+        ? "Đã thanh toán"
+        : paidAmount > 0m ? "Thanh toán một phần" : "Chưa thanh toán";
+}
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hóa đơn @Model.InvoiceCode</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <style>
+        body { background: #f3f4f6; color: #212529; }
+        .invoice-paper { max-width: 850px; margin: 32px auto; padding: 42px; background: #fff; }
+        .invoice-table th, .invoice-table td { padding: 11px 12px; }
+        .amount { white-space: nowrap; text-align: right; }
+        @@media print {
+            @@page { size: A4; margin: 16mm; }
+            body { background: #fff; }
+            .invoice-paper { max-width: none; margin: 0; padding: 0; }
+            .no-print { display: none !important; }
+            .table { --bs-table-bg: #fff; }
+            .badge { border: 1px solid #777; color: #212529 !important; background: #fff !important; }
+        }
+    </style>
+</head>
+<body>
+    <div class="no-print text-center py-3">
+        <button type="button" class="btn btn-primary" onclick="window.print()">In hóa đơn</button>
+        <a class="btn btn-outline-secondary" href="@Url.Action("Details", "Invoice", new { id = Model.InvoiceId })">Quay lại</a>
+    </div>
+
+    <main class="invoice-paper border rounded">
+        <div class="d-flex justify-content-between align-items-start gap-3 mb-4">
+            <div>
+                <h1 class="h3 fw-bold mb-1">HÓA ĐƠN TIỀN PHÒNG</h1>
+                <div class="text-muted">Kỳ thanh toán: @Model.BillingMonth.ToString("MM/yyyy")</div>
+            </div>
+            <div class="text-end">
+                <div><strong>Mã hóa đơn:</strong> @Model.InvoiceCode</div>
+                <div><strong>Ngày lập:</strong> @Model.IssuedAt.ToString("dd/MM/yyyy")</div>
+                <div><strong>Trạng thái:</strong> @paymentStatus</div>
+            </div>
+        </div>
+
+        <hr />
+
+        <div class="row g-3 mb-4">
+            <div class="col-12">
+                <div class="text-muted small">Khu nhà / phòng</div>
+                <strong>@Model.RoomLabelSnapshot</strong>
+            </div>
+            <div class="col-md-7">
+                <div class="text-muted small">Người thuê</div>
+                <strong>@Model.TenantNamesSnapshot</strong>
+            </div>
+            <div class="col-md-5">
+                <div class="text-muted small">Mã hợp đồng</div>
+                <strong>@Model.ContractCodeSnapshot</strong>
+            </div>
+        </div>
+
+        <table class="table table-bordered invoice-table align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Khoản thu</th>
+                    <th>Diễn giải</th>
+                    <th class="amount">Thành tiền</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Tiền thuê phòng</td>
+                    <td>Giá thuê theo hợp đồng</td>
+                    <td class="amount">@Model.RentAmount.ToString("N0") đ</td>
+                </tr>
+                <tr>
+                    <td>Tiền điện</td>
+                    <td>
+                        @Model.PreviousElectricityReading.ToString("N2") → @Model.CurrentElectricityReading.ToString("N2") kWh
+                        (Dùng @Model.ElectricityConsumption.ToString("N2") kWh × @Model.ElectricityUnitPrice.ToString("N0") đ)
+                    </td>
+                    <td class="amount">@Model.ElectricityAmount.ToString("N0") đ</td>
+                </tr>
+                <tr>
+                    <td>Tiền nước</td>
+                    <td>
+                        @Model.PreviousWaterReading.ToString("N2") → @Model.CurrentWaterReading.ToString("N2") m³
+                        (Dùng @Model.WaterConsumption.ToString("N2") m³ × @Model.WaterUnitPrice.ToString("N0") đ)
+                    </td>
+                    <td class="amount">@Model.WaterAmount.ToString("N0") đ</td>
+                </tr>
+                <tr>
+                    <td>Tiền rác</td>
+                    <td>Phí áp dụng trong kỳ</td>
+                    <td class="amount">@Model.GarbageFee.ToString("N0") đ</td>
+                </tr>
+                <tr>
+                    <td>Internet</td>
+                    <td>Phí áp dụng trong kỳ</td>
+                    <td class="amount">@Model.WifiFee.ToString("N0") đ</td>
+                </tr>
+                <tr>
+                    <td>Giảm trừ</td>
+                    <td>Khoản giảm áp dụng cho kỳ này</td>
+                    <td class="amount">-@Model.DiscountAmount.ToString("N0") đ</td>
+                </tr>
+            </tbody>
+            <tfoot class="table-light">
+                <tr>
+                    <th colspan="2" class="text-end">Tổng tiền hóa đơn</th>
+                    <th class="amount">@Model.TotalAmount.ToString("N0") đ</th>
+                </tr>
+                <tr>
+                    <th colspan="2" class="text-end">Đã thanh toán</th>
+                    <th class="amount">@paidAmount.ToString("N0") đ</th>
+                </tr>
+                <tr>
+                    <th colspan="2" class="text-end">Còn phải thanh toán</th>
+                    <th class="amount">@remainingAmount.ToString("N0") đ</th>
+                </tr>
+            </tfoot>
+        </table>
+
+        <div class="mt-4">
+            <strong>Lưu ý:</strong> Hóa đơn này thông báo các khoản cần thanh toán trong kỳ.
+            Việc thanh toán chỉ được xác nhận khi người quản lý ghi nhận khoản tiền đã nhận.
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(Model.Notes))
+        {
+            <div class="mt-3"><strong>Ghi chú:</strong> @Model.Notes</div>
+        }
+
+        <div class="row text-center mt-5 pt-3">
+            <div class="col-6">
+                <strong>Người thuê</strong>
+                <div class="text-muted small mt-5">(Ký và ghi rõ họ tên nếu cần)</div>
+            </div>
+            <div class="col-6">
+                <strong>Người quản lý</strong>
+                <div class="text-muted small mt-5">(Ký và ghi rõ họ tên)</div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>
