@@ -74,7 +74,14 @@
             </tr>
             <tr><td>Tiền rác</td><td>Phí được ghi nhận cho hóa đơn này</td><td class="text-end">@Model.GarbageFee.ToString("N0") đ</td></tr>
             <tr><td>Internet</td><td>Phí được ghi nhận cho hóa đơn này</td><td class="text-end">@Model.WifiFee.ToString("N0") đ</td></tr>
-            <tr><td>Nợ tháng trước</td><td>Khoản nợ được người quản lý nhập sau khi đối chiếu</td><td class="text-end">@Model.PreviousDebtAmount.ToString("N0") đ</td></tr>
+            @if (Model.PreviousDebtAmount > 0m)
+            {
+                <tr>
+                    <td>Nợ đã ghi nhận trước đây</td>
+                    <td>Khoản được lưu trên hóa đơn cũ; hóa đơn mới không cộng lại khoản nợ này.</td>
+                    <td class="text-end">@Model.PreviousDebtAmount.ToString("N0") đ</td>
+                </tr>
+            }
             <tr><td>Tiền giảm trừ</td><td>Khoản giảm áp dụng cho kỳ này</td><td class="text-end">-@Model.DiscountAmount.ToString("N0") đ</td></tr>
         </tbody>
         <tfoot class="table-light">

@@ -66,7 +66,6 @@ public class InvoiceController : Controller
         int id,
         decimal rentAmount,
         decimal garbageFee,
-        decimal previousDebtAmount,
         decimal discountAmount,
         string? billingMonth)
     {
@@ -118,7 +117,7 @@ public class InvoiceController : Controller
             return RedirectToAction(nameof(Index), new { billingMonth = returnMonth });
         }
 
-        if (rentAmount < 0m || garbageFee < 0m || previousDebtAmount < 0m || discountAmount < 0m)
+        if (rentAmount < 0m || garbageFee < 0m || discountAmount < 0m)
         {
             const string message = "Các khoản tiền không được nhỏ hơn 0.";
             if (wantsJson)
@@ -135,7 +134,7 @@ public class InvoiceController : Controller
             + invoice.WaterAmount
             + garbageFee
             + invoice.WifiFee
-            + previousDebtAmount;
+            + invoice.PreviousDebtAmount;
 
         if (discountAmount > amountBeforeDiscount)
         {
@@ -151,7 +150,6 @@ public class InvoiceController : Controller
 
         invoice.RentAmount = rentAmount;
         invoice.GarbageFee = garbageFee;
-        invoice.PreviousDebtAmount = previousDebtAmount;
         invoice.DiscountAmount = discountAmount;
         invoice.TotalAmount = amountBeforeDiscount - discountAmount;
 
@@ -358,14 +356,12 @@ public class InvoiceController : Controller
                 0,
                 MidpointRounding.AwayFromZero);
             var rentAmount = contract.MonthlyRent;
-            var previousDebtAmount = 0m;
             var discountAmount = 0m;
             var totalAmount = rentAmount
                 + electricityAmount
                 + waterAmount
                 + periodConfig.GarbageFee
                 + periodConfig.WifiFee
-                + previousDebtAmount
                 - discountAmount;
 
             newInvoices.Add(new Invoice
@@ -390,7 +386,7 @@ public class InvoiceController : Controller
                 WaterAmount = waterAmount,
                 GarbageFee = periodConfig.GarbageFee,
                 WifiFee = periodConfig.WifiFee,
-                PreviousDebtAmount = previousDebtAmount,
+                PreviousDebtAmount = 0m,
                 DiscountAmount = discountAmount,
                 TotalAmount = totalAmount,
                 Status = "Unpaid"

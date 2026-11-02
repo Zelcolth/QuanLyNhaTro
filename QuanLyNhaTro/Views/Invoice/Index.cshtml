@@ -148,7 +148,7 @@
         </select>
     </div>
     <div class="col-12 col-md-8 col-lg-9 text-muted">
-        Có thể điều chỉnh tiền phòng, tiền rác, nợ tháng trước và tiền giảm cho hóa đơn chưa thu. Nợ tháng trước được đối chiếu và nhập thủ công.
+        Có thể điều chỉnh tiền phòng, tiền rác và tiền giảm cho hóa đơn chưa thu. Nợ của kỳ trước được theo dõi trên hóa đơn phát sinh, không cộng lại vào hóa đơn tháng mới.
     </div>
 </div>
 
@@ -175,7 +175,7 @@ else
                     <th>Số nước dùng</th>
                     <th>Tiền rác</th>
                     <th>Internet</th>
-                    <th>Nợ tháng trước</th>
+                    <th>Nợ đã ghi nhận</th>
                     <th>Tiền giảm</th>
                     <th>Tổng tiền</th>
                     <th>Thao tác</th>
@@ -196,7 +196,8 @@ else
                     data-payment-state="@invoice.PaymentSortValue"
                     data-electricity="@invoice.ElectricityAmount.ToString(CultureInfo.InvariantCulture)"
                     data-water="@invoice.WaterAmount.ToString(CultureInfo.InvariantCulture)"
-                    data-wifi="@invoice.WifiFee.ToString(CultureInfo.InvariantCulture)">
+                    data-wifi="@invoice.WifiFee.ToString(CultureInfo.InvariantCulture)"
+                    data-previous-debt="@invoice.PreviousDebtAmount.ToString(CultureInfo.InvariantCulture)">
                     <td>
                         <form id="@amountFormId" asp-action="UpdateAmounts" method="post">
                             @Html.AntiForgeryToken()
@@ -234,11 +235,8 @@ else
                                aria-label="Tiền rác" required disabled="@(invoice.HasPayments || invoice.IsPaid ? "disabled" : null)" />
                     </td>
                     <td class="text-end text-nowrap">@invoice.WifiFee.ToString("N0") đ</td>
-                    <td>
-                        <input form="@amountFormId" name="previousDebtAmount" type="number"
-                               class="form-control amount-input" min="0" step="1000"
-                               value="@invoice.PreviousDebtAmount.ToString(CultureInfo.InvariantCulture)"
-                               aria-label="Nợ tháng trước" required disabled="@(invoice.HasPayments || invoice.IsPaid ? "disabled" : null)" />
+                    <td class="text-end text-nowrap">
+                        @invoice.PreviousDebtAmount.ToString("N0") đ
                     </td>
                     <td>
                         <input form="@amountFormId" name="discountAmount" type="number"
@@ -282,7 +280,7 @@ else
             const feedback = document.getElementById("paymentFeedback");
             const moneyFormatter = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 });
             const formatMoney = value => moneyFormatter.format(Number(value) || 0) + " đ";
-            const amountNames = ["rentAmount", "garbageFee", "previousDebtAmount", "discountAmount"];
+            const amountNames = ["rentAmount", "garbageFee", "discountAmount"];
             const saveTimers = new WeakMap();
             const saveInProgress = new WeakMap();
             const editVersions = new WeakMap();
@@ -304,7 +302,7 @@ else
                     + Number(row.dataset.water || 0)
                     + getAmount(row, "garbageFee")
                     + Number(row.dataset.wifi || 0)
-                    + getAmount(row, "previousDebtAmount")
+                    + Number(row.dataset.previousDebt || 0)
                     - getAmount(row, "discountAmount");
             }
 
