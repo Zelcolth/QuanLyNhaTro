@@ -247,8 +247,6 @@ public class InvoiceController : Controller
             .OrderBy(item => item.ConfigId)
             .FirstOrDefaultAsync();
 
-        // Only bill contracts that cover the entire month. Partial-month move-in/move-out
-        // settlement is intentionally kept for the later contract-termination workflow.
         var contracts = await _context.RentalContracts
             .Where(contract =>
                 contract.Status != "Draft"
@@ -291,8 +289,6 @@ public class InvoiceController : Controller
         {
             if (existingInvoices.Count > 0)
             {
-                // Backfill older periods from existing invoices rather than current settings.
-                // When legacy invoices differ, use the most common value as the reference.
                 periodConfig = CreatePeriodConfigFromExistingInvoices(period, existingInvoices);
                 isNewPeriodConfig = true;
 
@@ -391,8 +387,6 @@ public class InvoiceController : Controller
                 0,
                 MidpointRounding.AwayFromZero);
             var rentAmount = contract.MonthlyRent;
-            // Outstanding debt is entered manually by the manager after checking
-            // whether previous payments (including cash) have already been received.
             var previousDebtAmount = 0m;
             var discountAmount = 0m;
             var totalAmount = rentAmount
@@ -537,8 +531,6 @@ public class InvoiceController : Controller
             BillingMonth = period,
             ElectricityPrice = MostCommonAmount(invoices.Select(invoice => invoice.ElectricityUnitPrice)),
             WaterPrice = MostCommonAmount(invoices.Select(invoice => invoice.WaterUnitPrice)),
-            // Garbage may be edited per invoice, so the most common existing value is the best
-            // available estimate of the period's default when backfilling legacy invoices.
             GarbageFee = MostCommonAmount(invoices.Select(invoice => invoice.GarbageFee)),
             WifiFee = MostCommonAmount(invoices.Select(invoice => invoice.WifiFee))
         };
