@@ -323,7 +323,7 @@ public class RentalContractController : Controller
             return RedirectToAction(nameof(Details), new { id });
         }
 
-        if (relationshipToPrimaryTenant?.Trim().Length > 100)
+        if (relationshipToPrimaryTenant is not null && relationshipToPrimaryTenant.Trim().Length > 100)
         {
             TempData["ErrorMessage"] = "Quan hệ với người đứng tên không được vượt quá 100 ký tự.";
             return RedirectToAction(nameof(Details), new { id });
@@ -394,6 +394,7 @@ public class RentalContractController : Controller
         await SynchronizeExpiredContractsAsync();
 
         var contract = await _context.RentalContracts
+            .Include(item => item.ContractTenants)
             .FirstOrDefaultAsync(item => item.ContractId == id);
 
         if (contract is null)
@@ -407,8 +408,7 @@ public class RentalContractController : Controller
             return RedirectToAction(nameof(Details), new { id });
         }
 
-        if (contract.ContractTenants.Count(item => item.IsPrimaryTenant) != 1
-            || contract.ContractTenants.Count != 1)
+        if (contract.ContractTenants.Count(item => item.IsPrimaryTenant) != 1)
         {
             TempData["ErrorMessage"] = "Hợp đồng bản nháp phải có duy nhất một người đứng tên trước khi kích hoạt.";
             return RedirectToAction(nameof(Details), new { id });

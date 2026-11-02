@@ -15,8 +15,23 @@
 <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
     <div>
         <h1 class="h3 mb-1">Nhập chỉ số điện nước</h1>
-        <p class="text-muted mb-0">Nhập chỉ số cho tất cả phòng trong cùng một kỳ. Có thể lưu các dòng hợp lệ và bổ sung những dòng còn thiếu sau.</p>
+        <p class="text-muted mb-0">Nhập chỉ số thủ công cho tất cả phòng hoặc tải mẫu Excel để cập nhật nhiều phòng cùng lúc.</p>
     </div>
+    @if (Model.Rooms.Count > 0)
+    {
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <a asp-action="DownloadTemplate" asp-route-readingMonth="@Model.ReadingMonth"
+               class="btn btn-outline-success">Tải Excel mẫu</a>
+            <form asp-action="ImportExcel" method="post" enctype="multipart/form-data"
+                  class="d-flex flex-wrap align-items-center gap-2">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="readingMonth" value="@Model.ReadingMonth" />
+                <input type="file" name="file" accept=".xlsx"
+                       class="form-control form-control-sm" style="max-width: 230px" required />
+                <button type="submit" class="btn btn-success">Import Excel</button>
+            </form>
+        </div>
+    }
 </div>
 
 @if (ViewBag.SuccessMessage is string successMessage)

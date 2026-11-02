@@ -1,4 +1,5 @@
 using System.Globalization;
+using ClosedXML.Excel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -543,6 +544,304 @@ public class UtilityReadingController : Controller
             readingMonthFilter = period.ToString("yyyy-MM", CultureInfo.InvariantCulture),
             roomIdFilter = roomId
         });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> DownloadTemplate(string? readingMonth)
+    {
+        if (!TryParseReadingMonth(readingMonth, out var period))
+        {
+            period = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+        }
+
+        var currentMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+        if (period > currentMonth)
+        {
+            TempData["ErrorMessage"] = "Chưa thể tạo mẫu nhập cho kỳ trong tương lai.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var model = await BuildBatchViewModelAsync(period);
+        using var workbook = new XLWorkbook();
+        var worksheet = workbook.Worksheets.Add("ChiSoDienNuoc");
+
+        worksheet.Cell(1, 1).Value = "RoomId";
+        worksheet.Cell(1, 2).Value = "Phòng";
+        worksheet.Cell(1, 3).Value = "Điện kỳ trước";
+        worksheet.Cell(1, 4).Value = "Điện kỳ này";
+        worksheet.Cell(1, 5).Value = "Nước kỳ trước";
+        worksheet.Cell(1, 6).Value = "Nước kỳ này";
+
+        for (var index = 0; index < model.Rooms.Count; index++)
+        {
+            var row = model.Rooms[index];
+            var excelRow = index + 2;
+            worksheet.Cell(excelRow, 1).Value = row.RoomId;
+            worksheet.Cell(excelRow, 2).Value = row.RoomLabel;
+            if (row.PreviousElectricityReading.HasValue)
+            {
+                worksheet.Cell(excelRow, 3).Value = (double)row.PreviousElectricityReading.Value;
+            }
+            if (row.ElectricityReading.HasValue)
+            {
+                worksheet.Cell(excelRow, 4).Value = (double)row.ElectricityReading.Value;
+            }
+            if (row.PreviousWaterReading.HasValue)
+            {
+                worksheet.Cell(excelRow, 5).Value = (double)row.PreviousWaterReading.Value;
+            }
+            if (row.WaterReading.HasValue)
+            {
+                worksheet.Cell(excelRow, 6).Value = (double)row.WaterReading.Value;
+            }
+        }
+
+        var header = worksheet.Range(1, 1, 1, 6);
+        header.Style.Font.Bold = true;
+        header.Style.Fill.BackgroundColor = XLColor.LightGray;
+        worksheet.SheetView.FreezeRows(1);
+        worksheet.Columns(1, 6).AdjustToContents();
+        worksheet.Column(2).Width = Math.Max(worksheet.Column(2).Width, 28);
+        worksheet.Column(1).Style.Protection.Locked = true;
+        worksheet.Column(2).Style.Protection.Locked = true;
+        worksheet.Column(3).Style.Protection.Locked = true;
+        worksheet.Column(5).Style.Protection.Locked = true;
+        worksheet.Column(4).Style.Protection.Locked = false;
+        worksheet.Column(6).Style.Protection.Locked = false;
+        worksheet.Protect("QuanLyNhaTro");
+
+        worksheet.Cell(model.Rooms.Count + 4, 1).Value =
+            "Chỉ sửa cột Điện kỳ này và Nước kỳ này. Không thay đổi RoomId hoặc thứ tự/cấu trúc cột.";
+        worksheet.Range(model.Rooms.Count + 4, 1, model.Rooms.Count + 4, 6).Merge();
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        var fileName = $"Mau_ChiSoDienNuoc_{period:yyyyMM}.xlsx";
+        return File(stream.ToArray(),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            fileName);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequestSizeLimit(5 * 1024 * 1024)]
+    public async Task<IActionResult> ImportExcel(IFormFile? file, string? readingMonth)
+    {
+        if (!TryParseReadingMonth(readingMonth, out var period))
+        {
+            TempData["ErrorMessage"] = "Vui lòng chọn kỳ ghi chỉ số hợp lệ trước khi nhập Excel.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var currentMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+        if (period > currentMonth)
+        {
+            TempData["ErrorMessage"] = "Không thể import chỉ số cho kỳ trong tương lai.";
+            return RedirectToAction(nameof(Index), new
+            {
+                readingMonth = currentMonth.ToString("yyyy-MM", CultureInfo.InvariantCulture)
+            });
+        }
+
+        if (file is null || file.Length == 0)
+        {
+            TempData["ErrorMessage"] = "Vui lòng chọn file Excel có dữ liệu.";
+            return RedirectToAction(nameof(Index), new
+            {
+                readingMonth = period.ToString("yyyy-MM", CultureInfo.InvariantCulture)
+            });
+        }
+
+        if (file.Length > 5 * 1024 * 1024)
+        {
+            TempData["ErrorMessage"] = "File Excel không được vượt quá 5 MB.";
+            return RedirectToAction(nameof(Index), new
+            {
+                readingMonth = period.ToString("yyyy-MM", CultureInfo.InvariantCulture)
+            });
+        }
+
+        if (!string.Equals(Path.GetExtension(file.FileName), ".xlsx", StringComparison.OrdinalIgnoreCase))
+        {
+            TempData["ErrorMessage"] = "Chỉ hỗ trợ file Excel định dạng .xlsx.";
+            return RedirectToAction(nameof(Index), new
+            {
+                readingMonth = period.ToString("yyyy-MM", CultureInfo.InvariantCulture)
+            });
+        }
+
+        try
+        {
+            await using var stream = file.OpenReadStream();
+            using var workbook = new XLWorkbook(stream);
+            var worksheet = workbook.Worksheets.FirstOrDefault();
+            if (worksheet is null)
+            {
+                TempData["ErrorMessage"] = "File Excel không có trang tính để đọc.";
+                return RedirectToAction(nameof(Index), new
+                {
+                    readingMonth = period.ToString("yyyy-MM", CultureInfo.InvariantCulture)
+                });
+            }
+
+            var expectedHeaders = new[]
+            {
+                "RoomId", "Phòng", "Điện kỳ trước", "Điện kỳ này", "Nước kỳ trước", "Nước kỳ này"
+            };
+            for (var column = 1; column <= expectedHeaders.Length; column++)
+            {
+                var actualHeader = worksheet.Cell(1, column).GetString().Trim();
+                if (!string.Equals(actualHeader, expectedHeaders[column - 1], StringComparison.OrdinalIgnoreCase))
+                {
+                    TempData["ErrorMessage"] = "Cấu trúc file không đúng mẫu. Hãy tải file mẫu mới từ màn hình nhập chỉ số điện nước.";
+                    return RedirectToAction(nameof(Index), new
+                    {
+                        readingMonth = period.ToString("yyyy-MM", CultureInfo.InvariantCulture)
+                    });
+                }
+            }
+
+            var batchModel = await BuildBatchViewModelAsync(period);
+            var knownRooms = batchModel.Rooms.ToDictionary(row => row.RoomId);
+            var importedRows = new List<UtilityReadingBatchRowViewModel>();
+            var importedRoomIds = new HashSet<int>();
+            var lastRow = worksheet.LastRowUsed()?.RowNumber() ?? 1;
+
+            for (var excelRow = 2; excelRow <= lastRow; excelRow++)
+            {
+                var roomIdCell = worksheet.Cell(excelRow, 1);
+                if (roomIdCell.IsEmpty())
+                {
+                    continue;
+                }
+
+                if (!TryReadExcelInteger(roomIdCell, out var roomId) || roomId <= 0)
+                {
+                    TempData["ErrorMessage"] = $"RoomId tại dòng {excelRow} không hợp lệ.";
+                    return RedirectToAction(nameof(Index), new
+                    {
+                        readingMonth = period.ToString("yyyy-MM", CultureInfo.InvariantCulture)
+                    });
+                }
+
+                if (!importedRoomIds.Add(roomId))
+                {
+                    TempData["ErrorMessage"] = $"Phòng có mã RoomId {roomId} bị lặp tại file Excel.";
+                    return RedirectToAction(nameof(Index), new
+                    {
+                        readingMonth = period.ToString("yyyy-MM", CultureInfo.InvariantCulture)
+                    });
+                }
+
+                if (!knownRooms.TryGetValue(roomId, out var knownRoom))
+                {
+                    TempData["ErrorMessage"] = $"RoomId {roomId} tại dòng {excelRow} không tồn tại trong hệ thống.";
+                    return RedirectToAction(nameof(Index), new
+                    {
+                        readingMonth = period.ToString("yyyy-MM", CultureInfo.InvariantCulture)
+                    });
+                }
+
+                if (!TryReadExcelDecimal(worksheet.Cell(excelRow, 4), out var electricity)
+                    || !TryReadExcelDecimal(worksheet.Cell(excelRow, 6), out var water))
+                {
+                    TempData["ErrorMessage"] = $"Chỉ số điện hoặc nước tại dòng {excelRow} không phải số hợp lệ.";
+                    return RedirectToAction(nameof(Index), new
+                    {
+                        readingMonth = period.ToString("yyyy-MM", CultureInfo.InvariantCulture)
+                    });
+                }
+
+                if (!electricity.HasValue && !water.HasValue)
+                {
+                    continue;
+                }
+
+                importedRows.Add(new UtilityReadingBatchRowViewModel
+                {
+                    RoomId = roomId,
+                    RoomLabel = knownRoom.RoomLabel,
+                    PreviousReadingMonth = knownRoom.PreviousReadingMonth,
+                    PreviousElectricityReading = knownRoom.PreviousElectricityReading,
+                    PreviousWaterReading = knownRoom.PreviousWaterReading,
+                    ElectricityReading = electricity,
+                    WaterReading = water
+                });
+            }
+
+            if (importedRows.Count == 0)
+            {
+                TempData["ErrorMessage"] = "File không có dòng nào chứa chỉ số điện/nước cần nhập.";
+                return RedirectToAction(nameof(Index), new
+                {
+                    readingMonth = period.ToString("yyyy-MM", CultureInfo.InvariantCulture)
+                });
+            }
+
+            return await SaveMonth(new UtilityReadingBatchViewModel
+            {
+                ReadingMonth = period.ToString("yyyy-MM", CultureInfo.InvariantCulture),
+                Rooms = importedRows
+            });
+        }
+        catch (Exception exception) when (
+            exception is not InvalidDataException
+            && exception is not OperationCanceledException)
+        {
+            TempData["ErrorMessage"] = "Không thể đọc file Excel. Hãy kiểm tra file có phải định dạng .xlsx hợp lệ và không bị hỏng.";
+            return RedirectToAction(nameof(Index), new
+            {
+                readingMonth = period.ToString("yyyy-MM", CultureInfo.InvariantCulture)
+            });
+        }
+    }
+
+    private static bool TryReadExcelInteger(IXLCell cell, out int value)
+    {
+        if (cell.TryGetValue<int>(out value))
+        {
+            return true;
+        }
+
+        return int.TryParse(cell.GetString().Trim(), NumberStyles.Integer,
+            CultureInfo.InvariantCulture, out value);
+    }
+
+    private static bool TryReadExcelDecimal(IXLCell cell, out decimal? value)
+    {
+        value = null;
+        if (cell.IsEmpty())
+        {
+            return true;
+        }
+
+        if (cell.TryGetValue<double>(out var number) && double.IsFinite(number))
+        {
+            try
+            {
+                value = Convert.ToDecimal(number, CultureInfo.InvariantCulture);
+                return true;
+            }
+            catch (OverflowException)
+            {
+                return false;
+            }
+        }
+
+        var text = cell.GetString().Trim();
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return true;
+        }
+
+        if (decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out var invariantValue)
+            || decimal.TryParse(text, NumberStyles.Number, CultureInfo.CurrentCulture, out invariantValue))
+        {
+            value = invariantValue;
+            return true;
+        }
+
+        return false;
     }
 
     private async Task PrepareCreateFormAsync(
