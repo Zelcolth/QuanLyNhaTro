@@ -852,12 +852,6 @@ public class RentalContractController : Controller
                 .Where(assignment => assignment.IsPrimaryTenant)
                 .Select(assignment => (int?)assignment.TenantId)
                 .FirstOrDefault(),
-            TenantOptions = contract.ContractTenants.Select(assignment => new ContractTenantOptionInput
-            {
-                TenantId = assignment.TenantId,
-                IsSelected = true,
-                RelationshipToPrimaryTenant = assignment.RelationshipToPrimaryTenant
-            }).ToList()
         };
     }
 
