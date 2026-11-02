@@ -102,11 +102,6 @@
                             @if (!assignment.IsPrimaryTenant)
                             {
                                 <div class="d-flex flex-wrap justify-content-end gap-1">
-                                    <button type="button" class="btn btn-sm btn-outline-primary"
-                                            data-bs-toggle="collapse"
-                                            data-bs-target="#replaceOccupant-@assignment.TenantId">
-                                        Thay thế
-                                    </button>
                                     <form asp-controller="Room" asp-action="MarkOccupantLeft" asp-route-id="@Model.RoomId"
                                           method="post" class="d-inline"
                                           onsubmit="return confirm('Ghi nhận người này đã rời khỏi phòng?');">
@@ -117,46 +112,6 @@
                                 </div>
                             }
                         </div>
-
-                        @if (!assignment.IsPrimaryTenant)
-                        {
-                            <div class="collapse mt-3" id="replaceOccupant-@assignment.TenantId">
-                                @if (Model.AvailableTenants.Count == 0)
-                                {
-                                    <div class="alert alert-info mb-0">Không còn hồ sơ người thuê phù hợp để thay thế.</div>
-                                }
-                                else
-                                {
-                                    <form asp-controller="Room" asp-action="ReplaceOccupant" asp-route-id="@Model.RoomId" method="post">
-                                        @Html.AntiForgeryToken()
-                                        <input type="hidden" name="oldTenantId" value="@assignment.TenantId" />
-                                        <div class="row g-2 align-items-end">
-                                            <div class="col-md-6">
-                                                <label class="form-label">Người thay thế</label>
-                                                <select name="newTenantId" class="form-select" required>
-                                                    <option value="">-- Chọn người thuê --</option>
-                                                    @foreach (var tenant in Model.AvailableTenants)
-                                                    {
-                                                        <option value="@tenant.TenantId">
-                                                            @tenant.FullName — @(string.IsNullOrWhiteSpace(tenant.Phone) ? "Chưa có SĐT" : tenant.Phone)
-                                                        </option>
-                                                    }
-                                                </select>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <label class="form-label">Quan hệ</label>
-                                                <input name="relationshipToPrimaryTenant" class="form-control"
-                                                       maxlength="100" value="@assignment.RelationshipToPrimaryTenant"
-                                                       placeholder="Bạn cùng thuê, vợ/chồng..." />
-                                            </div>
-                                            <div class="col-md-2">
-                                                <button type="submit" class="btn btn-primary w-100">Xác nhận</button>
-                                            </div>
-                                        </div>
-                                    </form>
-                                }
-                            </div>
-                        }
                     </div>
                 </div>
             }
