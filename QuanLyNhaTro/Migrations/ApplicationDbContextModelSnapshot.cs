@@ -127,9 +127,6 @@ namespace QuanLyNhaTro.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
-                    b.Property<decimal>("PreviousDebtAmount")
-                        .HasColumnType("decimal(18,2)");
-
                     b.Property<decimal>("PreviousElectricityReading")
                         .HasColumnType("decimal(18,2)");
 

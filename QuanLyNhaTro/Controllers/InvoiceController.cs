@@ -133,8 +133,7 @@ public class InvoiceController : Controller
             + invoice.ElectricityAmount
             + invoice.WaterAmount
             + garbageFee
-            + invoice.WifiFee
-            + invoice.PreviousDebtAmount;
+            + invoice.WifiFee;
 
         if (discountAmount > amountBeforeDiscount)
         {
@@ -386,7 +385,6 @@ public class InvoiceController : Controller
                 WaterAmount = waterAmount,
                 GarbageFee = periodConfig.GarbageFee,
                 WifiFee = periodConfig.WifiFee,
-                PreviousDebtAmount = 0m,
                 DiscountAmount = discountAmount,
                 TotalAmount = totalAmount,
                 Status = "Unpaid"
@@ -652,16 +650,6 @@ public class InvoiceController : Controller
         }
 
         return Math.Min(paidAmount, invoice.TotalAmount);
-    }
-
-    private static decimal CalculateAmountBeforeDiscount(Invoice invoice)
-    {
-        return invoice.RentAmount
-            + invoice.ElectricityAmount
-            + invoice.WaterAmount
-            + invoice.GarbageFee
-            + invoice.WifiFee
-            + invoice.PreviousDebtAmount;
     }
 
     private static DateTime CurrentMonth()

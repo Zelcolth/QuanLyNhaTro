@@ -61,7 +61,6 @@ public sealed class InvoiceItemViewModel
     public decimal WaterAmount { get; init; }
     public decimal GarbageFee { get; init; }
     public decimal WifiFee { get; init; }
-    public decimal PreviousDebtAmount { get; init; }
     public decimal DiscountAmount { get; init; }
     public decimal TotalAmount { get; init; }
     public decimal PaidAmount { get; init; }
@@ -106,7 +105,6 @@ public sealed class InvoiceItemViewModel
             WaterAmount = invoice.WaterAmount,
             GarbageFee = invoice.GarbageFee,
             WifiFee = invoice.WifiFee,
-            PreviousDebtAmount = invoice.PreviousDebtAmount,
             DiscountAmount = invoice.DiscountAmount,
             TotalAmount = invoice.TotalAmount,
             PaidAmount = paidAmount,

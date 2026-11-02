@@ -56,7 +56,6 @@ public class Invoice
 
     public decimal WifiFee { get; set; }
 
-    public decimal PreviousDebtAmount { get; set; }
 
     public decimal DiscountAmount { get; set; }
 

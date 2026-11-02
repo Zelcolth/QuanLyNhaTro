@@ -175,7 +175,6 @@ else
                     <th>Số nước dùng</th>
                     <th>Tiền rác</th>
                     <th>Internet</th>
-                    <th>Nợ đã ghi nhận</th>
                     <th>Tiền giảm</th>
                     <th>Tổng tiền</th>
                     <th>Thao tác</th>
@@ -196,8 +195,7 @@ else
                     data-payment-state="@invoice.PaymentSortValue"
                     data-electricity="@invoice.ElectricityAmount.ToString(CultureInfo.InvariantCulture)"
                     data-water="@invoice.WaterAmount.ToString(CultureInfo.InvariantCulture)"
-                    data-wifi="@invoice.WifiFee.ToString(CultureInfo.InvariantCulture)"
-                    data-previous-debt="@invoice.PreviousDebtAmount.ToString(CultureInfo.InvariantCulture)">
+                    data-wifi="@invoice.WifiFee.ToString(CultureInfo.InvariantCulture)">
                     <td>
                         <form id="@amountFormId" asp-action="UpdateAmounts" method="post">
                             @Html.AntiForgeryToken()
@@ -235,9 +233,6 @@ else
                                aria-label="Tiền rác" required disabled="@(invoice.HasPayments || invoice.IsPaid ? "disabled" : null)" />
                     </td>
                     <td class="text-end text-nowrap">@invoice.WifiFee.ToString("N0") đ</td>
-                    <td class="text-end text-nowrap">
-                        @invoice.PreviousDebtAmount.ToString("N0") đ
-                    </td>
                     <td>
                         <input form="@amountFormId" name="discountAmount" type="number"
                                class="form-control amount-input" min="0" step="1000"
@@ -302,7 +297,6 @@ else
                     + Number(row.dataset.water || 0)
                     + getAmount(row, "garbageFee")
                     + Number(row.dataset.wifi || 0)
-                    + Number(row.dataset.previousDebt || 0)
                     - getAmount(row, "discountAmount");
             }
 
