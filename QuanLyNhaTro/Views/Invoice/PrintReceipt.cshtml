@@ -3,7 +3,10 @@
 @{
     ViewData["Title"] = "Phiếu thu";
     var invoice = Model.Invoice;
-    var totalPaid = invoice.Receipts.Sum(item => item.Amount);
+    var totalPaid = invoice.Receipts
+        .Where(item => item.ReceivedAt < Model.ReceivedAt
+            || (item.ReceivedAt == Model.ReceivedAt && item.ReceiptId <= Model.ReceiptId))
+        .Sum(item => item.Amount);
     var remaining = Math.Max(invoice.TotalAmount - totalPaid, 0m);
 }
 

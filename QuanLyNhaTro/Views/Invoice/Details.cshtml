@@ -112,7 +112,7 @@
                         <tr><th>Mã phiếu thu</th><th>Thời điểm nhận</th><th>Ghi chú</th><th class="text-end">Số tiền</th></tr>
                     </thead>
                     <tbody>
-                    @foreach (var receipt in Model.Receipts.OrderBy(item => item.ReceivedAt))
+                    @foreach (var receipt in Model.Receipts.OrderBy(item => item.ReceivedAt).ThenBy(item => item.ReceiptId))
                     {
                         <tr>
                             <td>
