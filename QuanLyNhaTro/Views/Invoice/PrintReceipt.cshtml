@@ -1,0 +1,85 @@
+@model QuanLyNhaTro.Models.Receipt
+
+@{
+    ViewData["Title"] = "Phiếu thu";
+    var invoice = Model.Invoice;
+    var totalPaid = invoice.Receipts.Sum(item => item.Amount);
+    var remaining = Math.Max(invoice.TotalAmount - totalPaid, 0m);
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3 d-print-none">
+    <a asp-action="Details" asp-route-id="@invoice.InvoiceId" class="btn btn-outline-secondary">Quay lại hóa đơn</a>
+    <button type="button" class="btn btn-primary" onclick="window.print()">In phiếu thu</button>
+</div>
+
+<div class="receipt-paper mx-auto border rounded p-4">
+    <div class="text-center mb-4">
+        <h1 class="h3 mb-1">PHIẾU THU</h1>
+        <div class="text-muted">Mã phiếu: <strong>@Model.ReceiptCode</strong></div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-6">
+            <div class="text-muted small">Ngày nhận tiền</div>
+            <strong>@Model.ReceivedAt.ToString("HH:mm, dd/MM/yyyy")</strong>
+        </div>
+        <div class="col-6 text-end">
+            <div class="text-muted small">Hóa đơn liên quan</div>
+            <strong>@invoice.InvoiceCode</strong>
+        </div>
+    </div>
+
+    <hr />
+
+    <dl class="row">
+        <dt class="col-sm-4">Người thuê</dt>
+        <dd class="col-sm-8">@invoice.TenantNamesSnapshot</dd>
+
+        <dt class="col-sm-4">Phòng</dt>
+        <dd class="col-sm-8">@invoice.RoomLabelSnapshot</dd>
+
+        <dt class="col-sm-4">Kỳ hóa đơn</dt>
+        <dd class="col-sm-8">@invoice.BillingMonth.ToString("MM/yyyy")</dd>
+
+        <dt class="col-sm-4">Tổng tiền hóa đơn</dt>
+        <dd class="col-sm-8">@invoice.TotalAmount.ToString("N0") đ</dd>
+
+        <dt class="col-sm-4">Số tiền nhận lần này</dt>
+        <dd class="col-sm-8 fs-5 fw-bold">@Model.Amount.ToString("N0") đ</dd>
+
+        <dt class="col-sm-4">Tổng đã thu sau phiếu này</dt>
+        <dd class="col-sm-8">@totalPaid.ToString("N0") đ</dd>
+
+        <dt class="col-sm-4">Còn phải thu</dt>
+        <dd class="col-sm-8">@remaining.ToString("N0") đ</dd>
+
+        @if (!string.IsNullOrWhiteSpace(Model.Notes))
+        {
+            <dt class="col-sm-4">Ghi chú</dt>
+            <dd class="col-sm-8">@Model.Notes</dd>
+        }
+    </dl>
+
+    <hr />
+
+    <div class="row text-center mt-5">
+        <div class="col-6">
+            <strong>Người nộp tiền</strong>
+            <div class="small text-muted mt-5">(Ký và ghi rõ họ tên)</div>
+        </div>
+        <div class="col-6">
+            <strong>Người thu tiền</strong>
+            <div class="small text-muted mt-5">(Ký và ghi rõ họ tên)</div>
+        </div>
+    </div>
+    <div class="text-end small text-muted mt-4">Lập lúc @DateTime.Now.ToString("HH:mm dd/MM/yyyy")</div>
+</div>
+
+<style>
+    .receipt-paper { max-width: 800px; background: #fff; }
+    @@media print {
+        @@page { size: A4; margin: 18mm; }
+        body { background: #fff !important; }
+        .receipt-paper { max-width: none; border: 0 !important; padding: 0 !important; }
+    }
+</style>

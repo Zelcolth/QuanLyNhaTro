@@ -115,7 +115,10 @@
                     @foreach (var receipt in Model.Receipts.OrderBy(item => item.ReceivedAt))
                     {
                         <tr>
-                            <td>@receipt.ReceiptCode</td>
+                            <td>
+                                <a asp-action="PrintReceipt" asp-route-id="@receipt.ReceiptId"
+                                   target="_blank" rel="noopener">@receipt.ReceiptCode</a>
+                            </td>
                             <td>@receipt.ReceivedAt.ToString("dd/MM/yyyy HH:mm")</td>
                             <td>@(string.IsNullOrWhiteSpace(receipt.Notes) ? "—" : receipt.Notes)</td>
                             <td class="text-end fw-semibold">@receipt.Amount.ToString("N0") đ</td>
