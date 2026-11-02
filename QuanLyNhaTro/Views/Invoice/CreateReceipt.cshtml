@@ -41,7 +41,7 @@
             <div class="mb-3">
                 <label asp-for="Amount" class="form-label">Số tiền thực nhận (VNĐ)</label>
                 <input asp-for="Amount" type="number" min="0.01" max="@Model.RemainingAmount"
-                       step="1000" class="form-control" required />
+                       step="0.01" class="form-control" required />
                 <span asp-validation-for="Amount" class="text-danger"></span>
                 <div class="form-text">Có thể nhập số tiền thấp hơn số còn nợ để ghi nhận thanh toán một phần.</div>
             </div>

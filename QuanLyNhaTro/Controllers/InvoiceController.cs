@@ -578,7 +578,6 @@ public class InvoiceController : Controller
         var receipt = await _context.Receipts
             .Include(item => item.Invoice)
                 .ThenInclude(invoice => invoice.Receipts)
-            .AsNoTracking()
             .FirstOrDefaultAsync(item => item.ReceiptId == id);
 
         return receipt is null ? NotFound() : View(receipt);
