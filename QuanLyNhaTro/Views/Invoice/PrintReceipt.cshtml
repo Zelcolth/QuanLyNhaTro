@@ -8,6 +8,14 @@
             || (item.ReceivedAt == Model.ReceivedAt && item.ReceiptId <= Model.ReceiptId))
         .Sum(item => item.Amount);
     var remaining = Math.Max(invoice.TotalAmount - totalPaid, 0m);
+    var isCash = Model.PaymentMethod == "Cash";
+    var isBankTransfer = Model.PaymentMethod == "BankTransfer";
+    var paymentMethodLabel = isCash ? "Tiền mặt"
+        : isBankTransfer ? "Chuyển khoản"
+        : "Chưa xác định (phiếu cũ)";
+    var payerName = string.IsNullOrWhiteSpace(Model.PayerName)
+        ? "Chưa ghi nhận"
+        : Model.PayerName;
 }
 
 <div class="d-flex justify-content-between align-items-center mb-3 d-print-none">
@@ -35,8 +43,14 @@
     <hr />
 
     <dl class="row">
-        <dt class="col-sm-4">Người thuê</dt>
+        <dt class="col-sm-4">Người thuê theo hóa đơn</dt>
         <dd class="col-sm-8">@invoice.TenantNamesSnapshot</dd>
+
+        <dt class="col-sm-4">Người @(isBankTransfer ? "chuyển" : "nộp") tiền</dt>
+        <dd class="col-sm-8">@payerName</dd>
+
+        <dt class="col-sm-4">Phương thức</dt>
+        <dd class="col-sm-8">@paymentMethodLabel</dd>
 
         <dt class="col-sm-4">Phòng</dt>
         <dd class="col-sm-8">@invoice.RoomLabelSnapshot</dd>
@@ -65,21 +79,45 @@
 
     <hr />
 
-    <div class="row text-center mt-5">
-        <div class="col-6">
-            <strong>Người nộp tiền</strong>
-            <div class="small text-muted mt-5">(Ký và ghi rõ họ tên)</div>
+    @if (isCash)
+    {
+        <div class="row text-center mt-5">
+            <div class="col-6">
+                <strong>Người nộp tiền</strong>
+                <div>@payerName</div>
+                <div class="signature-space"></div>
+                <div class="small text-muted">(Ký và ghi rõ họ tên)</div>
+            </div>
+            <div class="col-6">
+                <strong>Người thu tiền</strong>
+                <div>@(string.IsNullOrWhiteSpace(Model.CollectorName) ? " " : Model.CollectorName)</div>
+                <div class="signature-space"></div>
+                <div class="small text-muted">(Ký và ghi rõ họ tên)</div>
+            </div>
         </div>
-        <div class="col-6">
-            <strong>Người thu tiền</strong>
-            <div class="small text-muted mt-5">(Ký và ghi rõ họ tên)</div>
+    }
+    else if (isBankTransfer)
+    {
+        <div class="alert alert-light border text-center">
+            Khoản tiền đã được người quản lý xác nhận sau khi đối chiếu tài khoản ngân hàng.
         </div>
-    </div>
+        <div class="text-end mt-4">
+            <strong>Người ghi nhận:</strong> @(string.IsNullOrWhiteSpace(Model.CollectorName) ? "—" : Model.CollectorName)
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-secondary text-center">
+            Phiếu thu được lập trước khi hệ thống lưu phương thức và người nộp tiền.
+        </div>
+    }
+
     <div class="text-end small text-muted mt-4">Lập lúc @DateTime.Now.ToString("HH:mm dd/MM/yyyy")</div>
 </div>
 
 <style>
     .receipt-paper { max-width: 800px; background: #fff; }
+    .signature-space { height: 80px; }
     @@media print {
         @@page { size: A4; margin: 18mm; }
         body { background: #fff !important; }

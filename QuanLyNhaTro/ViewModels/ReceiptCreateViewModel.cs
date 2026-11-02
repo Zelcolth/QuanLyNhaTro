@@ -13,6 +13,19 @@ public sealed class ReceiptCreateViewModel
     public decimal PaidAmount { get; set; }
     public decimal RemainingAmount { get; set; }
 
+    [Required(ErrorMessage = "Vui lòng chọn phương thức nhận tiền.")]
+    [RegularExpression("^(Cash|BankTransfer)$", ErrorMessage = "Phương thức nhận tiền không hợp lệ.")]
+    public string PaymentMethod { get; set; } = "Cash";
+
+    [Required(ErrorMessage = "Vui lòng nhập họ tên người nộp hoặc chuyển tiền.")]
+    [StringLength(150, ErrorMessage = "Họ tên không được vượt quá 150 ký tự.")]
+    public string PayerName { get; set; } = string.Empty;
+
+    public string? BankCode { get; set; }
+    public string? BankAccount { get; set; }
+    public string? AccountName { get; set; }
+    public string TransferContent { get; set; } = string.Empty;
+
     [Range(typeof(decimal), "0.01", "9999999999999999.99",
         ErrorMessage = "Số tiền nhận phải lớn hơn 0.")]
     public decimal Amount { get; set; }

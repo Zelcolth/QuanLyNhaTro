@@ -1,5 +1,6 @@
 using System.Data;
 using System.Globalization;
+using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -478,7 +479,7 @@ public class InvoiceController : Controller
             return RedirectToAction(nameof(Details), new { id = invoiceId });
         }
 
-        return View(new ReceiptCreateViewModel
+        var model = new ReceiptCreateViewModel
         {
             InvoiceId = invoice.InvoiceId,
             InvoiceCode = invoice.InvoiceCode,
@@ -489,8 +490,14 @@ public class InvoiceController : Controller
             PaidAmount = paidAmount,
             RemainingAmount = remainingAmount,
             Amount = remainingAmount,
-            ReceivedAt = DateTime.Now
-        });
+            ReceivedAt = DateTime.Now,
+            PaymentMethod = "Cash",
+            PayerName = GetDefaultPayerName(invoice),
+            TransferContent = BuildTransferContent(invoice)
+        };
+
+        await LoadReceiptBankDetailsAsync(model);
+        return View(model);
     }
 
     [HttpPost]
@@ -518,12 +525,25 @@ public class InvoiceController : Controller
         model.TotalAmount = invoice.TotalAmount;
         model.PaidAmount = paidAmount;
         model.RemainingAmount = remainingAmount;
+        model.TransferContent = BuildTransferContent(invoice);
+
+        await LoadReceiptBankDetailsAsync(model);
 
         if (remainingAmount <= 0m)
         {
             await transaction.RollbackAsync();
             TempData["ErrorMessage"] = "Hóa đơn này đã được thanh toán đủ.";
             return RedirectToAction(nameof(Details), new { id = invoice.InvoiceId });
+        }
+
+        if (model.PaymentMethod is not ("Cash" or "BankTransfer"))
+        {
+            ModelState.AddModelError(nameof(model.PaymentMethod), "Vui lòng chọn phương thức nhận tiền hợp lệ.");
+        }
+
+        if (string.IsNullOrWhiteSpace(model.PayerName))
+        {
+            ModelState.AddModelError(nameof(model.PayerName), "Vui lòng nhập họ tên người nộp hoặc chuyển tiền.");
         }
 
         if (model.ReceivedAt > DateTime.Now.AddMinutes(1))
@@ -547,6 +567,9 @@ public class InvoiceController : Controller
         {
             ReceiptCode = $"PT-{DateTime.Now:yyyyMMdd}-{suffix}",
             InvoiceId = invoice.InvoiceId,
+            PaymentMethod = model.PaymentMethod,
+            PayerName = model.PayerName.Trim(),
+            CollectorName = User.Identity?.Name?.Trim(),
             ReceivedAt = model.ReceivedAt,
             Amount = model.Amount,
             Notes = string.IsNullOrWhiteSpace(model.Notes) ? null : model.Notes.Trim()
@@ -649,6 +672,78 @@ public class InvoiceController : Controller
         }
 
         return Math.Min(paidAmount, invoice.TotalAmount);
+    }
+
+    private async Task LoadReceiptBankDetailsAsync(ReceiptCreateViewModel model)
+    {
+        var config = await _context.SystemConfigs
+            .AsNoTracking()
+            .OrderBy(item => item.ConfigId)
+            .FirstOrDefaultAsync();
+
+        model.BankCode = config?.BankCode;
+        model.BankAccount = config?.BankAccount;
+        model.AccountName = config?.AccountName;
+    }
+
+    private static string GetDefaultPayerName(Invoice invoice)
+    {
+        return invoice.TenantNamesSnapshot
+            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .FirstOrDefault() ?? string.Empty;
+    }
+
+    private static string BuildTransferContent(Invoice invoice)
+    {
+        var invoiceCode = new string(invoice.InvoiceCode
+            .Where(char.IsLetterOrDigit)
+            .ToArray())
+            .ToUpperInvariant();
+
+        var tenantName = GetDefaultPayerName(invoice);
+        var roomLabel = invoice.RoomLabelSnapshot;
+        var roomIndex = roomLabel.LastIndexOf("Phòng ", StringComparison.OrdinalIgnoreCase);
+        if (roomIndex >= 0)
+        {
+            roomLabel = roomLabel[roomIndex..];
+        }
+
+        var purpose = $"Đóng tiền trọ tháng {invoice.BillingMonth:MM/yyyy}";
+        return string.Join(" ", new[]
+        {
+            invoiceCode,
+            NormalizeTransferText(tenantName),
+            NormalizeTransferText(roomLabel),
+            NormalizeTransferText(purpose)
+        }.Where(value => !string.IsNullOrWhiteSpace(value)));
+    }
+
+    private static string NormalizeTransferText(string value)
+    {
+        var normalized = value
+            .Replace('đ', 'd')
+            .Replace('Đ', 'D')
+            .Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder();
+
+        foreach (var character in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(character) == UnicodeCategory.NonSpacingMark)
+            {
+                continue;
+            }
+
+            if (char.IsLetterOrDigit(character) || character == '/')
+            {
+                builder.Append(char.ToUpperInvariant(character));
+            }
+            else if (builder.Length > 0 && builder[^1] != ' ')
+            {
+                builder.Append(' ');
+            }
+        }
+
+        return builder.ToString().Trim();
     }
 
     private static DateTime CurrentMonth()

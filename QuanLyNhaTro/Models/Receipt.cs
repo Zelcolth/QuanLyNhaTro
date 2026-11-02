@@ -13,6 +13,16 @@ public class Receipt
 
     public int InvoiceId { get; set; }
 
+    [Required]
+    [StringLength(20)]
+    public string PaymentMethod { get; set; } = "Unknown";
+
+    [StringLength(150)]
+    public string? PayerName { get; set; }
+
+    [StringLength(150)]
+    public string? CollectorName { get; set; }
+
     public DateTime ReceivedAt { get; set; } = DateTime.Now;
 
     [Range(typeof(decimal), "0.01", "9999999999999999.99",

@@ -224,6 +224,21 @@ namespace QuanLyNhaTro.Migrations
                     b.Property<int>("InvoiceId")
                         .HasColumnType("int");
 
+                    b.Property<string>("PaymentMethod")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Unknown");
+
+                    b.Property<string>("PayerName")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("CollectorName")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
                     b.Property<DateTime>("ReceivedAt")
                         .HasColumnType("datetime2");
 

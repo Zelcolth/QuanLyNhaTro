@@ -147,6 +147,17 @@ public class ApplicationDbContext : DbContext
             entity.Property(receipt => receipt.Notes)
                 .HasMaxLength(1000);
 
+            entity.Property(receipt => receipt.PaymentMethod)
+                .HasMaxLength(20)
+                .IsRequired()
+                .HasDefaultValue("Unknown");
+
+            entity.Property(receipt => receipt.PayerName)
+                .HasMaxLength(150);
+
+            entity.Property(receipt => receipt.CollectorName)
+                .HasMaxLength(150);
+
             entity.HasIndex(receipt => receipt.ReceiptCode)
                 .IsUnique();
 
