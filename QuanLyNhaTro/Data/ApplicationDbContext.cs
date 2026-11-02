@@ -57,6 +57,10 @@ public class ApplicationDbContext : DbContext
             .HasMaxLength(100);
 
         modelBuilder.Entity<ContractTenant>()
+            .Property(contractTenant => contractTenant.IsActive)
+            .HasDefaultValue(true);
+
+        modelBuilder.Entity<ContractTenant>()
             .HasIndex(contractTenant => contractTenant.TenantId);
 
         modelBuilder.Entity<User>()

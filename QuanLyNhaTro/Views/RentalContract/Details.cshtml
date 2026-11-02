@@ -14,11 +14,14 @@
     };
     var primaryTenant = Model.ContractTenants.FirstOrDefault(item => item.IsPrimaryTenant);
     var otherTenants = Model.ContractTenants
-        .Where(item => !item.IsPrimaryTenant)
+        .Where(item => !item.IsPrimaryTenant && item.IsActive)
         .OrderBy(item => item.Tenant.FullName)
         .ToList();
-    var availableTenants = ViewBag.AvailableTenants as List<QuanLyNhaTro.Models.TenantProfile>
-        ?? new List<QuanLyNhaTro.Models.TenantProfile>();
+    var formerTenants = Model.ContractTenants
+        .Where(item => !item.IsPrimaryTenant && !item.IsActive)
+        .OrderByDescending(item => item.LeftAt)
+        .ThenBy(item => item.Tenant.FullName)
+        .ToList();
 }
 
 <h1>Chi tiết hợp đồng thuê</h1>
@@ -76,6 +79,22 @@
                 }
             </dd>
 
+            @if (formerTenants.Count > 0)
+            {
+                <dt class="col-sm-4">Người ở phụ đã rời đi</dt>
+                <dd class="col-sm-8">
+                    <ul class="mb-0">
+                        @foreach (var assignment in formerTenants)
+                        {
+                            <li>
+                                @assignment.Tenant.FullName
+                                <small class="text-muted"> — Rời đi: @(assignment.LeftAt?.ToString("dd/MM/yyyy") ?? "Chưa ghi nhận")</small>
+                            </li>
+                        }
+                    </ul>
+                </dd>
+            }
+
             <dt class="col-sm-4">Ngày bắt đầu</dt>
             <dd class="col-sm-8">@Model.StartDate.ToString("dd/MM/yyyy")</dd>
             <dt class="col-sm-4">Ngày kết thúc theo hợp đồng</dt>
@@ -99,48 +118,6 @@
 
 @if (Model.Status == "Active")
 {
-    <div class="card mb-3">
-        <div class="card-header"><strong>Quản lý người ở phụ</strong></div>
-        <div class="card-body">
-            <p class="text-muted">Chỉ bổ sung người cùng cư trú sau khi hợp đồng đã được kích hoạt.</p>
-            <div class="mb-3">Số người hiện tại: <strong>@Model.ContractTenants.Count</strong>/@Model.Room.MaxOccupants</div>
-            @if (Model.ContractTenants.Count >= Model.Room.MaxOccupants)
-            {
-                <div class="alert alert-warning mb-0">Phòng đã đạt giới hạn số người tối đa.</div>
-            }
-            else if (availableTenants.Count == 0)
-            {
-                <div class="alert alert-info mb-0">Không còn hồ sơ người thuê khác để bổ sung.</div>
-            }
-            else
-            {
-                <form asp-action="AddOccupant" asp-route-id="@Model.ContractId" method="post">
-                    @Html.AntiForgeryToken()
-                    <div class="row g-2 align-items-end">
-                        <div class="col-md-5">
-                            <label class="form-label" for="tenantId">Người ở phụ</label>
-                            <select name="tenantId" id="tenantId" class="form-select" required>
-                                <option value="">-- Chọn người thuê --</option>
-                                @foreach (var tenant in availableTenants)
-                                {
-                                    <option value="@tenant.TenantId">@tenant.FullName — @(string.IsNullOrWhiteSpace(tenant.Phone) ? "Chưa có SĐT" : tenant.Phone)</option>
-                                }
-                            </select>
-                        </div>
-                        <div class="col-md-5">
-                            <label class="form-label" for="relationshipToPrimaryTenant">Quan hệ với người đứng tên</label>
-                            <input name="relationshipToPrimaryTenant" id="relationshipToPrimaryTenant"
-                                   class="form-control" maxlength="100" placeholder="Vợ/chồng, con, bạn cùng thuê..." />
-                        </div>
-                        <div class="col-md-2">
-                            <button type="submit" class="btn btn-primary w-100">Thêm người</button>
-                        </div>
-                    </div>
-                </form>
-            }
-        </div>
-    </div>
-
     <div class="card mb-3">
         <div class="card-header"><strong>Thông tin hẹn trả phòng</strong></div>
         <div class="card-body">

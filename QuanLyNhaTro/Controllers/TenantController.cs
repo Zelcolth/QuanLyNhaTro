@@ -31,7 +31,8 @@ public class TenantController : Controller
             .ToListAsync();
         var currentlyRentingTenantIds = await _context.ContractTenants
             .AsNoTracking()
-            .Where(assignment => assignment.Contract.Status == "Active"
+            .Where(assignment => assignment.IsActive
+                && assignment.Contract.Status == "Active"
                 && assignment.Contract.StartDate.Date <= today
                 && assignment.Contract.EndDate.Date >= today)
             .Select(assignment => assignment.TenantId)

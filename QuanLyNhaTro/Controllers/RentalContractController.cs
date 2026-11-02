@@ -61,16 +61,6 @@ public class RentalContractController : Controller
             return NotFound();
         }
 
-        if (contract.Status == "Active")
-        {
-            var assignedTenantIds = contract.ContractTenants.Select(item => item.TenantId).ToList();
-            ViewBag.AvailableTenants = await _context.TenantProfiles
-                .AsNoTracking()
-                .Where(tenant => !assignedTenantIds.Contains(tenant.TenantId))
-                .OrderBy(tenant => tenant.FullName)
-                .ToListAsync();
-        }
-
         return View(contract);
     }
 
@@ -270,84 +260,6 @@ public class RentalContractController : Controller
         }
 
         TempData["SuccessMessage"] = "Đã cập nhật hợp đồng thuê thành công.";
-        return RedirectToAction(nameof(Details), new { id });
-    }
-
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> AddOccupant(int id, int tenantId, string? relationshipToPrimaryTenant)
-    {
-        await SynchronizeExpiredContractsAsync();
-
-        var contract = await _context.RentalContracts
-            .Include(item => item.ContractTenants)
-            .FirstOrDefaultAsync(item => item.ContractId == id);
-
-        if (contract is null)
-        {
-            return NotFound();
-        }
-
-        if (contract.Status != "Active")
-        {
-            TempData["ErrorMessage"] = "Chỉ có thể thêm người ở phụ sau khi hợp đồng được kích hoạt.";
-            return RedirectToAction(nameof(Details), new { id });
-        }
-
-        var roomLimit = await _context.Rooms
-            .Where(room => room.RoomId == contract.RoomId)
-            .Select(room => (int?)room.MaxOccupants)
-            .FirstOrDefaultAsync();
-
-        if (!roomLimit.HasValue)
-        {
-            return NotFound();
-        }
-
-        if (contract.ContractTenants.Count >= roomLimit.Value)
-        {
-            TempData["ErrorMessage"] = $"Phòng đã đạt giới hạn {roomLimit.Value} người.";
-            return RedirectToAction(nameof(Details), new { id });
-        }
-
-        if (contract.ContractTenants.Any(item => item.TenantId == tenantId))
-        {
-            TempData["ErrorMessage"] = "Người này đã có trong hợp đồng.";
-            return RedirectToAction(nameof(Details), new { id });
-        }
-
-        var tenantExists = await _context.TenantProfiles.AnyAsync(tenant => tenant.TenantId == tenantId);
-        if (!tenantExists)
-        {
-            TempData["ErrorMessage"] = "Hồ sơ người thuê không tồn tại. Vui lòng tải lại trang.";
-            return RedirectToAction(nameof(Details), new { id });
-        }
-
-        if (relationshipToPrimaryTenant is not null && relationshipToPrimaryTenant.Trim().Length > 100)
-        {
-            TempData["ErrorMessage"] = "Quan hệ với người đứng tên không được vượt quá 100 ký tự.";
-            return RedirectToAction(nameof(Details), new { id });
-        }
-
-        _context.ContractTenants.Add(new ContractTenant
-        {
-            ContractId = contract.ContractId,
-            TenantId = tenantId,
-            IsPrimaryTenant = false,
-            RelationshipToPrimaryTenant = NormalizeOptionalText(relationshipToPrimaryTenant)
-        });
-
-        try
-        {
-            await _context.SaveChangesAsync();
-        }
-        catch (DbUpdateException)
-        {
-            TempData["ErrorMessage"] = "Không thể thêm người ở phụ. Có thể hồ sơ đã được thêm vào hợp đồng này.";
-            return RedirectToAction(nameof(Details), new { id });
-        }
-
-        TempData["SuccessMessage"] = "Đã thêm người ở phụ vào hợp đồng.";
         return RedirectToAction(nameof(Details), new { id });
     }
 
@@ -863,6 +775,7 @@ public class RentalContractController : Controller
         {
             TenantId = model.PrimaryTenantId!.Value,
             IsPrimaryTenant = true,
+            JoinedAt = DateTime.Now,
             Contract = contract
         });
     }
@@ -883,7 +796,8 @@ public class RentalContractController : Controller
             {
                 ContractId = contract.ContractId,
                 TenantId = primaryTenantId,
-                IsPrimaryTenant = true
+                IsPrimaryTenant = true,
+                JoinedAt = DateTime.Now
             });
         }
         else

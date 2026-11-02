@@ -127,6 +127,9 @@ else
                     </td>
                     <td class="text-end">
                         <a asp-action="Details" asp-route-id="@room.RoomId" class="btn btn-sm btn-outline-info">Chi tiết</a>
+                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                data-bs-toggle="modal" data-bs-target="#occupantsModal"
+                                data-room-id="@room.RoomId">Người ở</button>
                         <a asp-action="Edit" asp-route-id="@room.RoomId" class="btn btn-sm btn-outline-primary">Sửa</a>
                         <a asp-action="Delete" asp-route-id="@room.RoomId" class="btn btn-sm btn-outline-danger">Xóa</a>
                     </td>
@@ -134,4 +137,67 @@ else
             }
             </tbody>
         </table>
+}
+
+
+<div class="modal fade" id="occupantsModal" tabindex="-1" aria-labelledby="occupantsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content" id="occupantsModalContent">
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Đang tải...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const occupantsModal = document.getElementById("occupantsModal");
+        const occupantsModalContent = document.getElementById("occupantsModalContent");
+        const occupantsUrl = '@Url.Action("Occupants", "Room")';
+
+        occupantsModal.addEventListener("show.bs.modal", async function (event) {
+            const trigger = event.relatedTarget;
+            const roomId = trigger ? trigger.getAttribute("data-room-id") : occupantsModal.dataset.roomId;
+
+            if (!roomId) {
+                occupantsModalContent.innerHTML =
+                    '<div class="modal-body"><div class="alert alert-danger mb-0">Không xác định được phòng.</div></div>';
+                return;
+            }
+
+            occupantsModal.dataset.roomId = roomId;
+            occupantsModalContent.innerHTML =
+                '<div class="modal-body text-center py-5"><div class="spinner-border" role="status"><span class="visually-hidden">Đang tải...</span></div></div>';
+
+            try {
+                const response = await fetch(occupantsUrl + "?id=" + encodeURIComponent(roomId), {
+                    credentials: "same-origin",
+                    headers: { "X-Requested-With": "XMLHttpRequest" }
+                });
+
+                if (!response.ok) {
+                    throw new Error("Request failed");
+                }
+
+                occupantsModalContent.innerHTML = await response.text();
+            } catch {
+                occupantsModalContent.innerHTML =
+                    '<div class="modal-header"><h5 class="modal-title">Người ở</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button></div><div class="modal-body"><div class="alert alert-danger mb-0">Không tải được thông tin người ở. Vui lòng thử lại.</div></div>';
+            }
+        });
+    </script>
+    @if (ViewBag.OpenOccupantsRoomId is int openOccupantsRoomId)
+    {
+        <script>
+            document.addEventListener("DOMContentLoaded", function () {
+                const trigger = document.querySelector('[data-room-id="@openOccupantsRoomId"]');
+                if (trigger) {
+                    bootstrap.Modal.getOrCreateInstance(occupantsModal).show(trigger);
+                }
+            });
+        </script>
+    }
 }

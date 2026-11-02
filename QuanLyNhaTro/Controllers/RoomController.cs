@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using QuanLyNhaTro.Data;
 using QuanLyNhaTro.Models;
+using QuanLyNhaTro.ViewModels;
 
 namespace QuanLyNhaTro.Controllers;
 
@@ -24,7 +25,7 @@ public class RoomController : Controller
         _context = context;
     }
 
-    public async Task<IActionResult> Index()
+    public async Task<IActionResult> Index(int? openOccupants = null)
     {
         await SynchronizeExpiredContractsAsync();
 
@@ -96,8 +97,259 @@ public class RoomController : Controller
         ViewBag.InvoicedRoomIds = invoicedRoomIds.ToHashSet();
         ViewBag.BillableRoomIds = billableRoomIds.ToHashSet();
         ViewBag.InvoiceBillingMonthLabel = currentBillingMonth.ToString("MM/yyyy");
+        ViewBag.OpenOccupantsRoomId = openOccupants;
 
         return View(rooms);
+    }
+
+
+    [HttpGet]
+    public async Task<IActionResult> Occupants(int id)
+    {
+        await SynchronizeExpiredContractsAsync();
+
+        var room = await _context.Rooms
+            .Include(item => item.Building)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.RoomId == id);
+
+        if (room is null)
+        {
+            return NotFound();
+        }
+
+        var today = DateTime.Today;
+        var contract = await _context.RentalContracts
+            .Where(item => item.RoomId == id
+                && item.Status == "Active"
+                && item.StartDate.Date <= today
+                && item.EndDate.Date >= today)
+            .Include(item => item.ContractTenants)
+                .ThenInclude(assignment => assignment.Tenant)
+            .AsNoTracking()
+            .OrderByDescending(item => item.StartDate)
+            .FirstOrDefaultAsync();
+
+        var linkedTenantIds = contract?.ContractTenants
+            .Select(assignment => assignment.TenantId)
+            .ToHashSet() ?? new HashSet<int>();
+
+        var availableTenants = contract is null
+            ? new List<TenantProfile>()
+            : await _context.TenantProfiles
+                .AsNoTracking()
+                .Where(tenant => !linkedTenantIds.Contains(tenant.TenantId))
+                .OrderBy(tenant => tenant.FullName)
+                .ToListAsync();
+
+        var model = new RoomOccupantsViewModel
+        {
+            RoomId = room.RoomId,
+            RoomLabel = $"{room.Building.BuildingName} - {room.RoomCode}",
+            MaxOccupants = room.MaxOccupants,
+            ContractId = contract?.ContractId,
+            ContractCode = contract?.ContractCode,
+            ActiveOccupants = contract?.ContractTenants
+                .Where(assignment => assignment.IsActive)
+                .OrderByDescending(assignment => assignment.IsPrimaryTenant)
+                .ThenBy(assignment => assignment.Tenant.FullName)
+                .ToList() ?? new List<ContractTenant>(),
+            FormerOccupants = contract?.ContractTenants
+                .Where(assignment => !assignment.IsActive)
+                .OrderByDescending(assignment => assignment.LeftAt)
+                .ThenBy(assignment => assignment.Tenant.FullName)
+                .ToList() ?? new List<ContractTenant>(),
+            AvailableTenants = availableTenants
+        };
+
+        return PartialView("_OccupantsModal", model);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AddOccupant(
+        int id,
+        int tenantId,
+        string? relationshipToPrimaryTenant)
+    {
+        await SynchronizeExpiredContractsAsync();
+
+        var room = await _context.Rooms
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.RoomId == id);
+
+        if (room is null)
+        {
+            return NotFound();
+        }
+
+        var contract = await GetCurrentActiveContractForRoomAsync(id);
+        if (contract is null)
+        {
+            TempData["ErrorMessage"] = "Phòng hiện không có hợp đồng đang hiệu lực.";
+            return RedirectToAction(nameof(Index), new { openOccupants = id });
+        }
+
+        if (contract.ContractTenants.Count(assignment => assignment.IsActive) >= room.MaxOccupants)
+        {
+            TempData["ErrorMessage"] = $"Phòng đã đạt giới hạn {room.MaxOccupants} người.";
+            return RedirectToAction(nameof(Index), new { openOccupants = id });
+        }
+
+        if (contract.ContractTenants.Any(assignment => assignment.TenantId == tenantId))
+        {
+            TempData["ErrorMessage"] = "Người này đã hoặc từng được ghi nhận trong hợp đồng.";
+            return RedirectToAction(nameof(Index), new { openOccupants = id });
+        }
+
+        if (!await _context.TenantProfiles.AnyAsync(tenant => tenant.TenantId == tenantId))
+        {
+            TempData["ErrorMessage"] = "Hồ sơ người thuê không tồn tại. Vui lòng tải lại trang.";
+            return RedirectToAction(nameof(Index), new { openOccupants = id });
+        }
+
+        if (relationshipToPrimaryTenant?.Trim().Length > 100)
+        {
+            TempData["ErrorMessage"] = "Quan hệ với người đứng tên không được vượt quá 100 ký tự.";
+            return RedirectToAction(nameof(Index), new { openOccupants = id });
+        }
+
+        _context.ContractTenants.Add(new ContractTenant
+        {
+            ContractId = contract.ContractId,
+            TenantId = tenantId,
+            IsPrimaryTenant = false,
+            RelationshipToPrimaryTenant = NormalizeOptionalText(relationshipToPrimaryTenant),
+            IsActive = true,
+            JoinedAt = DateTime.Now
+        });
+
+        try
+        {
+            await _context.SaveChangesAsync();
+            TempData["SuccessMessage"] = "Đã thêm người ở phụ.";
+        }
+        catch (DbUpdateException)
+        {
+            TempData["ErrorMessage"] = "Không thể thêm người ở phụ. Vui lòng tải lại trang và thử lại.";
+        }
+
+        return RedirectToAction(nameof(Index), new { openOccupants = id });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ReplaceOccupant(
+        int id,
+        int oldTenantId,
+        int newTenantId,
+        string? relationshipToPrimaryTenant)
+    {
+        await SynchronizeExpiredContractsAsync();
+
+        var roomExists = await _context.Rooms.AnyAsync(item => item.RoomId == id);
+        if (!roomExists)
+        {
+            return NotFound();
+        }
+
+        var contract = await GetCurrentActiveContractForRoomAsync(id);
+        if (contract is null)
+        {
+            TempData["ErrorMessage"] = "Phòng hiện không có hợp đồng đang hiệu lực.";
+            return RedirectToAction(nameof(Index), new { openOccupants = id });
+        }
+
+        var oldAssignment = contract.ContractTenants.FirstOrDefault(assignment =>
+            assignment.TenantId == oldTenantId
+            && assignment.IsActive
+            && !assignment.IsPrimaryTenant);
+
+        if (oldAssignment is null)
+        {
+            TempData["ErrorMessage"] = "Không tìm thấy người ở phụ cần thay thế.";
+            return RedirectToAction(nameof(Index), new { openOccupants = id });
+        }
+
+        if (newTenantId == oldTenantId
+            || contract.ContractTenants.Any(assignment => assignment.TenantId == newTenantId))
+        {
+            TempData["ErrorMessage"] = "Người được chọn đã hoặc từng có trong hợp đồng.";
+            return RedirectToAction(nameof(Index), new { openOccupants = id });
+        }
+
+        if (!await _context.TenantProfiles.AnyAsync(tenant => tenant.TenantId == newTenantId))
+        {
+            TempData["ErrorMessage"] = "Hồ sơ người thuê mới không tồn tại. Vui lòng tải lại trang.";
+            return RedirectToAction(nameof(Index), new { openOccupants = id });
+        }
+
+        if (relationshipToPrimaryTenant?.Trim().Length > 100)
+        {
+            TempData["ErrorMessage"] = "Quan hệ với người đứng tên không được vượt quá 100 ký tự.";
+            return RedirectToAction(nameof(Index), new { openOccupants = id });
+        }
+
+        oldAssignment.IsActive = false;
+        oldAssignment.LeftAt = DateTime.Now;
+
+        _context.ContractTenants.Add(new ContractTenant
+        {
+            ContractId = contract.ContractId,
+            TenantId = newTenantId,
+            IsPrimaryTenant = false,
+            RelationshipToPrimaryTenant = NormalizeOptionalText(relationshipToPrimaryTenant),
+            IsActive = true,
+            JoinedAt = DateTime.Now
+        });
+
+        try
+        {
+            await _context.SaveChangesAsync();
+            TempData["SuccessMessage"] = "Đã thay thế người ở phụ và lưu lại lịch sử người cũ.";
+        }
+        catch (DbUpdateException)
+        {
+            TempData["ErrorMessage"] = "Không thể thay thế người ở phụ. Vui lòng tải lại trang và thử lại.";
+        }
+
+        return RedirectToAction(nameof(Index), new { openOccupants = id });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> MarkOccupantLeft(int id, int tenantId)
+    {
+        await SynchronizeExpiredContractsAsync();
+
+        var roomExists = await _context.Rooms.AnyAsync(item => item.RoomId == id);
+        if (!roomExists)
+        {
+            return NotFound();
+        }
+
+        var contract = await GetCurrentActiveContractForRoomAsync(id);
+        if (contract is null)
+        {
+            TempData["ErrorMessage"] = "Phòng hiện không có hợp đồng đang hiệu lực.";
+            return RedirectToAction(nameof(Index), new { openOccupants = id });
+        }
+
+        var assignment = contract.ContractTenants.FirstOrDefault(item =>
+            item.TenantId == tenantId && item.IsActive && !item.IsPrimaryTenant);
+
+        if (assignment is null)
+        {
+            TempData["ErrorMessage"] = "Chỉ có thể ghi nhận người ở phụ đã rời đi.";
+            return RedirectToAction(nameof(Index), new { openOccupants = id });
+        }
+
+        assignment.IsActive = false;
+        assignment.LeftAt = DateTime.Now;
+        await _context.SaveChangesAsync();
+
+        TempData["SuccessMessage"] = "Đã ghi nhận người ở phụ rời khỏi phòng.";
+        return RedirectToAction(nameof(Index), new { openOccupants = id });
     }
 
     public async Task<IActionResult> Details(int? id)
@@ -298,6 +550,27 @@ public class RoomController : Controller
 
         TempData["SuccessMessage"] = "Đã xóa phòng thành công.";
         return RedirectToAction(nameof(Index));
+    }
+
+
+    private async Task<RentalContract?> GetCurrentActiveContractForRoomAsync(int roomId)
+    {
+        var today = DateTime.Today;
+
+        return await _context.RentalContracts
+            .Include(contract => contract.ContractTenants)
+            .Where(contract => contract.RoomId == roomId
+                && contract.Status == "Active"
+                && contract.StartDate.Date <= today
+                && contract.EndDate.Date >= today)
+            .OrderByDescending(contract => contract.StartDate)
+            .FirstOrDefaultAsync();
+    }
+
+    private static string? NormalizeOptionalText(string? value)
+    {
+        var normalizedValue = value?.Trim();
+        return string.IsNullOrWhiteSpace(normalizedValue) ? null : normalizedValue;
     }
 
     private async Task ValidateRoomAsync(Room room, int? roomId = null)

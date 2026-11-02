@@ -10,6 +10,12 @@ public class ContractTenant
 
     public string? RelationshipToPrimaryTenant { get; set; }
 
+    public bool IsActive { get; set; } = true;
+
+    public DateTime? JoinedAt { get; set; }
+
+    public DateTime? LeftAt { get; set; }
+
     public RentalContract Contract { get; set; } = null!;
 
     public TenantProfile Tenant { get; set; } = null!;
