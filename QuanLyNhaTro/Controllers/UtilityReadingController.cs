@@ -576,19 +576,19 @@ public class UtilityReadingController : Controller
             var excelRow = index + 2;
             worksheet.Cell(excelRow, 1).Value = row.RoomId;
             worksheet.Cell(excelRow, 2).Value = row.RoomLabel;
-            if (row.PreviousElectricityReading.HasValue)
+            if (row.PreviousElectricityReading is decimal previousElectricityReading)
             {
-                worksheet.Cell(excelRow, 3).Value = (double)row.PreviousElectricityReading.Value;
+                worksheet.Cell(excelRow, 3).Value = (double)previousElectricityReading;
             }
-            if (row.ElectricityReading.HasValue)
+            if (row.ElectricityReading is decimal electricityReading)
             {
                 worksheet.Cell(excelRow, 4).Value = (double)electricityReading;
             }
-            if (row.PreviousWaterReading.HasValue)
+            if (row.PreviousWaterReading is decimal previousWaterReading)
             {
-                worksheet.Cell(excelRow, 5).Value = (double)row.PreviousWaterReading.Value;
+                worksheet.Cell(excelRow, 5).Value = (double)previousWaterReading;
             }
-            if (row.WaterReading.HasValue)
+            if (row.WaterReading is decimal waterReading)
             {
                 worksheet.Cell(excelRow, 6).Value = (double)waterReading;
             }

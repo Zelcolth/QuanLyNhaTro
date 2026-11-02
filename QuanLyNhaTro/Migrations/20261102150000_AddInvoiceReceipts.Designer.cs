@@ -487,8 +487,6 @@ namespace QuanLyNhaTro.Migrations
                                     .IsRequired();
             
                                 b.Navigation("Contract");
-            
-                                b.Navigation("Receipts");
                             });
             
                         modelBuilder.Entity("QuanLyNhaTro.Models.Receipt", b =>
@@ -500,6 +498,11 @@ namespace QuanLyNhaTro.Migrations
                                     .IsRequired();
             
                                 b.Navigation("Invoice");
+                            });
+
+                        modelBuilder.Entity("QuanLyNhaTro.Models.Invoice", b =>
+                            {
+                                b.Navigation("Receipts");
                             });
             
                         modelBuilder.Entity("QuanLyNhaTro.Models.RentalContract", b =>
