@@ -19,6 +19,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<SystemConfig> SystemConfigs => Set<SystemConfig>();
     public DbSet<UtilityReading> UtilityReadings => Set<UtilityReading>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
+    public DbSet<Receipt> Receipts => Set<Receipt>();
     public DbSet<InvoicePeriodConfig> InvoicePeriodConfigs => Set<InvoicePeriodConfig>();
     public DbSet<User> Users => Set<User>();
 
@@ -125,6 +126,32 @@ public class ApplicationDbContext : DbContext
             entity.Property(config => config.AccountName)
                 .HasMaxLength(100)
                 .HasColumnType("nvarchar(100)");
+        });
+
+        modelBuilder.Entity<Receipt>(entity =>
+        {
+            entity.Property(receipt => receipt.ReceiptCode)
+                .HasMaxLength(50)
+                .IsRequired();
+
+            entity.Property(receipt => receipt.ReceivedAt)
+                .HasColumnType("datetime2");
+
+            entity.Property(receipt => receipt.Amount)
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(receipt => receipt.Notes)
+                .HasMaxLength(1000);
+
+            entity.HasIndex(receipt => receipt.ReceiptCode)
+                .IsUnique();
+
+            entity.HasIndex(receipt => receipt.InvoiceId);
+
+            entity.HasOne(receipt => receipt.Invoice)
+                .WithMany(invoice => invoice.Receipts)
+                .HasForeignKey(receipt => receipt.InvoiceId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<InvoicePeriodConfig>(entity =>

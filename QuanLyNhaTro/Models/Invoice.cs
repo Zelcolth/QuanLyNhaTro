@@ -70,4 +70,6 @@ public class Invoice
     public string? Notes { get; set; }
 
     public RentalContract Contract { get; set; } = null!;
+
+    public ICollection<Receipt> Receipts { get; set; } = new List<Receipt>();
 }

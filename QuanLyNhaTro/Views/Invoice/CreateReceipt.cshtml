@@ -1,0 +1,69 @@
+@model QuanLyNhaTro.ViewModels.ReceiptCreateViewModel
+
+@{
+    ViewData["Title"] = "Lập phiếu thu";
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div>
+        <h1 class="mb-1">Lập phiếu thu</h1>
+        <div class="text-muted">@Model.InvoiceCode</div>
+    </div>
+    <a asp-action="Details" asp-route-id="@Model.InvoiceId" class="btn btn-outline-secondary">Quay lại hóa đơn</a>
+</div>
+
+<div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+
+<div class="card mb-3">
+    <div class="card-header">Thông tin hóa đơn</div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-6"><strong>Phòng:</strong> @Model.RoomLabel</div>
+            <div class="col-md-6"><strong>Người thuê:</strong> @Model.TenantNames</div>
+            <div class="col-md-4"><strong>Kỳ:</strong> @Model.BillingMonth.ToString("MM/yyyy")</div>
+            <div class="col-md-4"><strong>Tổng hóa đơn:</strong> @Model.TotalAmount.ToString("N0") đ</div>
+            <div class="col-md-4"><strong>Đã thu:</strong> @Model.PaidAmount.ToString("N0") đ</div>
+            <div class="col-12">
+                <div class="alert alert-warning mb-0">
+                    Số tiền còn phải thu: @Model.RemainingAmount.ToString("N0") đ
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<form asp-action="CreateReceipt" method="post">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="InvoiceId" />
+    <div class="card">
+        <div class="card-header">Thông tin lần nhận tiền</div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label asp-for="Amount" class="form-label">Số tiền thực nhận (VNĐ)</label>
+                <input asp-for="Amount" type="number" min="0.01" max="@Model.RemainingAmount"
+                       step="1000" class="form-control" required />
+                <span asp-validation-for="Amount" class="text-danger"></span>
+                <div class="form-text">Có thể nhập số tiền thấp hơn số còn nợ để ghi nhận thanh toán một phần.</div>
+            </div>
+            <div class="mb-3">
+                <label asp-for="ReceivedAt" class="form-label">Thời điểm nhận tiền</label>
+                <input asp-for="ReceivedAt" type="datetime-local" class="form-control" required />
+                <span asp-validation-for="ReceivedAt" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Notes" class="form-label">Ghi chú</label>
+                <textarea asp-for="Notes" class="form-control" rows="2" maxlength="1000"
+                          placeholder="Ví dụ: Người thuê hẹn thanh toán phần còn lại vào ngày..."></textarea>
+                <span asp-validation-for="Notes" class="text-danger"></span>
+            </div>
+        </div>
+        <div class="card-footer d-flex justify-content-end gap-2">
+            <a asp-action="Details" asp-route-id="@Model.InvoiceId" class="btn btn-outline-secondary">Hủy</a>
+            <button type="submit" class="btn btn-success">Lưu phiếu thu</button>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

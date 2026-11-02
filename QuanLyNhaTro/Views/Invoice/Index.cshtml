@@ -82,7 +82,7 @@
             </div>
             <div class="text-md-end">
                 <div class="fw-semibold">Hóa đơn tháng @billingPeriod.ToString("MM/yyyy")</div>
-                <div class="small text-muted" id="paidInvoiceCount">@Model.PaidCount/@Model.Invoices.Count phòng đã thu tiền</div>
+                <div class="small text-muted" id="paidInvoiceCount">@Model.PaidCount/@Model.Invoices.Count hóa đơn đã thu đủ</div>
             </div>
         </div>
         <div class="progress mt-3" style="height: 7px;" role="progressbar"
@@ -191,6 +191,9 @@ else
                     data-paid="@(invoice.IsPaid ? "true" : "false")"
                     data-total="@invoice.TotalAmount.ToString(CultureInfo.InvariantCulture)"
                     data-saved-total="@invoice.TotalAmount.ToString(CultureInfo.InvariantCulture)"
+                    data-collected="@invoice.PaidAmount.ToString(CultureInfo.InvariantCulture)"
+                    data-remaining="@invoice.RemainingAmount.ToString(CultureInfo.InvariantCulture)"
+                    data-payment-state="@invoice.PaymentSortValue"
                     data-electricity="@invoice.ElectricityAmount.ToString(CultureInfo.InvariantCulture)"
                     data-water="@invoice.WaterAmount.ToString(CultureInfo.InvariantCulture)"
                     data-wifi="@invoice.WifiFee.ToString(CultureInfo.InvariantCulture)">
@@ -204,23 +207,19 @@ else
                         <div class="text-muted small">@invoice.InvoiceCode</div>
                     </td>
                     <td class="text-nowrap">
-                        <form asp-action="UpdatePaymentStatus" method="post" class="payment-status-form">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="id" value="@invoice.InvoiceId" />
-                            <div class="form-check">
-                                <input class="form-check-input payment-status-checkbox" type="checkbox"
-                                       name="isPaid" value="true" checked="@invoice.IsPaid"
-                                       aria-label="Đánh dấu đã thu hóa đơn @invoice.InvoiceCode" />
-                                <label class="form-check-label payment-status-label">@(invoice.IsPaid ? "Đã thu" : "Chưa thu")</label>
-                            </div>
-                        </form>
+                        <span class="badge @invoice.PaymentBadgeClass">@invoice.PaymentStatusLabel</span>
+                        <div class="small text-muted mt-1">Đã thu: @invoice.PaidAmount.ToString("N0") đ</div>
+                        @if (invoice.RemainingAmount > 0m)
+                        {
+                            <div class="small text-danger">Còn nợ: @invoice.RemainingAmount.ToString("N0") đ</div>
+                        }
                     </td>
                     <td>@invoice.TenantName</td>
                     <td>
                         <input form="@amountFormId" name="rentAmount" type="number"
                                class="form-control amount-input" min="0" step="1000"
                                value="@invoice.RentAmount.ToString(CultureInfo.InvariantCulture)"
-                               aria-label="Tiền phòng" required disabled="@(invoice.IsPaid ? "disabled" : null)" />
+                               aria-label="Tiền phòng" required disabled="@(invoice.HasPayments || invoice.IsPaid ? "disabled" : null)" />
                     </td>
                     <td class="text-end text-nowrap">@invoice.PreviousElectricityReading.ToString("N2")</td>
                     <td class="text-end text-nowrap">@invoice.CurrentElectricityReading.ToString("N2")</td>
@@ -232,26 +231,31 @@ else
                         <input form="@amountFormId" name="garbageFee" type="number"
                                class="form-control amount-input" min="0" step="1000"
                                value="@invoice.GarbageFee.ToString(CultureInfo.InvariantCulture)"
-                               aria-label="Tiền rác" required disabled="@(invoice.IsPaid ? "disabled" : null)" />
+                               aria-label="Tiền rác" required disabled="@(invoice.HasPayments || invoice.IsPaid ? "disabled" : null)" />
                     </td>
                     <td class="text-end text-nowrap">@invoice.WifiFee.ToString("N0") đ</td>
                     <td>
                         <input form="@amountFormId" name="previousDebtAmount" type="number"
                                class="form-control amount-input" min="0" step="1000"
                                value="@invoice.PreviousDebtAmount.ToString(CultureInfo.InvariantCulture)"
-                               aria-label="Nợ tháng trước" required disabled="@(invoice.IsPaid ? "disabled" : null)" />
+                               aria-label="Nợ tháng trước" required disabled="@(invoice.HasPayments || invoice.IsPaid ? "disabled" : null)" />
                     </td>
                     <td>
                         <input form="@amountFormId" name="discountAmount" type="number"
                                class="form-control amount-input" min="0" step="1000"
                                value="@invoice.DiscountAmount.ToString(CultureInfo.InvariantCulture)"
-                               aria-label="Tiền giảm trừ" required disabled="@(invoice.IsPaid ? "disabled" : null)" />
+                               aria-label="Tiền giảm trừ" required disabled="@(invoice.HasPayments || invoice.IsPaid ? "disabled" : null)" />
                     </td>
                     <td class="text-end fw-semibold text-nowrap invoice-total-cell">@invoice.TotalAmount.ToString("N0") đ</td>
                     <td>
                         <div class="d-flex flex-column gap-2">
                             <a asp-action="Details" asp-route-id="@invoice.InvoiceId"
                                class="btn btn-sm btn-primary text-nowrap">Chi tiết/In HĐ</a>
+                            @if (invoice.RemainingAmount > 0m)
+                            {
+                                <a asp-action="CreateReceipt" asp-route-invoiceId="@invoice.InvoiceId"
+                                   class="btn btn-sm btn-success text-nowrap">Ghi nhận thu</a>
+                            }
                             @if (invoice.ContractStatus == "Active")
                             {
                                 <button type="button" class="btn btn-sm btn-danger text-nowrap" disabled
@@ -306,21 +310,24 @@ else
 
             function updateSummary() {
                 const paidRows = rows.filter(row => row.dataset.paid === "true");
-                const unpaidRows = rows.filter(row => row.dataset.paid !== "true");
+                const partialRows = rows.filter(row => row.dataset.paymentState === "1");
                 const sum = (items, key) => items.reduce((total, row) => total + Number(row.dataset[key] || 0), 0);
 
                 const paidPercent = rows.length ? Math.round(paidRows.length * 100 / rows.length) : 0;
                 const paidCountDisplay = document.getElementById("paidInvoiceCount");
                 const paidProgressBar = document.getElementById("paidProgressBar");
-                if (paidCountDisplay) paidCountDisplay.textContent = `${paidRows.length}/${rows.length} phòng đã thu tiền`;
+                if (paidCountDisplay) {
+                    paidCountDisplay.textContent = `${paidRows.length}/${rows.length} hóa đơn đã thu đủ`
+                        + (partialRows.length ? ` · ${partialRows.length} đang thu một phần` : "");
+                }
                 if (paidProgressBar) {
                     paidProgressBar.style.width = paidPercent + "%";
                     const progress = paidProgressBar.closest('[role="progressbar"]');
                     if (progress) progress.setAttribute("aria-valuenow", String(paidPercent));
                 }
 
-                document.getElementById("collectedAmount").textContent = formatMoney(sum(paidRows, "total"));
-                document.getElementById("outstandingAmount").textContent = formatMoney(sum(unpaidRows, "total"));
+                document.getElementById("collectedAmount").textContent = formatMoney(sum(rows, "collected"));
+                document.getElementById("outstandingAmount").textContent = formatMoney(sum(rows, "remaining"));
                 document.getElementById("electricityTotal").textContent = formatMoney(sum(rows, "electricity"));
                 document.getElementById("waterTotal").textContent = formatMoney(sum(rows, "water"));
                 document.getElementById("revenueTotal").textContent = formatMoney(sum(rows, "total"));
@@ -329,6 +336,7 @@ else
             function updateRowTotal(row) {
                 const total = calculateRowTotal(row);
                 row.dataset.total = String(total);
+                row.dataset.remaining = String(Math.max(total - Number(row.dataset.collected || 0), 0));
                 const totalCell = row.querySelector(".invoice-total-cell");
                 if (totalCell) totalCell.textContent = formatMoney(total);
                 updateSummary();
@@ -341,6 +349,7 @@ else
                     }
                 });
                 row.dataset.total = row.dataset.savedTotal || row.dataset.total;
+                row.dataset.remaining = String(Math.max(Number(row.dataset.total) - Number(row.dataset.collected || 0), 0));
                 const totalCell = row.querySelector(".invoice-total-cell");
                 if (totalCell) totalCell.textContent = formatMoney(row.dataset.total);
                 updateSummary();
@@ -482,9 +491,9 @@ else
 
                 const sortedRows = [...rows].sort((a, b) => {
                     if (key === "status") {
-                        const aPaid = a.dataset.paid === "true" ? 1 : 0;
-                        const bPaid = b.dataset.paid === "true" ? 1 : 0;
-                        return (aPaid - bPaid) * multiplier;
+                        const aState = Number(a.dataset.paymentState || 0);
+                        const bState = Number(b.dataset.paymentState || 0);
+                        return (aState - bState) * multiplier;
                     }
 
                     const aCode = getRoomCode(a);
@@ -529,76 +538,6 @@ else
                         : "asc";
                     activeSort = { key, direction };
                     sortInvoiceRows(key, direction);
-                });
-            });
-
-            document.querySelectorAll(".payment-status-form").forEach(form => {
-                const checkbox = form.querySelector(".payment-status-checkbox");
-                const label = form.querySelector(".payment-status-label");
-                if (!checkbox) return;
-
-                checkbox.addEventListener("change", async () => {
-                    const previousValue = !checkbox.checked;
-                    const row = form.closest("[data-invoice-row]");
-                    const pendingTimer = row && saveTimers.get(row);
-
-                    // Save any pending amount edit before changing the invoice to Paid.
-                    if (pendingTimer) {
-                        clearTimeout(pendingTimer);
-                        saveTimers.delete(row);
-                        const saved = await saveRowAmounts(row);
-                        if (!saved) {
-                            checkbox.checked = previousValue;
-                            return;
-                        }
-                    }
-
-                    const activeSave = row && saveInProgress.get(row);
-                    if (activeSave) {
-                        const saved = await activeSave;
-                        if (!saved) {
-                            checkbox.checked = previousValue;
-                            return;
-                        }
-                    }
-
-                    // Set isPaid explicitly, because disabled controls are excluded from FormData
-                    // and unchecked checkboxes are omitted by the browser.
-                    const formData = new FormData(form);
-                    formData.set("isPaid", checkbox.checked ? "true" : "false");
-                    checkbox.disabled = true;
-
-                    try {
-                        const response = await fetch(form.action, {
-                            method: "POST",
-                            body: formData,
-                            headers: { "X-Requested-With": "XMLHttpRequest" }
-                        });
-
-                        let result;
-                        try {
-                            result = await response.json();
-                        } catch {
-                            throw new Error("Máy chủ không trả về phản hồi hợp lệ. Vui lòng thử lại.");
-                        }
-
-                        if (!response.ok || result.success !== true) {
-                            throw new Error(result.message || "Không thể cập nhật trạng thái thu.");
-                        }
-
-                        row.dataset.paid = result.isPaid ? "true" : "false";
-                        label.textContent = result.isPaid ? "Đã thu" : "Chưa thu";
-                        row.querySelectorAll(".amount-input").forEach(input => {
-                            input.disabled = result.isPaid;
-                        });
-                        showFeedback(result.message, true);
-                        updateSummary();
-                    } catch (error) {
-                        checkbox.checked = previousValue;
-                        showFeedback(error.message || "Không thể cập nhật trạng thái thu.", false);
-                    } finally {
-                        checkbox.disabled = false;
-                    }
                 });
             });
 

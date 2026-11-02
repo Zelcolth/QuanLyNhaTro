@@ -2,7 +2,14 @@
 
 @{
     ViewData["Title"] = "Chi tiết hóa đơn";
-    var isPaid = Model.Status == "Paid";
+    var paidAmount = Model.Receipts.Sum(receipt => receipt.Amount);
+    var isLegacyPaid = paidAmount == 0m && Model.Status == "Paid";
+    if (isLegacyPaid)
+    {
+        paidAmount = Model.TotalAmount;
+    }
+    var remainingAmount = Math.Max(Model.TotalAmount - paidAmount, 0m);
+    var isPaid = remainingAmount == 0m;
 }
 
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
@@ -10,8 +17,14 @@
         <h1 class="mb-1">Chi tiết hóa đơn</h1>
         <div class="text-muted">@Model.InvoiceCode</div>
     </div>
-    <a asp-action="Index" asp-route-billingMonth="@Model.BillingMonth.ToString("yyyy-MM")"
-       class="btn btn-outline-secondary">Quay lại danh sách</a>
+    <div class="d-flex flex-wrap gap-2">
+        @if (!isPaid)
+        {
+            <a asp-action="CreateReceipt" asp-route-invoiceId="@Model.InvoiceId" class="btn btn-success">Ghi nhận thu tiền</a>
+        }
+        <a asp-action="Index" asp-route-billingMonth="@Model.BillingMonth.ToString("yyyy-MM")"
+           class="btn btn-outline-secondary">Quay lại danh sách</a>
+    </div>
 </div>
 
 <div class="card mb-3">
@@ -20,7 +33,21 @@
         <div class="row g-3">
             <div class="col-md-4"><strong>Kỳ hóa đơn:</strong> @Model.BillingMonth.ToString("MM/yyyy")</div>
             <div class="col-md-4"><strong>Ngày lập:</strong> @Model.IssuedAt.ToString("dd/MM/yyyy HH:mm")</div>
-            <div class="col-md-4"><strong>Trạng thái thu:</strong> @(isPaid ? "Đã thu" : "Chưa thu")</div>
+            <div class="col-md-4">
+                <strong>Trạng thái thu:</strong>
+                @if (isPaid)
+                {
+                    <span class="badge text-bg-success">Đã thanh toán</span>
+                }
+                else if (paidAmount > 0m)
+                {
+                    <span class="badge text-bg-warning">Thanh toán một phần</span>
+                }
+                else
+                {
+                    <span class="badge text-bg-secondary">Chưa thanh toán</span>
+                }
+            </div>
             <div class="col-md-6"><strong>Khu nhà / phòng:</strong> @Model.RoomLabelSnapshot</div>
             <div class="col-md-6"><strong>Người thuê:</strong> @Model.TenantNamesSnapshot</div>
             <div class="col-12"><strong>Mã hợp đồng:</strong> @Model.ContractCodeSnapshot</div>
@@ -52,11 +79,56 @@
         </tbody>
         <tfoot class="table-light">
             <tr><th colspan="2" class="text-end">Tổng cần thanh toán</th><th class="text-end">@Model.TotalAmount.ToString("N0") đ</th></tr>
+            <tr><th colspan="2" class="text-end">Đã thu</th><th class="text-end text-success">@paidAmount.ToString("N0") đ</th></tr>
+            <tr><th colspan="2" class="text-end">Còn phải thu</th><th class="text-end text-danger">@remainingAmount.ToString("N0") đ</th></tr>
         </tfoot>
     </table>
 </div>
 
+<div class="card mt-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <strong>Lịch sử phiếu thu</strong>
+        <span class="text-muted small">@Model.Receipts.Count phiếu</span>
+    </div>
+    <div class="card-body p-0">
+        @if (Model.Receipts.Count == 0)
+        {
+            <div class="p-3 text-muted">
+                @if (isLegacyPaid)
+                {
+                    <span>Hóa đơn đã được đánh dấu đã thu trước khi chức năng phiếu thu được bổ sung; hệ thống không có dữ liệu chi tiết lần nhận tiền cũ.</span>
+                }
+                else
+                {
+                    <span>Chưa phát sinh phiếu thu cho hóa đơn này.</span>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-bordered table-striped align-middle mb-0">
+                    <thead class="table-light">
+                        <tr><th>Mã phiếu thu</th><th>Thời điểm nhận</th><th>Ghi chú</th><th class="text-end">Số tiền</th></tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var receipt in Model.Receipts.OrderBy(item => item.ReceivedAt))
+                    {
+                        <tr>
+                            <td>@receipt.ReceiptCode</td>
+                            <td>@receipt.ReceivedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>@(string.IsNullOrWhiteSpace(receipt.Notes) ? "—" : receipt.Notes)</td>
+                            <td class="text-end fw-semibold">@receipt.Amount.ToString("N0") đ</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
 @if (!string.IsNullOrWhiteSpace(Model.Notes))
 {
-    <div class="alert alert-secondary mt-3"><strong>Ghi chú:</strong> @Model.Notes</div>
+    <div class="alert alert-secondary mt-3"><strong>Ghi chú hóa đơn:</strong> @Model.Notes</div>
 }

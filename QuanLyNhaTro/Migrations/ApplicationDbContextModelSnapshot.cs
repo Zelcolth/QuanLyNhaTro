@@ -202,6 +202,42 @@ namespace QuanLyNhaTro.Migrations
                     b.ToTable("InvoicePeriodConfigs");
                 });
 
+            modelBuilder.Entity("QuanLyNhaTro.Models.Receipt", b =>
+                {
+                    b.Property<int>("ReceiptId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ReceiptId"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("InvoiceId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("ReceivedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ReceiptCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.HasKey("ReceiptId");
+
+                    b.HasIndex("InvoiceId");
+
+                    b.HasIndex("ReceiptCode")
+                        .IsUnique();
+
+                    b.ToTable("Receipts");
+                });
+
             modelBuilder.Entity("QuanLyNhaTro.Models.RentalContract", b =>
                 {
                     b.Property<int>("ContractId")
@@ -454,6 +490,19 @@ namespace QuanLyNhaTro.Migrations
                         .IsRequired();
 
                     b.Navigation("Contract");
+
+                    b.Navigation("Receipts");
+                });
+
+            modelBuilder.Entity("QuanLyNhaTro.Models.Receipt", b =>
+                {
+                    b.HasOne("QuanLyNhaTro.Models.Invoice", "Invoice")
+                        .WithMany("Receipts")
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Invoice");
                 });
 
             modelBuilder.Entity("QuanLyNhaTro.Models.RentalContract", b =>

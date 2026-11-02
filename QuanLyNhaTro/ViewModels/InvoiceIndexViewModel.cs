@@ -16,9 +16,10 @@ public sealed class InvoiceIndexViewModel
         .ToList();
 
     public int PaidCount => Invoices.Count(invoice => invoice.IsPaid);
-    public int UnpaidCount => Invoices.Count(invoice => !invoice.IsPaid);
-    public decimal CollectedAmount => Invoices.Where(invoice => invoice.IsPaid).Sum(invoice => invoice.TotalAmount);
-    public decimal OutstandingAmount => Invoices.Where(invoice => !invoice.IsPaid).Sum(invoice => invoice.TotalAmount);
+    public int PartiallyPaidCount => Invoices.Count(invoice => invoice.IsPartiallyPaid);
+    public int UnpaidCount => Invoices.Count(invoice => !invoice.IsPaid && !invoice.IsPartiallyPaid);
+    public decimal CollectedAmount => Invoices.Sum(invoice => invoice.PaidAmount);
+    public decimal OutstandingAmount => Invoices.Sum(invoice => invoice.RemainingAmount);
     public decimal ElectricityTotal => Invoices.Sum(invoice => invoice.ElectricityAmount);
     public decimal WaterTotal => Invoices.Sum(invoice => invoice.WaterAmount);
     public decimal RevenueTotal => Invoices.Sum(invoice => invoice.TotalAmount);

@@ -1,3 +1,4 @@
+using System.Data;
 using System.Globalization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -38,6 +39,7 @@ public class InvoiceController : Controller
             .Include(invoice => invoice.Contract)
                 .ThenInclude(contract => contract.Room)
                     .ThenInclude(room => room.Building)
+            .Include(invoice => invoice.Receipts)
             .Include(invoice => invoice.Contract)
                 .ThenInclude(contract => contract.ContractTenants)
                     .ThenInclude(assignment => assignment.Tenant)
@@ -56,41 +58,6 @@ public class InvoiceController : Controller
         };
 
         return View(model);
-    }
-
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> UpdatePaymentStatus(int id, bool isPaid)
-    {
-        var invoice = await _context.Invoices
-            .FirstOrDefaultAsync(item => item.InvoiceId == id);
-
-        if (invoice is null)
-        {
-            return NotFound(new { success = false, message = "Không tìm thấy hóa đơn." });
-        }
-
-        invoice.Status = isPaid ? "Paid" : "Unpaid";
-
-        try
-        {
-            await _context.SaveChangesAsync();
-        }
-        catch (DbUpdateException)
-        {
-            return StatusCode(StatusCodes.Status500InternalServerError, new
-            {
-                success = false,
-                message = "Không thể cập nhật trạng thái thu tiền. Vui lòng thử lại."
-            });
-        }
-
-        return Json(new
-        {
-            success = true,
-            isPaid,
-            message = isPaid ? "Đã ghi nhận hóa đơn đã thu." : "Đã chuyển hóa đơn về chưa thu."
-        });
     }
 
     [HttpPost]
@@ -121,6 +88,7 @@ public class InvoiceController : Controller
         }
 
         var invoice = await _context.Invoices
+            .Include(item => item.Receipts)
             .FirstOrDefaultAsync(item => item.InvoiceId == id);
 
         if (invoice is null)
@@ -138,9 +106,9 @@ public class InvoiceController : Controller
             : new DateTime(invoice.BillingMonth.Year, invoice.BillingMonth.Month, 1);
         var returnMonth = returnPeriod.ToString("yyyy-MM", CultureInfo.InvariantCulture);
 
-        if (invoice.Status == "Paid")
+        if (invoice.Status == "Paid" || invoice.Receipts.Count > 0)
         {
-            const string message = "Không thể sửa khoản tiền của hóa đơn đã ghi nhận đã thu.";
+            const string message = "Không thể sửa khoản tiền sau khi hóa đơn đã phát sinh phiếu thu.";
             if (wantsJson)
             {
                 return BadRequest(new { success = false, message });
@@ -493,10 +461,126 @@ public class InvoiceController : Controller
     }
 
     [HttpGet]
+    public async Task<IActionResult> CreateReceipt(int invoiceId)
+    {
+        var invoice = await _context.Invoices
+            .Include(item => item.Receipts)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.InvoiceId == invoiceId);
+
+        if (invoice is null)
+        {
+            return NotFound();
+        }
+
+        var paidAmount = CalculatePaidAmount(invoice);
+        var remainingAmount = Math.Max(invoice.TotalAmount - paidAmount, 0m);
+        if (remainingAmount <= 0m)
+        {
+            TempData["ErrorMessage"] = "Hóa đơn này đã được thanh toán đủ.";
+            return RedirectToAction(nameof(Details), new { id = invoiceId });
+        }
+
+        return View(new ReceiptCreateViewModel
+        {
+            InvoiceId = invoice.InvoiceId,
+            InvoiceCode = invoice.InvoiceCode,
+            RoomLabel = invoice.RoomLabelSnapshot,
+            TenantNames = invoice.TenantNamesSnapshot,
+            BillingMonth = invoice.BillingMonth,
+            TotalAmount = invoice.TotalAmount,
+            PaidAmount = paidAmount,
+            RemainingAmount = remainingAmount,
+            Amount = remainingAmount,
+            ReceivedAt = DateTime.Now
+        });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateReceipt(ReceiptCreateViewModel model)
+    {
+        await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+
+        var invoice = await _context.Invoices
+            .Include(item => item.Receipts)
+            .FirstOrDefaultAsync(item => item.InvoiceId == model.InvoiceId);
+
+        if (invoice is null)
+        {
+            return NotFound();
+        }
+
+        var paidAmount = CalculatePaidAmount(invoice);
+        var remainingAmount = Math.Max(invoice.TotalAmount - paidAmount, 0m);
+
+        model.InvoiceCode = invoice.InvoiceCode;
+        model.RoomLabel = invoice.RoomLabelSnapshot;
+        model.TenantNames = invoice.TenantNamesSnapshot;
+        model.BillingMonth = invoice.BillingMonth;
+        model.TotalAmount = invoice.TotalAmount;
+        model.PaidAmount = paidAmount;
+        model.RemainingAmount = remainingAmount;
+
+        if (remainingAmount <= 0m)
+        {
+            await transaction.RollbackAsync();
+            TempData["ErrorMessage"] = "Hóa đơn này đã được thanh toán đủ.";
+            return RedirectToAction(nameof(Details), new { id = invoice.InvoiceId });
+        }
+
+        if (model.ReceivedAt > DateTime.Now.AddMinutes(1))
+        {
+            ModelState.AddModelError(nameof(model.ReceivedAt), "Thời điểm nhận tiền không được ở tương lai.");
+        }
+
+        if (model.Amount > remainingAmount)
+        {
+            ModelState.AddModelError(nameof(model.Amount), "Số tiền nhận không được vượt quá số tiền hóa đơn còn nợ.");
+        }
+
+        if (!ModelState.IsValid)
+        {
+            await transaction.RollbackAsync();
+            return View(model);
+        }
+
+        var suffix = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var receipt = new Receipt
+        {
+            ReceiptCode = $"PT-{DateTime.Now:yyyyMMdd}-{suffix}",
+            InvoiceId = invoice.InvoiceId,
+            ReceivedAt = model.ReceivedAt,
+            Amount = model.Amount,
+            Notes = string.IsNullOrWhiteSpace(model.Notes) ? null : model.Notes.Trim()
+        };
+
+        _context.Receipts.Add(receipt);
+        invoice.Status = paidAmount + model.Amount >= invoice.TotalAmount
+            ? "Paid"
+            : "PartiallyPaid";
+
+        try
+        {
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+            TempData["SuccessMessage"] = $"Đã lập phiếu thu {receipt.ReceiptCode} với số tiền {receipt.Amount:N0} VNĐ.";
+            return RedirectToAction(nameof(Details), new { id = invoice.InvoiceId });
+        }
+        catch (DbUpdateException)
+        {
+            await transaction.RollbackAsync();
+            ModelState.AddModelError(string.Empty, "Không thể lưu phiếu thu. Vui lòng tải lại trang và thử lại.");
+            return View(model);
+        }
+    }
+
+    [HttpGet]
     public async Task<IActionResult> Details(int id)
     {
         var invoice = await _context.Invoices
             .Include(item => item.Contract)
+            .Include(item => item.Receipts)
             .AsNoTracking()
             .FirstOrDefaultAsync(item => item.InvoiceId == id);
 
@@ -544,6 +628,19 @@ public class InvoiceController : Controller
             .ThenBy(group => group.Key)
             .First()
             .Key;
+    }
+
+    private static decimal CalculatePaidAmount(Invoice invoice)
+    {
+        var paidAmount = invoice.Receipts.Sum(receipt => receipt.Amount);
+
+        // Preserve older invoices that were marked Paid before receipt tracking existed.
+        if (paidAmount == 0m && invoice.Status == "Paid")
+        {
+            return invoice.TotalAmount;
+        }
+
+        return Math.Min(paidAmount, invoice.TotalAmount);
     }
 
     private static decimal CalculateAmountBeforeDiscount(Invoice invoice)

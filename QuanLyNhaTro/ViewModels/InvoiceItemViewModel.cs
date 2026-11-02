@@ -13,6 +13,29 @@ public sealed class InvoiceItemViewModel
     public string ContractStatus { get; init; } = string.Empty;
 
     public bool IsPaid => Status == "Paid";
+    public bool IsPartiallyPaid => Status == "PartiallyPaid";
+    public bool HasPayments => PaidAmount > 0m;
+
+    public string PaymentStatusLabel => Status switch
+    {
+        "Paid" => "Đã thanh toán",
+        "PartiallyPaid" => "Thanh toán một phần",
+        _ => "Chưa thanh toán"
+    };
+
+    public string PaymentBadgeClass => Status switch
+    {
+        "Paid" => "text-bg-success",
+        "PartiallyPaid" => "text-bg-warning",
+        _ => "text-bg-secondary"
+    };
+
+    public int PaymentSortValue => Status switch
+    {
+        "Paid" => 2,
+        "PartiallyPaid" => 1,
+        _ => 0
+    };
 
     public string ContractStatusLabel => ContractStatus switch
     {
@@ -41,9 +64,24 @@ public sealed class InvoiceItemViewModel
     public decimal PreviousDebtAmount { get; init; }
     public decimal DiscountAmount { get; init; }
     public decimal TotalAmount { get; init; }
+    public decimal PaidAmount { get; init; }
+    public decimal RemainingAmount { get; init; }
 
     public static InvoiceItemViewModel FromInvoice(Invoice invoice)
     {
+        var paidAmount = invoice.Receipts.Sum(receipt => receipt.Amount);
+        // Older invoices only stored a Paid/Unpaid flag, not receipt details.
+        if (paidAmount == 0m && invoice.Status == "Paid")
+        {
+            paidAmount = invoice.TotalAmount;
+        }
+
+        paidAmount = Math.Min(paidAmount, invoice.TotalAmount);
+        var remainingAmount = Math.Max(invoice.TotalAmount - paidAmount, 0m);
+        var status = remainingAmount == 0m
+            ? "Paid"
+            : paidAmount > 0m ? "PartiallyPaid" : "Unpaid";
+
         return new InvoiceItemViewModel
         {
             InvoiceId = invoice.InvoiceId,
@@ -53,7 +91,7 @@ public sealed class InvoiceItemViewModel
             TenantName = invoice.TenantNamesSnapshot
                 .Split(", ", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
                 .FirstOrDefault() ?? invoice.TenantNamesSnapshot,
-            Status = invoice.Status,
+            Status = status,
             ContractStatus = invoice.Contract?.Status ?? string.Empty,
             RentAmount = invoice.RentAmount,
             PreviousElectricityReading = invoice.PreviousElectricityReading,
@@ -70,7 +108,9 @@ public sealed class InvoiceItemViewModel
             WifiFee = invoice.WifiFee,
             PreviousDebtAmount = invoice.PreviousDebtAmount,
             DiscountAmount = invoice.DiscountAmount,
-            TotalAmount = invoice.TotalAmount
+            TotalAmount = invoice.TotalAmount,
+            PaidAmount = paidAmount,
+            RemainingAmount = remainingAmount
         };
     }
 }
