@@ -12,6 +12,13 @@
     var paymentStatus = remainingAmount <= 0m
         ? "Đã thanh toán"
         : paidAmount > 0m ? "Thanh toán một phần" : "Chưa thanh toán";
+    var bankCode = ViewBag.BankCode as string;
+    var bankAccount = ViewBag.BankAccount as string;
+    var accountName = ViewBag.AccountName as string;
+    var transferContent = ViewBag.TransferContent as string;
+    var hasBankDetails = !string.IsNullOrWhiteSpace(bankCode)
+        && !string.IsNullOrWhiteSpace(bankAccount)
+        && !string.IsNullOrWhiteSpace(accountName);
 }
 
 <!DOCTYPE html>
@@ -133,6 +140,28 @@
                 </tr>
             </tfoot>
         </table>
+
+        @if (hasBankDetails)
+        {
+            <section class="mt-4">
+                <h2 class="h6 fw-bold mb-3">Thông tin chuyển khoản</h2>
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <dl class="row mb-0">
+                            <dt class="col-sm-4">Ngân hàng</dt>
+                            <dd class="col-sm-8">@bankCode</dd>
+                            <dt class="col-sm-4">Số tài khoản</dt>
+                            <dd class="col-sm-8">@bankAccount</dd>
+                            <dt class="col-sm-4">Chủ tài khoản</dt>
+                            <dd class="col-sm-8">@accountName</dd>
+                            <dt class="col-sm-4">Nội dung chuyển khoản</dt>
+                            <dd class="col-sm-8 fw-semibold text-break">@transferContent</dd>
+                        </dl>
+                    </div>
+                    <div class="col-md-4" aria-hidden="true" style="min-height: 140px;"></div>
+                </div>
+            </section>
+        }
 
         <div class="mt-4">
             <strong>Lưu ý:</strong> Hóa đơn này thông báo các khoản cần thanh toán trong kỳ.

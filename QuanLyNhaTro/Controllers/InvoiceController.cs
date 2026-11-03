@@ -492,11 +492,9 @@ public class InvoiceController : Controller
             Amount = remainingAmount,
             ReceivedAt = DateTime.Now,
             PaymentMethod = "Cash",
-            PayerName = GetDefaultPayerName(invoice),
-            TransferContent = BuildTransferContent(invoice)
+            PayerName = GetDefaultPayerName(invoice)
         };
 
-        await LoadReceiptBankDetailsAsync(model);
         return View(model);
     }
 
@@ -525,9 +523,6 @@ public class InvoiceController : Controller
         model.TotalAmount = invoice.TotalAmount;
         model.PaidAmount = paidAmount;
         model.RemainingAmount = remainingAmount;
-        model.TransferContent = BuildTransferContent(invoice);
-
-        await LoadReceiptBankDetailsAsync(model);
 
         if (remainingAmount <= 0m)
         {
@@ -614,7 +609,22 @@ public class InvoiceController : Controller
             .AsNoTracking()
             .FirstOrDefaultAsync(item => item.InvoiceId == id);
 
-        return invoice is null ? NotFound() : View(invoice);
+        if (invoice is null)
+        {
+            return NotFound();
+        }
+
+        var bankConfig = await _context.SystemConfigs
+            .AsNoTracking()
+            .OrderBy(item => item.ConfigId)
+            .FirstOrDefaultAsync();
+
+        ViewBag.BankCode = bankConfig?.BankCode;
+        ViewBag.BankAccount = bankConfig?.BankAccount;
+        ViewBag.AccountName = bankConfig?.AccountName;
+        ViewBag.TransferContent = BuildTransferContent(invoice);
+
+        return View(invoice);
     }
 
     [HttpGet]
@@ -683,18 +693,6 @@ public class InvoiceController : Controller
         }
 
         return Math.Min(paidAmount, invoice.TotalAmount);
-    }
-
-    private async Task LoadReceiptBankDetailsAsync(ReceiptCreateViewModel model)
-    {
-        var config = await _context.SystemConfigs
-            .AsNoTracking()
-            .OrderBy(item => item.ConfigId)
-            .FirstOrDefaultAsync();
-
-        model.BankCode = config?.BankCode;
-        model.BankAccount = config?.BankAccount;
-        model.AccountName = config?.AccountName;
     }
 
     private static string GetDefaultPayerName(Invoice invoice)

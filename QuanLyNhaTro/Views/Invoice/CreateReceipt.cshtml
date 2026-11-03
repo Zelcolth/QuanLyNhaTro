@@ -84,39 +84,6 @@
                 Phiếu thu tiền mặt sẽ có chỗ ký tên của người nộp tiền và người thu tiền khi in.
             </div>
 
-            <div id="bankTransferPanel" class="mt-3 @(isBankTransfer ? "" : "d-none")">
-                <div class="card">
-                    <div class="card-header">Thông tin tài khoản nhận</div>
-                    <div class="card-body">
-                        <div class="row g-3 align-items-center">
-                            <div class="col-md-8">
-                                <dl class="row mb-0">
-                                    <dt class="col-sm-4">Mã ngân hàng</dt>
-                                    <dd class="col-sm-8">@(string.IsNullOrWhiteSpace(Model.BankCode) ? "Chưa cấu hình" : Model.BankCode)</dd>
-                                    <dt class="col-sm-4">Số tài khoản</dt>
-                                    <dd class="col-sm-8">@(string.IsNullOrWhiteSpace(Model.BankAccount) ? "Chưa cấu hình" : Model.BankAccount)</dd>
-                                    <dt class="col-sm-4">Chủ tài khoản</dt>
-                                    <dd class="col-sm-8">@(string.IsNullOrWhiteSpace(Model.AccountName) ? "Chưa cấu hình" : Model.AccountName)</dd>
-                                </dl>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="border rounded d-flex flex-column align-items-center justify-content-center text-center p-3"
-                                     style="min-height: 150px; border-style: dashed !important; border-color: #adb5bd !important;">
-                                    <span class="text-muted small mb-2">Khu vực VietQR</span>
-                                    <span class="text-muted small">Để trống cho phần tích hợp QR sau này</span>
-                                </div>
-                            </div>
-                        </div>
-                        <hr />
-                        <label class="form-label" for="transferContent">Nội dung chuyển khoản đề xuất</label>
-                        <input id="transferContent" class="form-control" value="@Model.TransferContent" readonly />
-                        <div class="form-text">Nội dung có mã hóa đơn để chủ trọ dễ đối chiếu. Không cần nhập mã giao dịch ngân hàng.</div>
-                    </div>
-                </div>
-                <div class="alert alert-warning mt-3 mb-0">
-                    Chỉ lưu phiếu thu sau khi chủ trọ đã kiểm tra và xác nhận tiền thực sự vào tài khoản ngân hàng.
-                </div>
-            </div>
 
             <div class="mt-3">
                 <label asp-for="Notes" class="form-label">Ghi chú</label>
@@ -139,13 +106,11 @@
             const cashRadio = document.getElementById("paymentMethodCash");
             const transferRadio = document.getElementById("paymentMethodTransfer");
             const cashPanel = document.getElementById("cashPaymentPanel");
-            const transferPanel = document.getElementById("bankTransferPanel");
             const payerLabel = document.getElementById("payerNameLabel");
 
             function updatePaymentMethod() {
                 const isTransfer = transferRadio.checked;
                 cashPanel.classList.toggle("d-none", isTransfer);
-                transferPanel.classList.toggle("d-none", !isTransfer);
                 payerLabel.textContent = isTransfer ? "Người chuyển tiền" : "Người nộp tiền";
             }
 

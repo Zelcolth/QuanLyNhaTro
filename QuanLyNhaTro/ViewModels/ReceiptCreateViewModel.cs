@@ -21,11 +21,6 @@ public sealed class ReceiptCreateViewModel
     [StringLength(150, ErrorMessage = "Họ tên không được vượt quá 150 ký tự.")]
     public string PayerName { get; set; } = string.Empty;
 
-    public string? BankCode { get; set; }
-    public string? BankAccount { get; set; }
-    public string? AccountName { get; set; }
-    public string TransferContent { get; set; } = string.Empty;
-
     [Range(typeof(decimal), "0.01", "9999999999999999.99",
         ErrorMessage = "Số tiền nhận phải lớn hơn 0.")]
     public decimal Amount { get; set; }
