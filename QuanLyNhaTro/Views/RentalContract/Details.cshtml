@@ -165,5 +165,10 @@
         <a asp-controller="MoveOut" asp-action="Create" asp-route-contractId="@Model.ContractId"
            class="btn btn-warning">Lập phiếu quyết toán trả phòng</a>
     }
+    @if (Model.Status == "Terminated" && ViewBag.MoveOutSettlementId is int settlementId)
+    {
+        <a asp-controller="MoveOut" asp-action="Details" asp-route-id="@settlementId"
+           class="btn btn-outline-primary">Xem phiếu quyết toán</a>
+    }
     <a asp-action="Index" class="btn btn-secondary">Quay lại danh sách</a>
 </div>

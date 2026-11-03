@@ -61,6 +61,11 @@ public class RentalContractController : Controller
             return NotFound();
         }
 
+        ViewBag.MoveOutSettlementId = await _context.MoveOutSettlements
+            .Where(item => item.ContractId == contract.ContractId)
+            .Select(item => (int?)item.SettlementId)
+            .FirstOrDefaultAsync();
+
         return View(contract);
     }
 
