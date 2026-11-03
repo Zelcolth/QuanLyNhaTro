@@ -70,7 +70,7 @@
     <div class="row">
         <div class="col-md-6 mb-3">
             <label asp-for="StartDate" class="form-label">Ngày bắt đầu</label>
-            <input asp-for="StartDate" type="date" class="form-control" />
+            <input asp-for="StartDate" type="date" class="form-control" readonly="@(Model.ContractStatus == "Draft" ? null : "readonly")" />
             <span asp-validation-for="StartDate" class="text-danger"></span>
         </div>
         <div class="col-md-6 mb-3">
@@ -101,17 +101,33 @@
             }
             else
             {
+                <p class="text-muted small">Chỉ số đã ghi nhận sẽ không thể thay đổi. Với hợp đồng cũ chưa có chỉ số bàn giao, bạn có thể bổ sung tại đây.</p>
                 <div class="row">
-                    <div class="col-md-6 mb-2">
-                        <span class="text-muted">Điện</span>
-                        <div class="fw-semibold">@(Model.MoveInElectricityReading?.ToString("N2") ?? "Chưa ghi nhận") kWh</div>
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="MoveInElectricityReading" class="form-label">Chỉ số điện bàn giao (kWh)</label>
+                        @if (Model.MoveInElectricityReading.HasValue)
+                        {
+                            <div class="form-control-plaintext fw-semibold">@Model.MoveInElectricityReading.Value.ToString("N2") kWh</div>
+                        }
+                        else
+                        {
+                            <input asp-for="MoveInElectricityReading" type="number" min="0" step="0.01" class="form-control" />
+                            <span asp-validation-for="MoveInElectricityReading" class="text-danger"></span>
+                        }
                     </div>
-                    <div class="col-md-6 mb-2">
-                        <span class="text-muted">Nước</span>
-                        <div class="fw-semibold">@(Model.MoveInWaterReading?.ToString("N2") ?? "Chưa ghi nhận") m³</div>
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="MoveInWaterReading" class="form-label">Chỉ số nước bàn giao (m³)</label>
+                        @if (Model.MoveInWaterReading.HasValue)
+                        {
+                            <div class="form-control-plaintext fw-semibold">@Model.MoveInWaterReading.Value.ToString("N2") m³</div>
+                        }
+                        else
+                        {
+                            <input asp-for="MoveInWaterReading" type="number" min="0" step="0.01" class="form-control" />
+                            <span asp-validation-for="MoveInWaterReading" class="text-danger"></span>
+                        }
                     </div>
                 </div>
-                <p class="form-text mb-0">Chỉ số bàn giao được khóa sau khi hợp đồng được kích hoạt để bảo đảm lịch sử tính tiền không bị thay đổi.</p>
             }
         </div>
     </div>

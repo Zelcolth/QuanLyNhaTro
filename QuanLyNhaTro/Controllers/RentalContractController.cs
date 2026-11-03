@@ -193,6 +193,13 @@ public class RentalContractController : Controller
         }
         await ValidateContractAsync(model, model.ContractId, existingContract.Status);
 
+        if (existingContract.Status != "Draft"
+            && model.StartDate.Date != existingContract.StartDate.Date)
+        {
+            ModelState.AddModelError(nameof(model.StartDate),
+                "Không thể thay đổi ngày bắt đầu sau khi hợp đồng đã được kích hoạt.");
+        }
+
         if (!ModelState.IsValid)
         {
             await PopulateFormOptionsAsync(model, preserveTenantOptions: true);
@@ -221,11 +228,16 @@ public class RentalContractController : Controller
         existingContract.MonthlyRent = model.MonthlyRent;
         existingContract.Deposit = model.Deposit;
         existingContract.Terms = model.Terms;
-        // Meter handover values are fixed once a contract is activated.
+        // Draft readings can be corrected; legacy active contracts may fill missing handover readings once.
         if (existingContract.Status == "Draft")
         {
             existingContract.MoveInElectricityReading = model.MoveInElectricityReading;
             existingContract.MoveInWaterReading = model.MoveInWaterReading;
+        }
+        else
+        {
+            existingContract.MoveInElectricityReading ??= model.MoveInElectricityReading;
+            existingContract.MoveInWaterReading ??= model.MoveInWaterReading;
         }
         // Only a draft contract may change its single primary tenant.
         if (existingContract.Status == "Draft")
