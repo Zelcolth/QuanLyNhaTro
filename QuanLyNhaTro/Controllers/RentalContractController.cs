@@ -221,6 +221,12 @@ public class RentalContractController : Controller
         existingContract.MonthlyRent = model.MonthlyRent;
         existingContract.Deposit = model.Deposit;
         existingContract.Terms = model.Terms;
+        // Meter handover values are fixed once a contract is activated.
+        if (existingContract.Status == "Draft")
+        {
+            existingContract.MoveInElectricityReading = model.MoveInElectricityReading;
+            existingContract.MoveInWaterReading = model.MoveInWaterReading;
+        }
         // Only a draft contract may change its single primary tenant.
         if (existingContract.Status == "Draft")
         {
@@ -363,6 +369,12 @@ public class RentalContractController : Controller
         {
             TempData["ErrorMessage"] = "Phòng đã có hợp đồng đang hiệu lực bị chồng lấn thời gian.";
             return RedirectToAction(nameof(Details), new { id });
+        }
+
+        if (!contract.MoveInElectricityReading.HasValue || !contract.MoveInWaterReading.HasValue)
+        {
+            TempData["ErrorMessage"] = "Vui lòng nhập chỉ số điện và nước tại thời điểm bàn giao phòng trước khi kích hoạt hợp đồng.";
+            return RedirectToAction(nameof(Edit), new { id });
         }
 
         contract.Status = "Active";
@@ -701,6 +713,8 @@ public class RentalContractController : Controller
             RoomId = model.RoomId,
             StartDate = model.StartDate,
             EndDate = model.EndDate,
+            MoveInElectricityReading = model.MoveInElectricityReading,
+            MoveInWaterReading = model.MoveInWaterReading,
             MonthlyRent = model.MonthlyRent,
             Deposit = model.Deposit,
             Status = "Draft",
@@ -717,6 +731,8 @@ public class RentalContractController : Controller
             ContractCode = contract.ContractCode,
             StartDate = contract.StartDate,
             EndDate = contract.EndDate,
+            MoveInElectricityReading = contract.MoveInElectricityReading,
+            MoveInWaterReading = contract.MoveInWaterReading,
             MonthlyRent = contract.MonthlyRent,
             Deposit = contract.Deposit,
             Terms = contract.Terms,

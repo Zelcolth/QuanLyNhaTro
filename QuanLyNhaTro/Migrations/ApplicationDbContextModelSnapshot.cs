@@ -317,6 +317,12 @@ namespace QuanLyNhaTro.Migrations
                     b.Property<DateTime>("EndDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<decimal?>("MoveInElectricityReading")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("MoveInWaterReading")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<decimal>("MonthlyRent")
                         .HasColumnType("decimal(18,2)");
 

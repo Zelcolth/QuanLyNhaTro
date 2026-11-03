@@ -89,6 +89,14 @@ public class ApplicationDbContext : DbContext
             .HasIndex(contract => contract.ContractCode)
             .IsUnique();
 
+        modelBuilder.Entity<RentalContract>(entity =>
+        {
+            entity.Property(contract => contract.MoveInElectricityReading)
+                .HasColumnType("decimal(18,2)");
+            entity.Property(contract => contract.MoveInWaterReading)
+                .HasColumnType("decimal(18,2)");
+        });
+
         modelBuilder.Entity<UtilityReading>(entity =>
         {
             entity.Property(reading => reading.ElectricityReading)

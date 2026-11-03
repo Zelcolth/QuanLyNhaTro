@@ -80,6 +80,42 @@
         </div>
     </div>
 
+    <div class="card mb-3">
+        <div class="card-body">
+            <h5 class="card-title">Chỉ số điện nước khi bàn giao</h5>
+            @if (Model.ContractStatus == "Draft")
+            {
+                <p class="text-muted small">Nhập chỉ số công tơ tại ngày bắt đầu thuê. Cần đủ cả điện và nước trước khi kích hoạt hợp đồng.</p>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="MoveInElectricityReading" class="form-label">Chỉ số điện bàn giao (kWh)</label>
+                        <input asp-for="MoveInElectricityReading" type="number" min="0" step="0.01" class="form-control" />
+                        <span asp-validation-for="MoveInElectricityReading" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="MoveInWaterReading" class="form-label">Chỉ số nước bàn giao (m³)</label>
+                        <input asp-for="MoveInWaterReading" type="number" min="0" step="0.01" class="form-control" />
+                        <span asp-validation-for="MoveInWaterReading" class="text-danger"></span>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="row">
+                    <div class="col-md-6 mb-2">
+                        <span class="text-muted">Điện</span>
+                        <div class="fw-semibold">@(Model.MoveInElectricityReading?.ToString("N2") ?? "Chưa ghi nhận") kWh</div>
+                    </div>
+                    <div class="col-md-6 mb-2">
+                        <span class="text-muted">Nước</span>
+                        <div class="fw-semibold">@(Model.MoveInWaterReading?.ToString("N2") ?? "Chưa ghi nhận") m³</div>
+                    </div>
+                </div>
+                <p class="form-text mb-0">Chỉ số bàn giao được khóa sau khi hợp đồng được kích hoạt để bảo đảm lịch sử tính tiền không bị thay đổi.</p>
+            }
+        </div>
+    </div>
+
     <div class="row">
         <div class="col-md-6 mb-3">
             <label asp-for="MonthlyRent" class="form-label">Giá thuê thỏa thuận (đồng/tháng)</label>

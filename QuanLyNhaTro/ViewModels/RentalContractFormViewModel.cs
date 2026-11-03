@@ -23,6 +23,14 @@ public class RentalContractFormViewModel
     [Display(Name = "Ngày kết thúc")]
     public DateTime EndDate { get; set; }
 
+    [Range(typeof(decimal), "0", "9999999999999999.99", ErrorMessage = "Chỉ số điện bàn giao không được âm.")]
+    [Display(Name = "Chỉ số điện bàn giao")]
+    public decimal? MoveInElectricityReading { get; set; }
+
+    [Range(typeof(decimal), "0", "9999999999999999.99", ErrorMessage = "Chỉ số nước bàn giao không được âm.")]
+    [Display(Name = "Chỉ số nước bàn giao")]
+    public decimal? MoveInWaterReading { get; set; }
+
     [Required(ErrorMessage = "Vui lòng nhập giá thuê thỏa thuận.")]
     [Range(typeof(decimal), "0.01", "9999999999999999.99",
         ErrorMessage = "Giá thuê thỏa thuận phải lớn hơn 0.")]
