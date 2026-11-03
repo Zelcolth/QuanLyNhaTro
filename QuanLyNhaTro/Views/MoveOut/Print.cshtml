@@ -1,0 +1,81 @@
+@model QuanLyNhaTro.ViewModels.MoveOutSettlementViewModel
+
+@{
+    Layout = null;
+    var isConfirmed = Model.Status == "Confirmed";
+}
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Phiếu quyết toán tiền đặt cọc</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <style>
+        @@page { size: A4 portrait; margin: 16mm; }
+        body { color: #212529; font-size: 14px; }
+        .print-sheet { max-width: 180mm; margin: 0 auto; }
+        .signature-space { min-height: 100px; }
+        @@media print { .no-print { display: none !important; } }
+    </style>
+</head>
+<body>
+    <main class="print-sheet py-3">
+        <div class="text-center mb-4">
+            <h2 class="h4 fw-bold text-uppercase">Phiếu quyết toán tiền đặt cọc</h2>
+            <div>Mã hợp đồng: @Model.ContractCode</div>
+        </div>
+
+        <dl class="row">
+            <dt class="col-4">Phòng</dt><dd class="col-8">@Model.RoomLabel</dd>
+            <dt class="col-4">Người thuê</dt><dd class="col-8">@Model.TenantNames</dd>
+            <dt class="col-4">Ngày trả phòng</dt><dd class="col-8">@Model.MoveOutDate.ToString("dd/MM/yyyy")</dd>
+            <dt class="col-4">Ngày lập phiếu</dt><dd class="col-8">@DateTime.Today.ToString("dd/MM/yyyy")</dd>
+        </dl>
+
+        <table class="table table-bordered align-middle">
+            <thead class="table-light"><tr><th>Khoản mục</th><th class="text-end">Số tiền (VNĐ)</th></tr></thead>
+            <tbody>
+                <tr><td>Tiền đặt cọc</td><td class="text-end">@Model.DepositAmount.ToString("N0")</td></tr>
+                <tr><td>Công nợ hóa đơn chưa thanh toán</td><td class="text-end">@Model.OutstandingInvoiceAmount.ToString("N0")</td></tr>
+                <tr><td>Tiền điện (@Model.PreviousElectricityReading.ToString("N2") → @Model.FinalElectricityReading.ToString("N2") kWh)</td><td class="text-end">@Model.ElectricityAmount.ToString("N0")</td></tr>
+                <tr><td>Tiền nước (@Model.PreviousWaterReading.ToString("N2") → @Model.FinalWaterReading.ToString("N2") m³)</td><td class="text-end">@Model.WaterAmount.ToString("N0")</td></tr>
+                <tr><td>Phí rác</td><td class="text-end">@Model.GarbageFee.ToString("N0")</td></tr>
+                <tr><td>Phí vệ sinh</td><td class="text-end">@Model.CleaningFee.ToString("N0")</td></tr>
+                <tr><td>Phí sửa chữa</td><td class="text-end">@Model.RepairFee.ToString("N0")</td></tr>
+                <tr><td>Chi phí khác</td><td class="text-end">@Model.OtherFee.ToString("N0")</td></tr>
+            </tbody>
+            <tfoot>
+                <tr><th>Tổng khấu trừ</th><th class="text-end">@Model.TotalDeductions.ToString("N0")</th></tr>
+                <tr><th>Tiền cọc được hoàn trả</th><th class="text-end">@Model.RefundAmount.ToString("N0")</th></tr>
+                <tr><th>Người thuê cần thanh toán thêm</th><th class="text-end">@Model.AdditionalAmountDue.ToString("N0")</th></tr>
+            </tfoot>
+        </table>
+
+        @if (!string.IsNullOrWhiteSpace(Model.Notes))
+        {
+            <p><strong>Ghi chú:</strong> @Model.Notes</p>
+        }
+
+        <p class="mt-3">Trạng thái: @(isConfirmed ? "Đã xác nhận trả phòng" : "Bản nháp - Chưa xác nhận trả phòng")</p>
+        <p class="small">Phiếu này thể hiện kết quả quyết toán tiền đặt cọc, không thay thế chứng từ xác nhận giao dịch hoàn tiền hoặc thu thêm.</p>
+
+        <div class="row text-center mt-4">
+            <div class="col-6">
+                <strong>Người thuê</strong>
+                <div class="signature-space"></div>
+                <div>(Ký và ghi rõ họ tên)</div>
+            </div>
+            <div class="col-6">
+                <strong>Người quản lý</strong>
+                <div class="signature-space"></div>
+                <div>(Ký và ghi rõ họ tên)</div>
+            </div>
+        </div>
+        <div class="no-print text-center mt-4">
+            <button type="button" class="btn btn-primary" onclick="window.print()">In phiếu</button>
+        </div>
+    </main>
+</body>
+</html>

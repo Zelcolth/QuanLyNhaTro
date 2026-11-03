@@ -15,7 +15,8 @@ public class RoomController : Controller
         new Dictionary<string, string>
         {
             ["Available"] = "Trống",
-            ["Maintenance"] = "Bảo trì"
+            ["Maintenance"] = "Bảo trì",
+            ["Cleaning"] = "Chờ xử lý"
         };
 
     private readonly ApplicationDbContext _context;
@@ -62,6 +63,7 @@ public class RoomController : Controller
         ViewBag.AvailableRooms = rooms.Count(room => room.Status == "Available");
         ViewBag.OccupiedRooms = rooms.Count(room => room.Status == "Occupied");
         ViewBag.MaintenanceRooms = rooms.Count(room => room.Status == "Maintenance");
+        ViewBag.CleaningRooms = rooms.Count(room => room.Status == "Cleaning");
         var activeContractNotices = await _context.RentalContracts
             .AsNoTracking()
             .Where(contract => contract.Status == "Active"
@@ -605,7 +607,7 @@ public class RoomController : Controller
         foreach (var roomId in expiredRoomIds)
         {
             var room = await _context.Rooms.FindAsync(roomId);
-            if (room is null || room.Status == "Maintenance")
+            if (room is null || room.Status is "Maintenance" or "Cleaning")
             {
                 continue;
             }
@@ -663,6 +665,12 @@ public class RoomController : Controller
             Value = "Maintenance",
             Text = "Bảo trì",
             Selected = selectedStatus == "Maintenance"
+        });
+        statusOptions.Add(new SelectListItem
+        {
+            Value = "Cleaning",
+            Text = "Chờ xử lý",
+            Selected = selectedStatus == "Cleaning"
         });
 
         ViewBag.Statuses = statusOptions;

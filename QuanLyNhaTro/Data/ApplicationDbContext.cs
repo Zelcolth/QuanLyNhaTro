@@ -21,6 +21,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<Receipt> Receipts => Set<Receipt>();
     public DbSet<InvoicePeriodConfig> InvoicePeriodConfigs => Set<InvoicePeriodConfig>();
+    public DbSet<MoveOutSettlement> MoveOutSettlements => Set<MoveOutSettlement>();
     public DbSet<User> Users => Set<User>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -188,6 +189,36 @@ public class ApplicationDbContext : DbContext
 
             entity.HasIndex(config => config.BillingMonth)
                 .IsUnique();
+        });
+
+        modelBuilder.Entity<MoveOutSettlement>(entity =>
+        {
+            entity.Property(settlement => settlement.ContractCodeSnapshot).HasMaxLength(100).IsRequired();
+            entity.Property(settlement => settlement.RoomLabelSnapshot).HasMaxLength(250).IsRequired();
+            entity.Property(settlement => settlement.TenantNamesSnapshot).HasMaxLength(1000).IsRequired();
+            entity.Property(settlement => settlement.MoveOutDate).HasColumnType("date");
+            entity.Property(settlement => settlement.CreatedAt).HasColumnType("datetime2");
+            entity.Property(settlement => settlement.ConfirmedAt).HasColumnType("datetime2");
+            entity.Property(settlement => settlement.Status).HasMaxLength(20).IsRequired();
+            entity.Property(settlement => settlement.Notes).HasMaxLength(1000);
+            entity.Property(settlement => settlement.DepositAmount).HasColumnType("decimal(18,2)");
+            entity.Property(settlement => settlement.OutstandingInvoiceAmount).HasColumnType("decimal(18,2)");
+            entity.Property(settlement => settlement.PreviousElectricityReading).HasColumnType("decimal(18,2)");
+            entity.Property(settlement => settlement.FinalElectricityReading).HasColumnType("decimal(18,2)");
+            entity.Property(settlement => settlement.ElectricityUnitPrice).HasColumnType("decimal(18,2)");
+            entity.Property(settlement => settlement.ElectricityAmount).HasColumnType("decimal(18,2)");
+            entity.Property(settlement => settlement.PreviousWaterReading).HasColumnType("decimal(18,2)");
+            entity.Property(settlement => settlement.FinalWaterReading).HasColumnType("decimal(18,2)");
+            entity.Property(settlement => settlement.WaterUnitPrice).HasColumnType("decimal(18,2)");
+            entity.Property(settlement => settlement.WaterAmount).HasColumnType("decimal(18,2)");
+            entity.Property(settlement => settlement.GarbageFee).HasColumnType("decimal(18,2)");
+            entity.Property(settlement => settlement.CleaningFee).HasColumnType("decimal(18,2)");
+            entity.Property(settlement => settlement.RepairFee).HasColumnType("decimal(18,2)");
+            entity.Property(settlement => settlement.OtherFee).HasColumnType("decimal(18,2)");
+            entity.HasIndex(settlement => settlement.ContractId).IsUnique();
+            entity.HasOne(settlement => settlement.Contract).WithMany()
+                .HasForeignKey(settlement => settlement.ContractId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<Invoice>(entity =>

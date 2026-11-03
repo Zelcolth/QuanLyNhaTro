@@ -1,0 +1,178 @@
+@model QuanLyNhaTro.ViewModels.MoveOutSettlementViewModel
+
+@{
+    ViewData["Title"] = "Lập phiếu quyết toán trả phòng";
+}
+
+<h1>Lập phiếu quyết toán trả phòng</h1>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Mã hợp đồng</dt>
+            <dd class="col-sm-9">@Model.ContractCode</dd>
+            <dt class="col-sm-3">Phòng</dt>
+            <dd class="col-sm-9">@Model.RoomLabel</dd>
+            <dt class="col-sm-3">Người thuê</dt>
+            <dd class="col-sm-9">@Model.TenantNames</dd>
+        </dl>
+    </div>
+</div>
+
+@if (!Model.HasPreviousReading)
+{
+    <div class="alert alert-warning">Phòng chưa có chỉ số điện nước trước đó. Vui lòng nhập chỉ số trước khi trả phòng để tính đúng mức tiêu thụ.</div>
+}
+<div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+<form asp-action="Create" method="post">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="ContractId" />
+
+    <div class="card mb-3">
+        <div class="card-header"><strong>Thông tin tiền cọc và công nợ</strong></div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Tiền đặt cọc theo hợp đồng</label>
+                    <input class="form-control" value="@Model.DepositAmount.ToString("N0")" readonly />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Công nợ hóa đơn chưa thanh toán</label>
+                    <input class="form-control" value="@Model.OutstandingInvoiceAmount.ToString("N0")" readonly />
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="MoveOutDate" class="form-label">Ngày trả phòng</label>
+                    <input asp-for="MoveOutDate" type="date" asp-format="{0:yyyy-MM-dd}" class="form-control" />
+                    <span asp-validation-for="MoveOutDate" class="text-danger"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header"><strong>Điện và nước khi trả phòng</strong></div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label asp-for="PreviousElectricityReading" class="form-label">Chỉ số điện trước đó (kWh)</label>
+                    <input asp-for="PreviousElectricityReading" type="number" min="0" step="0.01" class="form-control meter-input" />
+                    <span asp-validation-for="PreviousElectricityReading" class="text-danger"></span>
+                </div>
+                <div class="col-md-3">
+                    <label asp-for="FinalElectricityReading" class="form-label">Chỉ số điện khi trả (kWh)</label>
+                    <input asp-for="FinalElectricityReading" type="number" min="0" step="0.01" class="form-control meter-input" />
+                    <span asp-validation-for="FinalElectricityReading" class="text-danger"></span>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Đơn giá điện</label>
+                    <input class="form-control" value="@Model.ElectricityUnitPrice.ToString("N0") đ/kWh" readonly />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Tiền điện</label>
+                    <input id="electricityAmount" class="form-control" value="@Model.ElectricityAmount.ToString("N0")" readonly />
+                </div>
+                <div class="col-md-3">
+                    <label asp-for="PreviousWaterReading" class="form-label">Chỉ số nước trước đó (m³)</label>
+                    <input asp-for="PreviousWaterReading" type="number" min="0" step="0.01" class="form-control meter-input" />
+                    <span asp-validation-for="PreviousWaterReading" class="text-danger"></span>
+                </div>
+                <div class="col-md-3">
+                    <label asp-for="FinalWaterReading" class="form-label">Chỉ số nước khi trả (m³)</label>
+                    <input asp-for="FinalWaterReading" type="number" min="0" step="0.01" class="form-control meter-input" />
+                    <span asp-validation-for="FinalWaterReading" class="text-danger"></span>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Đơn giá nước</label>
+                    <input class="form-control" value="@Model.WaterUnitPrice.ToString("N0") đ/m³" readonly />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Tiền nước</label>
+                    <input id="waterAmount" class="form-control" value="@Model.WaterAmount.ToString("N0")" readonly />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header"><strong>Các khoản khấu trừ khác</strong></div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label asp-for="GarbageFee" class="form-label">Phí rác</label>
+                    <input asp-for="GarbageFee" type="number" min="0" step="1000" class="form-control fee-input" />
+                    <span asp-validation-for="GarbageFee" class="text-danger"></span>
+                </div>
+                <div class="col-md-3">
+                    <label asp-for="CleaningFee" class="form-label">Phí vệ sinh</label>
+                    <input asp-for="CleaningFee" type="number" min="0" step="1000" class="form-control fee-input" />
+                    <span asp-validation-for="CleaningFee" class="text-danger"></span>
+                </div>
+                <div class="col-md-3">
+                    <label asp-for="RepairFee" class="form-label">Phí sửa chữa</label>
+                    <input asp-for="RepairFee" type="number" min="0" step="1000" class="form-control fee-input" />
+                    <span asp-validation-for="RepairFee" class="text-danger"></span>
+                </div>
+                <div class="col-md-3">
+                    <label asp-for="OtherFee" class="form-label">Chi phí khác</label>
+                    <input asp-for="OtherFee" type="number" min="0" step="1000" class="form-control fee-input" />
+                    <span asp-validation-for="OtherFee" class="text-danger"></span>
+                </div>
+                <div class="col-12">
+                    <label asp-for="Notes" class="form-label">Ghi chú</label>
+                    <textarea asp-for="Notes" class="form-control" rows="2"></textarea>
+                    <span asp-validation-for="Notes" class="text-danger"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header"><strong>Kết quả quyết toán tạm tính</strong></div>
+        <div class="card-body">
+            <div class="d-flex justify-content-between mb-2">
+                <span>Tổng các khoản khấu trừ</span>
+                <strong id="totalDeductions">@Model.TotalDeductions.ToString("N0") đ</strong>
+            </div>
+            <div class="d-flex justify-content-between mb-2">
+                <span>Tiền cọc được hoàn lại</span>
+                <strong id="refundAmount" class="text-success">@Model.RefundAmount.ToString("N0") đ</strong>
+            </div>
+            <div class="d-flex justify-content-between">
+                <span>Người thuê cần thanh toán thêm</span>
+                <strong id="additionalAmount" class="text-danger">@Model.AdditionalAmountDue.ToString("N0") đ</strong>
+            </div>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Lưu phiếu và xem trước</button>
+    <a asp-controller="RentalContract" asp-action="Details" asp-route-id="@Model.ContractId" class="btn btn-secondary">Quay lại hợp đồng</a>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        (() => {
+            const form = document.querySelector("form");
+            const number = name => Number(form.querySelector('[name="' + name + '"]').value) || 0;
+            const money = value => new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(value) + " đ";
+            const electricityRate = @Model.ElectricityUnitPrice.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            const waterRate = @Model.WaterUnitPrice.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            function update() {
+                const electricity = Math.max(number("FinalElectricityReading") - number("PreviousElectricityReading"), 0) * electricityRate;
+                const water = Math.max(number("FinalWaterReading") - number("PreviousWaterReading"), 0) * waterRate;
+                const deductions = @Model.OutstandingInvoiceAmount.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    + electricity + water + number("GarbageFee") + number("CleaningFee")
+                    + number("RepairFee") + number("OtherFee");
+                const deposit = @Model.DepositAmount.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                document.getElementById("electricityAmount").value = money(electricity);
+                document.getElementById("waterAmount").value = money(water);
+                document.getElementById("totalDeductions").textContent = money(deductions);
+                document.getElementById("refundAmount").textContent = money(Math.max(deposit - deductions, 0));
+                document.getElementById("additionalAmount").textContent = money(Math.max(deductions - deposit, 0));
+            }
+            form.querySelectorAll(".meter-input, .fee-input").forEach(input => input.addEventListener("input", update));
+            update();
+        })();
+    </script>
+}

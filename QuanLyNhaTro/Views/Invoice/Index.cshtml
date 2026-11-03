@@ -246,8 +246,8 @@ else
                             }
                             @if (invoice.ContractStatus == "Active")
                             {
-                                <button type="button" class="btn btn-sm btn-danger text-nowrap" disabled
-                                        aria-disabled="true">Trả phòng</button>
+                                <a asp-controller="MoveOut" asp-action="Create" asp-route-contractId="@invoice.ContractId"
+                                   class="btn btn-sm btn-danger text-nowrap">Trả phòng</a>
                             }
                             else
                             {

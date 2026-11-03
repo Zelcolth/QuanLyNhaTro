@@ -335,9 +335,9 @@ public class RentalContractController : Controller
             return RedirectToAction(nameof(Details), new { id });
         }
 
-        if (room.Status == "Maintenance")
+        if (room.Status is "Maintenance" or "Cleaning")
         {
-            TempData["ErrorMessage"] = "Không thể kích hoạt hợp đồng khi phòng đang bảo trì.";
+            TempData["ErrorMessage"] = "Không thể kích hoạt hợp đồng khi phòng đang bảo trì hoặc chờ xử lý.";
             return RedirectToAction(nameof(Details), new { id });
         }
 
@@ -380,50 +380,6 @@ public class RentalContractController : Controller
         }
 
         TempData["SuccessMessage"] = "Đã kích hoạt hợp đồng thuê.";
-        return RedirectToAction(nameof(Details), new { id });
-    }
-
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> EndContract(int id)
-    {
-        await SynchronizeExpiredContractsAsync();
-
-        var contract = await _context.RentalContracts.FindAsync(id);
-
-        if (contract is null)
-        {
-            return NotFound();
-        }
-
-        if (contract.Status != "Active")
-        {
-            TempData["ErrorMessage"] = "Chỉ có thể kết thúc hợp đồng đang hiệu lực.";
-            return RedirectToAction(nameof(Details), new { id });
-        }
-
-        contract.Status = "Terminated";
-        contract.ActualEndDate = DateTime.Now;
-        // Keep EndDate as the contractual end date; ActualEndDate records early termination.
-
-        await using var transaction = await _context.Database.BeginTransactionAsync();
-
-        try
-        {
-            await _context.SaveChangesAsync();
-            await SynchronizeRoomStatusAsync(contract.RoomId);
-            await _context.SaveChangesAsync();
-            await transaction.CommitAsync();
-        }
-        catch (DbUpdateException)
-        {
-            await transaction.RollbackAsync();
-
-            TempData["ErrorMessage"] = "Không thể kết thúc hợp đồng. Vui lòng thử lại.";
-            return RedirectToAction(nameof(Details), new { id });
-        }
-
-        TempData["SuccessMessage"] = "Đã ghi nhận ngày chấm dứt thực tế của hợp đồng.";
         return RedirectToAction(nameof(Details), new { id });
     }
 
@@ -549,9 +505,9 @@ public class RentalContractController : Controller
                 ModelState.AddModelError(nameof(model.RoomId), "Phòng được chọn không tồn tại.");
             }
         }
-        else if (room.Status == "Maintenance")
+        else if (room.Status is "Maintenance" or "Cleaning")
         {
-            ModelState.AddModelError(nameof(model.RoomId), "Không thể lập hợp đồng cho phòng đang bảo trì.");
+            ModelState.AddModelError(nameof(model.RoomId), "Không thể lập hợp đồng cho phòng đang bảo trì hoặc chờ xử lý.");
         }
 
         if (contractStatus == "Draft")
@@ -685,7 +641,7 @@ public class RentalContractController : Controller
     {
         var room = await _context.Rooms.FindAsync(roomId);
 
-        if (room is null || room.Status == "Maintenance")
+        if (room is null || room.Status is "Maintenance" or "Cleaning")
         {
             return;
         }

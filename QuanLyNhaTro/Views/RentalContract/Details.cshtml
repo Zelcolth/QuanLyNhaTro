@@ -162,13 +162,8 @@
     @if (Model.Status == "Active")
     {
         <a asp-action="Edit" asp-route-id="@Model.ContractId" class="btn btn-outline-primary">Sửa thông tin hợp đồng</a>
-        <form asp-action="EndContract" asp-route-id="@Model.ContractId" method="post" class="d-inline">
-            @Html.AntiForgeryToken()
-            <button type="submit" class="btn btn-warning"
-                    onclick="return confirm('Xác nhận người thuê đã trả phòng và chấm dứt hợp đồng trước hạn?');">
-                Kết thúc hợp đồng
-            </button>
-        </form>
+        <a asp-controller="MoveOut" asp-action="Create" asp-route-contractId="@Model.ContractId"
+           class="btn btn-warning">Lập phiếu quyết toán trả phòng</a>
     }
     <a asp-action="Index" class="btn btn-secondary">Quay lại danh sách</a>
 </div>
