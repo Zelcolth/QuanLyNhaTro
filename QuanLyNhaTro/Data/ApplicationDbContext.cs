@@ -211,6 +211,8 @@ public class ApplicationDbContext : DbContext
             entity.Property(settlement => settlement.Notes).HasMaxLength(1000);
             entity.Property(settlement => settlement.DepositAmount).HasColumnType("decimal(18,2)");
             entity.Property(settlement => settlement.OutstandingInvoiceAmount).HasColumnType("decimal(18,2)");
+            entity.Property(settlement => settlement.InvoiceAdjustmentAmount).HasColumnType("decimal(18,2)");
+            entity.Property(settlement => settlement.IsInvoiceReconciled).HasDefaultValue(false);
             entity.Property(settlement => settlement.PreviousElectricityReading).HasColumnType("decimal(18,2)");
             entity.Property(settlement => settlement.FinalElectricityReading).HasColumnType("decimal(18,2)");
             entity.Property(settlement => settlement.ElectricityUnitPrice).HasColumnType("decimal(18,2)");

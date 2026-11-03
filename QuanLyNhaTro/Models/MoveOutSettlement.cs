@@ -17,6 +17,10 @@ public class MoveOutSettlement
     public DateTime MoveOutDate { get; set; }
     public decimal DepositAmount { get; set; }
     public decimal OutstandingInvoiceAmount { get; set; }
+    // Signed difference between the correct final-month charges and the invoice already issued.
+    public decimal InvoiceAdjustmentAmount { get; set; }
+    // False for legacy settlements, preserving their original deduction calculation.
+    public bool IsInvoiceReconciled { get; set; }
     public decimal PreviousElectricityReading { get; set; }
     public decimal FinalElectricityReading { get; set; }
     public decimal ElectricityUnitPrice { get; set; }
@@ -38,8 +42,10 @@ public class MoveOutSettlement
     public RentalContract Contract { get; set; } = null!;
 
     [NotMapped]
-    public decimal TotalDeductions => OutstandingInvoiceAmount + ElectricityAmount + WaterAmount
-        + GarbageFee + CleaningFee + RepairFee + OtherFee;
+    public decimal TotalDeductions => Status == "Confirmed" && !IsInvoiceReconciled
+        ? OutstandingInvoiceAmount + ElectricityAmount + WaterAmount + GarbageFee
+            + CleaningFee + RepairFee + OtherFee
+        : OutstandingInvoiceAmount + InvoiceAdjustmentAmount + CleaningFee + RepairFee + OtherFee;
     [NotMapped]
     public decimal RefundAmount => Math.Max(DepositAmount - TotalDeductions, 0m);
     [NotMapped]

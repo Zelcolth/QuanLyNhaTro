@@ -74,9 +74,18 @@
             <tbody>
                 <tr><td>Tiền đặt cọc</td><td>Khoản tiền đặt cọc theo hợp đồng</td><td class="amount">@Model.DepositAmount.ToString("N0") đ</td></tr>
                 <tr><td>Công nợ hóa đơn</td><td>Công nợ chưa thanh toán</td><td class="amount">@Model.OutstandingInvoiceAmount.ToString("N0") đ</td></tr>
-                <tr><td>Tiền điện</td><td>@Model.PreviousElectricityReading.ToString("N2") → @Model.FinalElectricityReading.ToString("N2") kWh</td><td class="amount">@Model.ElectricityAmount.ToString("N0") đ</td></tr>
-                <tr><td>Tiền nước</td><td>@Model.PreviousWaterReading.ToString("N2") → @Model.FinalWaterReading.ToString("N2") m³</td><td class="amount">@Model.WaterAmount.ToString("N0") đ</td></tr>
-                <tr><td>Phí rác</td><td>Phí phát sinh khi trả phòng</td><td class="amount">@Model.GarbageFee.ToString("N0") đ</td></tr>
+                @if (isConfirmed && !Model.IsInvoiceReconciled)
+                {
+                    <tr><td>Tiền điện</td><td>@Model.PreviousElectricityReading.ToString("N2") → @Model.FinalElectricityReading.ToString("N2") kWh</td><td class="amount">@Model.ElectricityAmount.ToString("N0") đ</td></tr>
+                    <tr><td>Tiền nước</td><td>@Model.PreviousWaterReading.ToString("N2") → @Model.FinalWaterReading.ToString("N2") m³</td><td class="amount">@Model.WaterAmount.ToString("N0") đ</td></tr>
+                    <tr><td>Phí rác</td><td>Phí định kỳ của kỳ trả phòng</td><td class="amount">@Model.GarbageFee.ToString("N0") đ</td></tr>
+                }
+                else
+                {
+                    <tr><td>Tiền điện đối chiếu</td><td>@Model.PreviousElectricityReading.ToString("N2") → @Model.FinalElectricityReading.ToString("N2") kWh (đã tính trong hóa đơn)</td><td class="amount">@Model.ElectricityAmount.ToString("N0") đ</td></tr>
+                    <tr><td>Tiền nước đối chiếu</td><td>@Model.PreviousWaterReading.ToString("N2") → @Model.FinalWaterReading.ToString("N2") m³ (đã tính trong hóa đơn)</td><td class="amount">@Model.WaterAmount.ToString("N0") đ</td></tr>
+                    <tr><td>Điều chỉnh hóa đơn tháng trả phòng</td><td>Chênh lệch sau khi đối soát thời gian thuê và chỉ số chốt</td><td class="amount">@(Model.InvoiceAdjustmentAmount > 0 ? "+" : "")@Model.InvoiceAdjustmentAmount.ToString("N0") đ</td></tr>
+                }
                 <tr><td>Phí vệ sinh</td><td>Phí phát sinh khi trả phòng</td><td class="amount">@Model.CleaningFee.ToString("N0") đ</td></tr>
                 <tr><td>Phí sửa chữa</td><td>Chi phí sửa chữa, khắc phục</td><td class="amount">@Model.RepairFee.ToString("N0") đ</td></tr>
                 <tr><td>Chi phí khác</td><td>Khoản chi phí khác</td><td class="amount">@Model.OtherFee.ToString("N0") đ</td></tr>
@@ -94,7 +103,19 @@
         }
 
         <div class="alert alert-light border mt-4 mb-0">
-            Phiếu này thể hiện kết quả quyết toán tiền đặt cọc, không thay thế chứng từ xác nhận giao dịch hoàn tiền hoặc thu thêm.
+            @if (isConfirmed && !Model.IsInvoiceReconciled)
+            {
+                <span>Phiếu quyết toán này được lập theo cách tính cũ trước khi hệ thống đối soát hóa đơn tháng trả phòng.</span>
+            }
+            else if (!Model.HasCurrentMonthInvoice)
+            {
+                <span>Tiền phòng, điện nước và phí định kỳ tháng trả phòng sẽ được đưa vào hóa đơn.</span>
+            }
+            else
+            {
+                <span>Tiền phòng, điện nước và phí định kỳ tháng trả phòng đã được đối soát qua hóa đơn.</span>
+            }
+            Phiếu này không thay thế chứng từ xác nhận giao dịch hoàn tiền hoặc thu thêm.
         </div>
 
         <div class="row text-center mt-5 pt-3">

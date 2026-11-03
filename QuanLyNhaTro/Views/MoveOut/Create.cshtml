@@ -25,7 +25,11 @@
 }
 @if (Model.HasCurrentMonthInvoice)
 {
-    <div class="alert alert-info">Hóa đơn tháng hiện tại đã được lập. Phí rác của kỳ này đã nằm trong hóa đơn nên không tính thêm tại phiếu quyết toán.</div>
+    <div class="alert alert-info">Hóa đơn tháng trả phòng đã được lập. Tiền phòng, điện nước và phí định kỳ đã được tính trong hóa đơn; phiếu này chỉ đối soát chênh lệch hóa đơn và các khoản phát sinh thêm.</div>
+}
+else
+{
+    <div class="alert alert-warning">Sau khi lưu phiếu bản nháp, hãy vào màn hình Hóa đơn và lập hóa đơn cho tháng trả phòng. Hệ thống chỉ cho xác nhận trả phòng sau khi có hóa đơn để tránh bỏ sót hoặc thu trùng tiền.</div>
 }
 <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
 
@@ -47,7 +51,7 @@
                 </div>
                 <div class="col-md-4">
                     <label asp-for="MoveOutDate" class="form-label">Ngày trả phòng</label>
-                    <input asp-for="MoveOutDate" type="date" asp-format="{0:yyyy-MM-dd}" class="form-control" />
+                    <input asp-for="MoveOutDate" type="date" asp-format="{0:yyyy-MM-dd}" class="form-control" readonly="@(Model.IsFinalReadingLocked ? "readonly" : null)" />
                     <span asp-validation-for="MoveOutDate" class="text-danger"></span>
                 </div>
             </div>
@@ -60,12 +64,12 @@
             <div class="row g-3">
                 <div class="col-md-3">
                     <label asp-for="PreviousElectricityReading" class="form-label">Chỉ số điện trước đó (kWh)</label>
-                    <input asp-for="PreviousElectricityReading" type="number" min="0" step="0.01" class="form-control meter-input" />
+                    <input asp-for="PreviousElectricityReading" type="number" min="0" step="0.01" class="form-control meter-input" readonly />
                     <span asp-validation-for="PreviousElectricityReading" class="text-danger"></span>
                 </div>
                 <div class="col-md-3">
                     <label asp-for="FinalElectricityReading" class="form-label">Chỉ số điện khi trả (kWh)</label>
-                    <input asp-for="FinalElectricityReading" type="number" min="0" step="0.01" class="form-control meter-input" />
+                    <input asp-for="FinalElectricityReading" type="number" min="0" step="0.01" class="form-control meter-input" readonly="@(Model.IsFinalReadingLocked ? "readonly" : null)" />
                     <span asp-validation-for="FinalElectricityReading" class="text-danger"></span>
                 </div>
                 <div class="col-md-3">
@@ -73,17 +77,17 @@
                     <input class="form-control" value="@Model.ElectricityUnitPrice.ToString("N0") đ/kWh" readonly />
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">Tiền điện</label>
+                    <label class="form-label">Tiền điện đối chiếu</label>
                     <input id="electricityAmount" class="form-control" value="@Model.ElectricityAmount.ToString("N0")" readonly />
                 </div>
                 <div class="col-md-3">
                     <label asp-for="PreviousWaterReading" class="form-label">Chỉ số nước trước đó (m³)</label>
-                    <input asp-for="PreviousWaterReading" type="number" min="0" step="0.01" class="form-control meter-input" />
+                    <input asp-for="PreviousWaterReading" type="number" min="0" step="0.01" class="form-control meter-input" readonly />
                     <span asp-validation-for="PreviousWaterReading" class="text-danger"></span>
                 </div>
                 <div class="col-md-3">
                     <label asp-for="FinalWaterReading" class="form-label">Chỉ số nước khi trả (m³)</label>
-                    <input asp-for="FinalWaterReading" type="number" min="0" step="0.01" class="form-control meter-input" />
+                    <input asp-for="FinalWaterReading" type="number" min="0" step="0.01" class="form-control meter-input" readonly="@(Model.IsFinalReadingLocked ? "readonly" : null)" />
                     <span asp-validation-for="FinalWaterReading" class="text-danger"></span>
                 </div>
                 <div class="col-md-3">
@@ -91,7 +95,7 @@
                     <input class="form-control" value="@Model.WaterUnitPrice.ToString("N0") đ/m³" readonly />
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">Tiền nước</label>
+                    <label class="form-label">Tiền nước đối chiếu</label>
                     <input id="waterAmount" class="form-control" value="@Model.WaterAmount.ToString("N0")" readonly />
                 </div>
             </div>
@@ -103,9 +107,12 @@
         <div class="card-body">
             <div class="row g-3">
                 <div class="col-md-3">
-                    <label asp-for="GarbageFee" class="form-label">Phí rác</label>
-                    <input asp-for="GarbageFee" type="number" min="0" step="0.01" class="form-control fee-input" />
-                    <span asp-validation-for="GarbageFee" class="text-danger"></span>
+                    <label class="form-label">Phí rác</label>
+                    <input class="form-control" value="Tính trong hóa đơn tháng trả phòng" readonly />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Điều chỉnh hóa đơn tháng trả phòng</label>
+                    <input class="form-control" value="@(Model.InvoiceAdjustmentAmount > 0 ? "+" : "")@Model.InvoiceAdjustmentAmount.ToString("N0") đ" readonly />
                 </div>
                 <div class="col-md-3">
                     <label asp-for="CleaningFee" class="form-label">Phí vệ sinh</label>
@@ -163,11 +170,11 @@
             const electricityRate = @Model.ElectricityUnitPrice.ToString(System.Globalization.CultureInfo.InvariantCulture);
             const waterRate = @Model.WaterUnitPrice.ToString(System.Globalization.CultureInfo.InvariantCulture);
             function update() {
-                const electricity = Math.max(number("FinalElectricityReading") - number("PreviousElectricityReading"), 0) * electricityRate;
-                const water = Math.max(number("FinalWaterReading") - number("PreviousWaterReading"), 0) * waterRate;
+                const electricity = Math.round(Math.max(number("FinalElectricityReading") - number("PreviousElectricityReading"), 0) * electricityRate);
+                const water = Math.round(Math.max(number("FinalWaterReading") - number("PreviousWaterReading"), 0) * waterRate);
                 const deductions = @Model.OutstandingInvoiceAmount.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                    + electricity + water + number("GarbageFee") + number("CleaningFee")
-                    + number("RepairFee") + number("OtherFee");
+                    + @Model.InvoiceAdjustmentAmount.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    + number("CleaningFee") + number("RepairFee") + number("OtherFee");
                 const deposit = @Model.DepositAmount.ToString(System.Globalization.CultureInfo.InvariantCulture);
                 document.getElementById("electricityAmount").value = money(electricity);
                 document.getElementById("waterAmount").value = money(water);

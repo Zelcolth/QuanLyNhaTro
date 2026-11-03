@@ -30,6 +30,13 @@
     </div>
 </div>
 
+@if (!isConfirmed && !Model.HasCurrentMonthInvoice)
+{
+    <div class="alert alert-warning">
+        Chưa có hóa đơn tháng trả phòng. Hãy <a asp-controller="Invoice" asp-action="Index" asp-route-billingMonth="@Model.MoveOutDate.ToString("yyyy-MM")">mở hóa đơn tháng @Model.MoveOutDate.ToString("MM/yyyy")</a> và lập hóa đơn trước khi xác nhận trả phòng.
+    </div>
+}
+
 <div class="card mb-3">
     <div class="card-header"><strong>Các khoản quyết toán</strong></div>
     <div class="table-responsive">
@@ -37,9 +44,18 @@
             <tbody>
                 <tr><th>Tiền đặt cọc</th><td class="text-end">@Model.DepositAmount.ToString("N0") đ</td></tr>
                 <tr><th>Công nợ hóa đơn chưa thanh toán</th><td class="text-end">@Model.OutstandingInvoiceAmount.ToString("N0") đ</td></tr>
-                <tr><th>Tiền điện (@Model.PreviousElectricityReading.ToString("N2") → @Model.FinalElectricityReading.ToString("N2") kWh)</th><td class="text-end">@Model.ElectricityAmount.ToString("N0") đ</td></tr>
-                <tr><th>Tiền nước (@Model.PreviousWaterReading.ToString("N2") → @Model.FinalWaterReading.ToString("N2") m³)</th><td class="text-end">@Model.WaterAmount.ToString("N0") đ</td></tr>
-                <tr><th>Phí rác</th><td class="text-end">@Model.GarbageFee.ToString("N0") đ</td></tr>
+                @if (isConfirmed && !Model.IsInvoiceReconciled)
+                {
+                    <tr><th>Tiền điện (@Model.PreviousElectricityReading.ToString("N2") → @Model.FinalElectricityReading.ToString("N2") kWh)</th><td class="text-end">@Model.ElectricityAmount.ToString("N0") đ</td></tr>
+                    <tr><th>Tiền nước (@Model.PreviousWaterReading.ToString("N2") → @Model.FinalWaterReading.ToString("N2") m³)</th><td class="text-end">@Model.WaterAmount.ToString("N0") đ</td></tr>
+                    <tr><th>Phí rác</th><td class="text-end">@Model.GarbageFee.ToString("N0") đ</td></tr>
+                }
+                else
+                {
+                    <tr><th>Tiền điện đối chiếu (@Model.PreviousElectricityReading.ToString("N2") → @Model.FinalElectricityReading.ToString("N2") kWh)</th><td class="text-end">@Model.ElectricityAmount.ToString("N0") đ <small class="text-muted">(@(Model.HasCurrentMonthInvoice ? "đã tính trong hóa đơn" : "sẽ tính trong hóa đơn"))</small></td></tr>
+                    <tr><th>Tiền nước đối chiếu (@Model.PreviousWaterReading.ToString("N2") → @Model.FinalWaterReading.ToString("N2") m³)</th><td class="text-end">@Model.WaterAmount.ToString("N0") đ <small class="text-muted">(@(Model.HasCurrentMonthInvoice ? "đã tính trong hóa đơn" : "sẽ tính trong hóa đơn"))</small></td></tr>
+                    <tr><th>Điều chỉnh hóa đơn tháng trả phòng</th><td class="text-end fw-semibold">@(Model.InvoiceAdjustmentAmount > 0 ? "+" : "")@Model.InvoiceAdjustmentAmount.ToString("N0") đ</td></tr>
+                }
                 <tr><th>Phí vệ sinh</th><td class="text-end">@Model.CleaningFee.ToString("N0") đ</td></tr>
                 <tr><th>Phí sửa chữa</th><td class="text-end">@Model.RepairFee.ToString("N0") đ</td></tr>
                 <tr><th>Chi phí khác</th><td class="text-end">@Model.OtherFee.ToString("N0") đ</td></tr>
@@ -58,7 +74,19 @@
 </div>
 
 <div class="alert alert-info">
-    Xác nhận trả phòng chỉ chấm dứt hợp đồng và cập nhật tình trạng phòng. Việc thực tế hoàn tiền cọc hoặc thu thêm chưa được ghi nhận là giao dịch thanh toán.
+    @if (isConfirmed && !Model.IsInvoiceReconciled)
+    {
+        <span>Phiếu quyết toán này được lập theo cách tính cũ trước khi hệ thống đối soát hóa đơn tháng trả phòng.</span>
+    }
+    else if (!Model.HasCurrentMonthInvoice)
+    {
+        <span>Tiền phòng, điện nước và phí định kỳ tháng trả phòng sẽ được đưa vào hóa đơn. Cần lập hóa đơn trước khi xác nhận trả phòng.</span>
+    }
+    else
+    {
+        <span>Tiền phòng, điện nước và phí định kỳ tháng trả phòng đã được đối soát qua hóa đơn.</span>
+    }
+    Việc thực tế hoàn tiền cọc hoặc thu thêm chưa được ghi nhận là giao dịch thanh toán.
 </div>
 
 <div class="d-flex gap-2 flex-wrap">
@@ -68,7 +96,7 @@
         <a asp-action="Create" asp-route-contractId="@Model.ContractId" class="btn btn-outline-secondary">Chỉnh sửa phiếu</a>
         <form asp-action="Confirm" asp-route-id="@Model.SettlementId" method="post" class="d-inline">
             @Html.AntiForgeryToken()
-            <button type="submit" class="btn btn-danger"
+            <button type="submit" class="btn btn-danger" disabled="@(!Model.HasCurrentMonthInvoice)"
                     onclick="return confirm('Xác nhận trả phòng? Hợp đồng sẽ chấm dứt và phòng chuyển sang trạng thái Chờ xử lý.');">
                 Xác nhận trả phòng
             </button>

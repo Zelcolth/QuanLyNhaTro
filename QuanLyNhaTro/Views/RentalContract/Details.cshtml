@@ -136,6 +136,11 @@
         <a asp-controller="MoveOut" asp-action="Create" asp-route-contractId="@Model.ContractId"
            class="btn btn-warning">Lập phiếu quyết toán trả phòng</a>
     }
+    @if (Model.Status == "Expired")
+    {
+        <a asp-controller="MoveOut" asp-action="Create" asp-route-contractId="@Model.ContractId"
+           class="btn btn-warning">Lập phiếu quyết toán trả phòng</a>
+    }
     @if (Model.Status == "Terminated" && ViewBag.MoveOutSettlementId is int settlementId)
     {
         <a asp-controller="MoveOut" asp-action="Details" asp-route-id="@settlementId"

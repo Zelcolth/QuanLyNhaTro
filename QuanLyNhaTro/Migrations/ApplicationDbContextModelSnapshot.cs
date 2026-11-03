@@ -227,6 +227,8 @@ namespace QuanLyNhaTro.Migrations
                     b.Property<DateTime>("MoveOutDate").HasColumnType("date");
                     b.Property<decimal>("DepositAmount").HasColumnType("decimal(18,2)");
                     b.Property<decimal>("OutstandingInvoiceAmount").HasColumnType("decimal(18,2)");
+                    b.Property<decimal>("InvoiceAdjustmentAmount").HasColumnType("decimal(18,2)");
+                    b.Property<bool>("IsInvoiceReconciled").HasColumnType("bit").HasDefaultValue(false);
                     b.Property<decimal>("PreviousElectricityReading").HasColumnType("decimal(18,2)");
                     b.Property<decimal>("FinalElectricityReading").HasColumnType("decimal(18,2)");
                     b.Property<decimal>("ElectricityUnitPrice").HasColumnType("decimal(18,2)");
