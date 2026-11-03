@@ -38,6 +38,10 @@ public class ApplicationDbContext : DbContext
             .HasIndex(room => new { room.BuildingId, room.RoomCode })
             .IsUnique();
 
+        modelBuilder.Entity<Room>()
+            .Property(room => room.MonthlyRent)
+            .HasColumnType("decimal(18,2)");
+
         modelBuilder.Entity<RentalContract>()
             .HasOne(contract => contract.Room)
             .WithMany()
@@ -91,6 +95,10 @@ public class ApplicationDbContext : DbContext
 
         modelBuilder.Entity<RentalContract>(entity =>
         {
+            entity.Property(contract => contract.MonthlyRent)
+                .HasColumnType("decimal(18,2)");
+            entity.Property(contract => contract.Deposit)
+                .HasColumnType("decimal(18,2)");
             entity.Property(contract => contract.MoveInElectricityReading)
                 .HasColumnType("decimal(18,2)");
             entity.Property(contract => contract.MoveInWaterReading)
