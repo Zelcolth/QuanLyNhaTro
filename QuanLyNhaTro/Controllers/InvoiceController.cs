@@ -249,7 +249,6 @@ public class InvoiceController : Controller
 
         var existingInvoices = await _context.Invoices
             .Where(invoice => invoice.BillingMonth == period)
-            .AsNoTracking()
             .ToListAsync();
         var existingSet = existingInvoices
             .Select(invoice => invoice.ContractId)
@@ -359,6 +358,7 @@ public class InvoiceController : Controller
         var newInvoices = new List<Invoice>();
         var errors = new List<string>();
         var alreadyCreatedCount = 0;
+        var repairedTenantSnapshotCount = 0;
 
         foreach (var contract in contracts)
         {
@@ -377,6 +377,27 @@ public class InvoiceController : Controller
 
             if (existingSet.Contains(contract.ContractId))
             {
+                var existingInvoice = existingInvoices.First(invoice => invoice.ContractId == contract.ContractId);
+                if (string.IsNullOrWhiteSpace(existingInvoice.TenantNamesSnapshot)
+                    || string.Equals(
+                        existingInvoice.TenantNamesSnapshot,
+                        "Chưa có thông tin người thuê",
+                        StringComparison.Ordinal))
+                {
+                    var recoveredTenantNames = BuildTenantNames(
+                        contract,
+                        occupiedPeriod.Start,
+                        occupiedPeriod.End);
+                    if (!string.Equals(
+                        recoveredTenantNames,
+                        "Chưa có thông tin người thuê",
+                        StringComparison.Ordinal))
+                    {
+                        existingInvoice.TenantNamesSnapshot = recoveredTenantNames;
+                        repairedTenantSnapshotCount++;
+                    }
+                }
+
                 alreadyCreatedCount++;
                 continue;
             }
@@ -442,19 +463,10 @@ public class InvoiceController : Controller
                 continue;
             }
 
-            var tenantNames = string.Join(", ", contract.ContractTenants
-                .Where(assignment =>
-                    (!assignment.JoinedAt.HasValue || assignment.JoinedAt.Value.Date <= occupiedPeriod.End)
-                    && (!assignment.LeftAt.HasValue || assignment.LeftAt.Value.Date >= occupiedPeriod.Start))
-                .OrderByDescending(assignment => assignment.IsPrimaryTenant)
-                .ThenBy(assignment => assignment.Tenant.FullName)
-                .Select(assignment => assignment.Tenant.FullName.Trim())
-                .Where(name => !string.IsNullOrWhiteSpace(name)));
-
-            if (string.IsNullOrWhiteSpace(tenantNames))
-            {
-                tenantNames = "Chưa có thông tin người thuê";
-            }
+            var tenantNames = BuildTenantNames(
+                contract,
+                occupiedPeriod.Start,
+                occupiedPeriod.End);
 
             var daysInMonth = DateTime.DaysInMonth(period.Year, period.Month);
             var occupiedDays = (occupiedPeriod.End - occupiedPeriod.Start).Days + 1;
@@ -520,7 +532,7 @@ public class InvoiceController : Controller
             _context.InvoicePeriodConfigs.Add(periodConfig!);
         }
 
-        if (newInvoices.Count > 0 || shouldSavePeriodConfig)
+        if (newInvoices.Count > 0 || shouldSavePeriodConfig || repairedTenantSnapshotCount > 0)
         {
             try
             {
@@ -539,11 +551,13 @@ public class InvoiceController : Controller
         if (newInvoices.Count > 0)
         {
             TempData["SuccessMessage"] = $"Đã lập {newInvoices.Count} hóa đơn cho kỳ {period:MM/yyyy}. Tổng giá trị: {newInvoices.Sum(invoice => invoice.TotalAmount):N0} VNĐ."
-                + (alreadyCreatedCount > 0 ? $" Bỏ qua {alreadyCreatedCount} hóa đơn đã tồn tại." : string.Empty);
+                + (alreadyCreatedCount > 0 ? $" Bỏ qua {alreadyCreatedCount} hóa đơn đã tồn tại." : string.Empty)
+                + (repairedTenantSnapshotCount > 0 ? $" Đã bổ sung thông tin người thuê cho {repairedTenantSnapshotCount} hóa đơn đã có." : string.Empty);
         }
         else if (alreadyCreatedCount > 0 && errors.Count == 0)
         {
-            TempData["SuccessMessage"] = $"Các hóa đơn hợp lệ cho kỳ {period:MM/yyyy} đã tồn tại; không phát sinh hóa đơn trùng.";
+            TempData["SuccessMessage"] = $"Các hóa đơn hợp lệ cho kỳ {period:MM/yyyy} đã tồn tại; không phát sinh hóa đơn trùng."
+                + (repairedTenantSnapshotCount > 0 ? $" Đã bổ sung thông tin người thuê cho {repairedTenantSnapshotCount} hóa đơn." : string.Empty);
         }
         else
         {
@@ -868,6 +882,27 @@ public class InvoiceController : Controller
         }
 
         return builder.ToString().Trim();
+    }
+
+    private static string BuildTenantNames(
+        RentalContract contract,
+        DateTime occupiedStart,
+        DateTime occupiedEnd)
+    {
+        var tenantNames = string.Join(", ", contract.ContractTenants
+            .Where(assignment =>
+                (assignment.IsPrimaryTenant
+                    || !assignment.JoinedAt.HasValue
+                    || assignment.JoinedAt.Value.Date <= occupiedEnd)
+                && (!assignment.LeftAt.HasValue || assignment.LeftAt.Value.Date >= occupiedStart))
+            .OrderByDescending(assignment => assignment.IsPrimaryTenant)
+            .ThenBy(assignment => assignment.Tenant.FullName)
+            .Select(assignment => assignment.Tenant.FullName.Trim())
+            .Where(name => !string.IsNullOrWhiteSpace(name)));
+
+        return string.IsNullOrWhiteSpace(tenantNames)
+            ? "Chưa có thông tin người thuê"
+            : tenantNames;
     }
 
     private static decimal ProrateMonthlyAmount(decimal monthlyAmount, int occupiedDays, int daysInMonth)

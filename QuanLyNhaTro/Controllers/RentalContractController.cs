@@ -764,7 +764,7 @@ public class RentalContractController : Controller
         {
             TenantId = model.PrimaryTenantId!.Value,
             IsPrimaryTenant = true,
-            JoinedAt = DateTime.Now,
+            JoinedAt = contract.StartDate.Date,
             Contract = contract
         });
     }
@@ -786,13 +786,16 @@ public class RentalContractController : Controller
                 ContractId = contract.ContractId,
                 TenantId = primaryTenantId,
                 IsPrimaryTenant = true,
-                JoinedAt = DateTime.Now
+                JoinedAt = contract.StartDate.Date
             });
         }
         else
         {
             primary.IsPrimaryTenant = true;
             primary.RelationshipToPrimaryTenant = null;
+            primary.JoinedAt = contract.StartDate.Date;
+            primary.LeftAt = null;
+            primary.IsActive = true;
         }
     }
 
