@@ -708,7 +708,9 @@ public class UtilityReadingController : Controller
             for (var excelRow = 2; excelRow <= lastRow; excelRow++)
             {
                 var roomIdCell = worksheet.Cell(excelRow, 1);
-                if (roomIdCell.IsEmpty())
+                var roomIdText = roomIdCell.GetString().Trim();
+                if (roomIdCell.IsEmpty()
+                    || roomIdText.StartsWith("Chỉ sửa cột", StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }

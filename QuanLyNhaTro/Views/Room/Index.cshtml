@@ -99,15 +99,15 @@ else
                         @if (moveOutDatesByRoom.TryGetValue(room.RoomId, out var moveOutDate))
                         {
                             <div class="mt-1">
-                                <span class="badge text-bg-warning">Khách hẹn trả phòng</span>
-                                <small class="d-block text-muted">Dự kiến @moveOutDate.ToString("dd/MM/yyyy")</small>
+                                <span class="badge text-bg-warning text-dark">Khách hẹn trả phòng</span>
+                                <small class="d-block text-dark">Dự kiến @moveOutDate.ToString("dd/MM/yyyy")</small>
                             </div>
                         }
                         @if (expiringDatesByRoom.TryGetValue(room.RoomId, out var expiringDate))
                         {
                             <div class="mt-1">
-                                <span class="badge text-bg-danger">Hợp đồng sắp hết hiệu lực</span>
-                                <small class="d-block text-muted">Kết thúc @expiringDate.ToString("dd/MM/yyyy")</small>
+                                <span class="badge text-bg-danger text-dark">Hợp đồng sắp hết hiệu lực</span>
+                                <small class="d-block text-dark">Kết thúc @expiringDate.ToString("dd/MM/yyyy")</small>
                             </div>
                         }
                     </td>

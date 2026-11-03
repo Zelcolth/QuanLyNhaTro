@@ -77,11 +77,11 @@ else
                     <td>
                         @if (currentlyRentingTenantIds.Contains(tenant.TenantId))
                         {
-                            <span class="badge text-bg-success">Đang cư trú</span>
+                            <span class="badge text-bg-success text-dark">Đang cư trú</span>
                         }
                         else if (formerTenantIds.Contains(tenant.TenantId))
                         {
-                            <span class="badge text-bg-secondary">Đã từng thuê</span>
+                            <span class="badge text-bg-secondary text-dark">Đã từng thuê</span>
                         }
                         else
                         {
@@ -97,7 +97,7 @@ else
                         }
                         else
                         {
-                            <span class="small text-muted">Đã lưu hồ sơ</span>
+                            <span class="small text-dark">Đã lưu hồ sơ</span>
                         }
                     </td>
                 </tr>
