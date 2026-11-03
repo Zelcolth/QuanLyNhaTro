@@ -83,6 +83,12 @@ namespace QuanLyNhaTro.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("InvoiceId"));
 
+                    b.Property<DateTime?>("BillingStartDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("BillingEndDate")
+                        .HasColumnType("date");
+
                     b.Property<DateTime>("BillingMonth")
                         .HasColumnType("date");
 

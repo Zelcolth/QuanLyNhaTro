@@ -213,15 +213,13 @@ public class InvoiceController : Controller
             .OrderBy(item => item.ConfigId)
             .FirstOrDefaultAsync();
 
+        // Include every non-draft contract whose effective rental dates overlap this calendar month.
         var contracts = await _context.RentalContracts
             .Where(contract =>
                 contract.Status != "Draft"
                 && contract.Status != "Cancelled"
-                && contract.StartDate.Date <= period
-                && (
-                    (contract.ActualEndDate == null && contract.EndDate.Date >= periodEnd)
-                    || (contract.ActualEndDate != null && contract.ActualEndDate.Value.Date >= periodEnd)
-                ))
+                && contract.StartDate.Date <= periodEnd
+                && (contract.ActualEndDate ?? contract.EndDate).Date >= period)
             .Include(contract => contract.Room)
                 .ThenInclude(room => room.Building)
             .Include(contract => contract.ContractTenants)
@@ -229,16 +227,25 @@ public class InvoiceController : Controller
             .AsNoTracking()
             .OrderBy(contract => contract.Room.Building.BuildingName)
             .ThenBy(contract => contract.Room.RoomCode)
+            .ThenBy(contract => contract.StartDate)
             .ToListAsync();
 
         if (contracts.Count == 0)
         {
-            TempData["ErrorMessage"] = "Không tìm thấy hợp đồng bao phủ trọn tháng này. Hợp đồng bản nháp và kỳ thuê không trọn tháng chưa được lập tự động.";
+            TempData["ErrorMessage"] = "Không tìm thấy hợp đồng có thời gian thuê giao với tháng này.";
             return RedirectToAction(nameof(Index), new
             {
                 billingMonth = period.ToString("yyyy-MM", CultureInfo.InvariantCulture)
             });
         }
+
+        var contractIds = contracts.Select(contract => contract.ContractId).ToList();
+        var roomIds = contracts.Select(contract => contract.RoomId).Distinct().ToList();
+
+        var settlements = await _context.MoveOutSettlements
+            .AsNoTracking()
+            .Where(item => contractIds.Contains(item.ContractId))
+            .ToDictionaryAsync(item => item.ContractId);
 
         var existingInvoices = await _context.Invoices
             .Where(invoice => invoice.BillingMonth == period)
@@ -259,10 +266,9 @@ public class InvoiceController : Controller
                 isNewPeriodConfig = true;
 
                 if (existingInvoices.Select(invoice => invoice.ElectricityUnitPrice).Distinct().Count() > 1
-                    || existingInvoices.Select(invoice => invoice.WaterUnitPrice).Distinct().Count() > 1
-                    || existingInvoices.Select(invoice => invoice.WifiFee).Distinct().Count() > 1)
+                    || existingInvoices.Select(invoice => invoice.WaterUnitPrice).Distinct().Count() > 1)
                 {
-                    legacyPriceWarning = $"Kỳ {period:MM/yyyy} đã có hóa đơn với đơn giá điện, nước hoặc phí Wi-Fi không đồng nhất. Hệ thống dùng mức xuất hiện nhiều nhất làm bộ giá tham chiếu cho hóa đơn còn thiếu; vui lòng kiểm tra các hóa đơn cũ.";
+                    legacyPriceWarning = $"Kỳ {period:MM/yyyy} đã có hóa đơn với đơn giá điện hoặc nước không đồng nhất. Hệ thống dùng mức xuất hiện nhiều nhất làm bộ giá tham chiếu cho hóa đơn còn thiếu; vui lòng kiểm tra hóa đơn cũ.";
                 }
             }
             else if (currentConfig is not null)
@@ -280,22 +286,75 @@ public class InvoiceController : Controller
             }
         }
 
-        var conflictingRoomIds = contracts
-            .GroupBy(contract => contract.RoomId)
-            .Where(group => group.Count() > 1)
-            .Select(group => group.Key)
-            .ToHashSet();
+        // A room may have multiple contracts in one month, provided their occupied dates do not overlap.
+        var occupiedPeriods = new Dictionary<int, (DateTime Start, DateTime End)>();
+        foreach (var contract in contracts)
+        {
+            var effectiveEnd = (contract.ActualEndDate ?? contract.EndDate).Date;
+            if (settlements.TryGetValue(contract.ContractId, out var settlement)
+                && settlement.MoveOutDate.Date < effectiveEnd)
+            {
+                effectiveEnd = settlement.MoveOutDate.Date;
+            }
 
-        var roomIds = contracts.Select(contract => contract.RoomId).Distinct().ToList();
-        var previousMonth = period.AddMonths(-1);
-        var readings = await _context.UtilityReadings
+            var start = contract.StartDate.Date > period ? contract.StartDate.Date : period;
+            var end = effectiveEnd < periodEnd ? effectiveEnd : periodEnd;
+
+            if (start <= end)
+            {
+                occupiedPeriods[contract.ContractId] = (start, end);
+            }
+        }
+
+        if (occupiedPeriods.Count == 0)
+        {
+            TempData["ErrorMessage"] = "Không có hợp đồng nào còn thời gian thuê trong tháng đã chọn.";
+            return RedirectToAction(nameof(Index), new
+            {
+                billingMonth = period.ToString("yyyy-MM", CultureInfo.InvariantCulture)
+            });
+        }
+
+        var conflictingRoomIds = new HashSet<int>();
+        foreach (var roomGroup in contracts
+            .Where(contract => occupiedPeriods.ContainsKey(contract.ContractId))
+            .GroupBy(contract => contract.RoomId))
+        {
+            var ordered = roomGroup
+                .Select(contract => occupiedPeriods[contract.ContractId])
+                .OrderBy(item => item.Start)
+                .ToList();
+
+            DateTime? previousEnd = null;
+            foreach (var item in ordered)
+            {
+                if (previousEnd.HasValue && item.Start <= previousEnd.Value)
+                {
+                    conflictingRoomIds.Add(roomGroup.Key);
+                    break;
+                }
+
+                if (!previousEnd.HasValue || item.End > previousEnd.Value)
+                {
+                    previousEnd = item.End;
+                }
+            }
+        }
+
+        var priorReadings = await _context.UtilityReadings
             .AsNoTracking()
-            .Where(reading =>
-                roomIds.Contains(reading.RoomId)
-                && (reading.ReadingMonth == previousMonth || reading.ReadingMonth == period))
+            .Where(reading => roomIds.Contains(reading.RoomId) && reading.ReadingMonth < period)
+            .OrderByDescending(reading => reading.ReadingMonth)
+            .ThenByDescending(reading => reading.RecordedAt)
             .ToListAsync();
-        var readingsByRoomAndMonth = readings.ToDictionary(
-            reading => (reading.RoomId, reading.ReadingMonth));
+        var previousReadingsByRoom = priorReadings
+            .GroupBy(reading => reading.RoomId)
+            .ToDictionary(group => group.Key, group => group.First());
+
+        var currentReadings = await _context.UtilityReadings
+            .AsNoTracking()
+            .Where(reading => roomIds.Contains(reading.RoomId) && reading.ReadingMonth == period)
+            .ToDictionaryAsync(reading => reading.RoomId);
 
         var newInvoices = new List<Invoice>();
         var errors = new List<string>();
@@ -305,9 +364,14 @@ public class InvoiceController : Controller
         {
             var roomLabel = $"{contract.Room.Building.BuildingName} - Phòng {contract.Room.RoomCode}";
 
+            if (!occupiedPeriods.TryGetValue(contract.ContractId, out var occupiedPeriod))
+            {
+                continue;
+            }
+
             if (conflictingRoomIds.Contains(contract.RoomId))
             {
-                errors.Add($"{roomLabel}: có nhiều hợp đồng cùng bao phủ kỳ này; hãy kiểm tra thời hạn hợp đồng.");
+                errors.Add($"{roomLabel}: thời gian thuê của các hợp đồng trong tháng đang bị chồng lấn; hãy kiểm tra lại ngày bắt đầu và ngày trả phòng.");
                 continue;
             }
 
@@ -317,26 +381,71 @@ public class InvoiceController : Controller
                 continue;
             }
 
-            if (!readingsByRoomAndMonth.TryGetValue((contract.RoomId, previousMonth), out var previousReading)
-                || !readingsByRoomAndMonth.TryGetValue((contract.RoomId, period), out var currentReading))
+            var hasSettlement = settlements.TryGetValue(contract.ContractId, out var moveOutSettlement);
+            var endsBeforeMonthEnd = occupiedPeriod.End < periodEnd;
+            var hasFinalSettlementReading = hasSettlement
+                && moveOutSettlement!.MoveOutDate.Date == occupiedPeriod.End;
+
+            if (endsBeforeMonthEnd && !hasFinalSettlementReading)
             {
-                errors.Add($"{roomLabel}: cần có chỉ số điện nước của cả {previousMonth:MM/yyyy} và {period:MM/yyyy}.");
+                errors.Add($"{roomLabel}: hợp đồng kết thúc giữa tháng nhưng chưa có phiếu quyết toán với chỉ số điện nước cuối cùng.");
                 continue;
             }
 
-            var electricityConsumption = currentReading.ElectricityReading - previousReading.ElectricityReading;
-            var waterConsumption = currentReading.WaterReading - previousReading.WaterReading;
-
-            if (electricityConsumption < 0 || waterConsumption < 0)
+            decimal previousElectricity;
+            decimal previousWater;
+            if (contract.StartDate.Date >= period)
             {
-                errors.Add($"{roomLabel}: chỉ số tháng hiện tại thấp hơn kỳ trước; chưa thể lập hóa đơn.");
+                if (!contract.MoveInElectricityReading.HasValue || !contract.MoveInWaterReading.HasValue)
+                {
+                    errors.Add($"{roomLabel}: hợp đồng bắt đầu trong tháng nhưng chưa có chỉ số điện nước bàn giao. Hãy bổ sung tại chi tiết hợp đồng.");
+                    continue;
+                }
+
+                previousElectricity = contract.MoveInElectricityReading.Value;
+                previousWater = contract.MoveInWaterReading.Value;
+            }
+            else if (previousReadingsByRoom.TryGetValue(contract.RoomId, out var previousReading))
+            {
+                previousElectricity = previousReading.ElectricityReading;
+                previousWater = previousReading.WaterReading;
+            }
+            else
+            {
+                errors.Add($"{roomLabel}: không tìm thấy chỉ số điện nước kỳ trước để xác định mức tiêu thụ đầu tháng.");
+                continue;
+            }
+
+            decimal currentElectricity;
+            decimal currentWater;
+            if (hasFinalSettlementReading)
+            {
+                currentElectricity = moveOutSettlement!.FinalElectricityReading;
+                currentWater = moveOutSettlement.FinalWaterReading;
+            }
+            else if (currentReadings.TryGetValue(contract.RoomId, out var currentReading))
+            {
+                currentElectricity = currentReading.ElectricityReading;
+                currentWater = currentReading.WaterReading;
+            }
+            else
+            {
+                errors.Add($"{roomLabel}: chưa có chỉ số điện nước tháng {period:MM/yyyy}.");
+                continue;
+            }
+
+            var electricityConsumption = currentElectricity - previousElectricity;
+            var waterConsumption = currentWater - previousWater;
+            if (electricityConsumption < 0m || waterConsumption < 0m)
+            {
+                errors.Add($"{roomLabel}: chỉ số điện hoặc nước cuối kỳ nhỏ hơn chỉ số đầu kỳ; chưa thể lập hóa đơn.");
                 continue;
             }
 
             var tenantNames = string.Join(", ", contract.ContractTenants
                 .Where(assignment =>
-                    (!assignment.JoinedAt.HasValue || assignment.JoinedAt.Value.Date <= periodEnd)
-                    && (!assignment.LeftAt.HasValue || assignment.LeftAt.Value.Date >= period))
+                    (!assignment.JoinedAt.HasValue || assignment.JoinedAt.Value.Date <= occupiedPeriod.End)
+                    && (!assignment.LeftAt.HasValue || assignment.LeftAt.Value.Date >= occupiedPeriod.Start))
                 .OrderByDescending(assignment => assignment.IsPrimaryTenant)
                 .ThenBy(assignment => assignment.Tenant.FullName)
                 .Select(assignment => assignment.Tenant.FullName.Trim())
@@ -347,6 +456,11 @@ public class InvoiceController : Controller
                 tenantNames = "Chưa có thông tin người thuê";
             }
 
+            var daysInMonth = DateTime.DaysInMonth(period.Year, period.Month);
+            var occupiedDays = (occupiedPeriod.End - occupiedPeriod.Start).Days + 1;
+            var rentAmount = ProrateMonthlyAmount(contract.MonthlyRent, occupiedDays, daysInMonth);
+            var garbageFee = ProrateMonthlyAmount(periodConfig!.GarbageFee, occupiedDays, daysInMonth);
+            var wifiFee = ProrateMonthlyAmount(periodConfig.WifiFee, occupiedDays, daysInMonth);
             var electricityAmount = decimal.Round(
                 electricityConsumption * periodConfig.ElectricityPrice,
                 0,
@@ -355,13 +469,12 @@ public class InvoiceController : Controller
                 waterConsumption * periodConfig.WaterPrice,
                 0,
                 MidpointRounding.AwayFromZero);
-            var rentAmount = contract.MonthlyRent;
-            var discountAmount = 0m;
+            const decimal discountAmount = 0m;
             var totalAmount = rentAmount
                 + electricityAmount
                 + waterAmount
-                + periodConfig.GarbageFee
-                + periodConfig.WifiFee
+                + garbageFee
+                + wifiFee
                 - discountAmount;
 
             newInvoices.Add(new Invoice
@@ -369,23 +482,25 @@ public class InvoiceController : Controller
                 InvoiceCode = $"HD-{period:yyyyMM}-{contract.ContractId:D4}",
                 ContractId = contract.ContractId,
                 BillingMonth = period,
+                BillingStartDate = occupiedPeriod.Start,
+                BillingEndDate = occupiedPeriod.End,
                 IssuedAt = DateTime.Now,
                 RoomLabelSnapshot = roomLabel,
                 TenantNamesSnapshot = tenantNames,
                 ContractCodeSnapshot = contract.ContractCode,
                 RentAmount = rentAmount,
-                PreviousElectricityReading = previousReading.ElectricityReading,
-                CurrentElectricityReading = currentReading.ElectricityReading,
+                PreviousElectricityReading = previousElectricity,
+                CurrentElectricityReading = currentElectricity,
                 ElectricityConsumption = electricityConsumption,
                 ElectricityUnitPrice = periodConfig.ElectricityPrice,
                 ElectricityAmount = electricityAmount,
-                PreviousWaterReading = previousReading.WaterReading,
-                CurrentWaterReading = currentReading.WaterReading,
+                PreviousWaterReading = previousWater,
+                CurrentWaterReading = currentWater,
                 WaterConsumption = waterConsumption,
                 WaterUnitPrice = periodConfig.WaterPrice,
                 WaterAmount = waterAmount,
-                GarbageFee = periodConfig.GarbageFee,
-                WifiFee = periodConfig.WifiFee,
+                GarbageFee = garbageFee,
+                WifiFee = wifiFee,
                 DiscountAmount = discountAmount,
                 TotalAmount = totalAmount,
                 Status = "Unpaid"
@@ -423,7 +538,7 @@ public class InvoiceController : Controller
 
         if (newInvoices.Count > 0)
         {
-            TempData["SuccessMessage"] = $"Đã lập {newInvoices.Count} hóa đơn cho kỳ {period:MM/yyyy} theo bộ đơn giá đã lưu. Tổng giá trị: {newInvoices.Sum(invoice => invoice.TotalAmount):N0} VNĐ."
+            TempData["SuccessMessage"] = $"Đã lập {newInvoices.Count} hóa đơn cho kỳ {period:MM/yyyy}. Tổng giá trị: {newInvoices.Sum(invoice => invoice.TotalAmount):N0} VNĐ."
                 + (alreadyCreatedCount > 0 ? $" Bỏ qua {alreadyCreatedCount} hóa đơn đã tồn tại." : string.Empty);
         }
         else if (alreadyCreatedCount > 0 && errors.Count == 0)
@@ -753,6 +868,19 @@ public class InvoiceController : Controller
         }
 
         return builder.ToString().Trim();
+    }
+
+    private static decimal ProrateMonthlyAmount(decimal monthlyAmount, int occupiedDays, int daysInMonth)
+    {
+        if (monthlyAmount <= 0m || occupiedDays <= 0 || daysInMonth <= 0)
+        {
+            return 0m;
+        }
+
+        return decimal.Round(
+            monthlyAmount * occupiedDays / daysInMonth,
+            0,
+            MidpointRounding.AwayFromZero);
     }
 
     private static DateTime CurrentMonth()

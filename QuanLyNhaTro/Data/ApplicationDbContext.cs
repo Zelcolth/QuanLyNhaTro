@@ -234,6 +234,12 @@ public class ApplicationDbContext : DbContext
             entity.Property(invoice => invoice.BillingMonth)
                 .HasColumnType("date");
 
+            entity.Property(invoice => invoice.BillingStartDate)
+                .HasColumnType("date");
+
+            entity.Property(invoice => invoice.BillingEndDate)
+                .HasColumnType("date");
+
             entity.Property(invoice => invoice.InvoiceCode)
                 .HasMaxLength(50)
                 .IsRequired();

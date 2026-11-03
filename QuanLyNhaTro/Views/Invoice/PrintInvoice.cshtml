@@ -55,6 +55,7 @@
             <div>
                 <h1 class="h3 fw-bold mb-1">HÓA ĐƠN TIỀN PHÒNG</h1>
                 <div class="text-muted">Kỳ thanh toán: @Model.BillingMonth.ToString("MM/yyyy")</div>
+                <div class="text-muted">Thời gian tính tiền: @((Model.BillingStartDate ?? Model.BillingMonth).ToString("dd/MM/yyyy")) – @((Model.BillingEndDate ?? Model.BillingMonth.AddMonths(1).AddDays(-1)).ToString("dd/MM/yyyy"))</div>
             </div>
             <div class="text-end">
                 <div><strong>Mã hóa đơn:</strong> @Model.InvoiceCode</div>

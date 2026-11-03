@@ -16,6 +16,11 @@ public class Invoice
     // Always normalized to the first day of the billing month.
     public DateTime BillingMonth { get; set; }
 
+    // Actual inclusive occupancy dates covered by this invoice; null on legacy invoices.
+    public DateTime? BillingStartDate { get; set; }
+
+    public DateTime? BillingEndDate { get; set; }
+
     public DateTime IssuedAt { get; set; } = DateTime.Now;
 
     [Required(ErrorMessage = "Thông tin phòng của hóa đơn không được để trống.")]

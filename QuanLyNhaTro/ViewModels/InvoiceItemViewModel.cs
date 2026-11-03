@@ -11,6 +11,8 @@ public sealed class InvoiceItemViewModel
     public string TenantName { get; init; } = string.Empty;
     public string Status { get; init; } = "Unpaid";
     public string ContractStatus { get; init; } = string.Empty;
+    public DateTime BillingStartDate { get; init; }
+    public DateTime BillingEndDate { get; init; }
 
     public bool IsPaid => Status == "Paid";
     public bool IsPartiallyPaid => Status == "PartiallyPaid";
@@ -92,6 +94,8 @@ public sealed class InvoiceItemViewModel
                 .FirstOrDefault() ?? invoice.TenantNamesSnapshot,
             Status = status,
             ContractStatus = invoice.Contract?.Status ?? string.Empty,
+            BillingStartDate = invoice.BillingStartDate ?? invoice.BillingMonth,
+            BillingEndDate = invoice.BillingEndDate ?? invoice.BillingMonth.AddMonths(1).AddDays(-1),
             RentAmount = invoice.RentAmount,
             PreviousElectricityReading = invoice.PreviousElectricityReading,
             CurrentElectricityReading = invoice.CurrentElectricityReading,

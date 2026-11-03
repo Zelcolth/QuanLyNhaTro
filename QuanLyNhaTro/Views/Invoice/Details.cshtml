@@ -34,6 +34,7 @@
     <div class="card-body">
         <div class="row g-3">
             <div class="col-md-4"><strong>Kỳ hóa đơn:</strong> @Model.BillingMonth.ToString("MM/yyyy")</div>
+            <div class="col-md-8"><strong>Thời gian tính tiền:</strong> @((Model.BillingStartDate ?? Model.BillingMonth).ToString("dd/MM/yyyy")) – @((Model.BillingEndDate ?? Model.BillingMonth.AddMonths(1).AddDays(-1)).ToString("dd/MM/yyyy"))</div>
             <div class="col-md-4"><strong>Ngày lập:</strong> @Model.IssuedAt.ToString("dd/MM/yyyy HH:mm")</div>
             <div class="col-md-4">
                 <strong>Trạng thái thu:</strong>

@@ -162,11 +162,11 @@ else
                     <th scope="col" aria-sort="none"><button type="button" class="btn btn-link p-0 fw-bold text-decoration-none text-dark sort-button" data-sort="status">Trạng thái thu <span data-sort-indicator aria-hidden="true">↕</span></button></th>
                     <th>Khách thuê</th>
                     <th>Tiền phòng</th>
-                    <th>Điện<br />@previousMonth.ToString("MM/yyyy")</th>
-                    <th>Điện<br />@billingPeriod.ToString("MM/yyyy")</th>
+                    <th>Điện đầu kỳ</th>
+                    <th>Điện cuối kỳ</th>
                     <th>Số điện dùng</th>
-                    <th>Nước<br />@previousMonth.ToString("MM/yyyy")</th>
-                    <th>Nước<br />@billingPeriod.ToString("MM/yyyy")</th>
+                    <th>Nước đầu kỳ</th>
+                    <th>Nước cuối kỳ</th>
                     <th>Số nước dùng</th>
                     <th>Tiền rác</th>
                     <th>Internet</th>
@@ -199,6 +199,7 @@ else
                         </form>
                         <div class="fw-semibold text-nowrap">@invoice.RoomLabel</div>
                         <div class="text-muted small">@invoice.InvoiceCode</div>
+                        <div class="text-muted small">@invoice.BillingStartDate.ToString("dd/MM") – @invoice.BillingEndDate.ToString("dd/MM/yyyy")</div>
                     </td>
                     <td class="text-nowrap">
                         <span class="badge @invoice.PaymentBadgeClass">@invoice.PaymentStatusLabel</span>
