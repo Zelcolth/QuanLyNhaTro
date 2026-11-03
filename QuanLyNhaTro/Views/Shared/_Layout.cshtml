@@ -13,7 +13,7 @@
     @{ var currentController = ViewContext.RouteData.Values["controller"]?.ToString(); }
     <header>
         <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom shadow-sm">
-            <div class="container">
+            <div class="container-fluid px-3 px-lg-4">
                 <a class="navbar-brand fw-semibold text-primary" asp-controller="Room" asp-action="Index">
                     <span class="badge text-bg-primary me-2">NT</span>Quản lý nhà trọ
                 </a>
@@ -23,33 +23,67 @@
                 </button>
                 <div class="collapse navbar-collapse" id="mainNavigation">
                     <ul class="navbar-nav ms-auto gap-lg-1">
-                        <li class="nav-item">
-                            <a class="nav-link @(currentController == "Room" ? "active fw-semibold" : "")"
-                               aria-current="@(currentController == "Room" ? "page" : null)"
-                               asp-controller="Room" asp-action="Index">Phòng</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link @(currentController == "Building" ? "active fw-semibold" : "")"
-                               aria-current="@(currentController == "Building" ? "page" : null)"
-                               asp-controller="Building" asp-action="Index">Khu nhà</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link @(currentController == "Tenant" ? "active fw-semibold" : "")"
-                               aria-current="@(currentController == "Tenant" ? "page" : null)"
-                               asp-controller="Tenant" asp-action="Index">Người thuê</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link @(currentController == "RentalContract" ? "active fw-semibold" : "")"
-                               aria-current="@(currentController == "RentalContract" ? "page" : null)"
-                               asp-controller="RentalContract" asp-action="Index">Hợp đồng</a>
-                        </li>
+                        @if (User.Identity?.IsAuthenticated == true)
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link @(currentController == "Room" ? "active fw-semibold" : "")"
+                                   aria-current="@(currentController == "Room" ? "page" : null)"
+                                   asp-controller="Room" asp-action="Index">Phòng</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link @(currentController == "Building" ? "active fw-semibold" : "")"
+                                   aria-current="@(currentController == "Building" ? "page" : null)"
+                                   asp-controller="Building" asp-action="Index">Khu nhà</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link @(currentController == "Tenant" ? "active fw-semibold" : "")"
+                                   aria-current="@(currentController == "Tenant" ? "page" : null)"
+                                   asp-controller="Tenant" asp-action="Index">Người thuê</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link @(currentController == "RentalContract" ? "active fw-semibold" : "")"
+                                   aria-current="@(currentController == "RentalContract" ? "page" : null)"
+                                   asp-controller="RentalContract" asp-action="Index">Hợp đồng</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link @(currentController == "UtilityReading" ? "active fw-semibold" : "")"
+                                   aria-current="@(currentController == "UtilityReading" ? "page" : null)"
+                                   asp-controller="UtilityReading" asp-action="Index">Điện nước</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link @(currentController == "Invoice" ? "active fw-semibold" : "")"
+                                   aria-current="@(currentController == "Invoice" ? "page" : null)"
+                                   asp-controller="Invoice" asp-action="Index">Hóa đơn</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link @(currentController == "SystemConfig" ? "active fw-semibold" : "")"
+                                   aria-current="@(currentController == "SystemConfig" ? "page" : null)"
+                                   asp-controller="SystemConfig" asp-action="Index">Cấu hình</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link @(currentController == "Account" ? "active fw-semibold" : "")"
+                                   aria-current="@(currentController == "Account" ? "page" : null)"
+                                   asp-controller="Account" asp-action="Settings">Thông tin tài khoản</a>
+                            </li>
+                            <li class="nav-item d-flex align-items-center">
+                                <form asp-controller="Account" asp-action="Logout" method="post" class="m-0">
+                                    <button type="submit" class="btn btn-outline-secondary btn-sm">Đăng xuất</button>
+                                </form>
+                            </li>
+                        }
+                        else
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link" asp-controller="Account" asp-action="Login">Đăng nhập</a>
+                            </li>
+                        }
                     </ul>
                 </div>
             </div>
         </nav>
     </header>
 
-    <div class="container flex-grow-1 py-4">
+    <div class="container-fluid flex-grow-1 py-4 px-3 px-lg-4">
         <main role="main">
             @RenderBody()
         </main>

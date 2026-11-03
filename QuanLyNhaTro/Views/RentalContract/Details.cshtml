@@ -12,6 +12,16 @@
         "Cancelled" => "Đã hủy (hợp đồng cũ)",
         _ => Model.Status
     };
+    var primaryTenant = Model.ContractTenants.FirstOrDefault(item => item.IsPrimaryTenant);
+    var otherTenants = Model.ContractTenants
+        .Where(item => !item.IsPrimaryTenant && item.IsActive)
+        .OrderBy(item => item.Tenant.FullName)
+        .ToList();
+    var formerTenants = Model.ContractTenants
+        .Where(item => !item.IsPrimaryTenant && !item.IsActive)
+        .OrderByDescending(item => item.LeftAt)
+        .ThenBy(item => item.Tenant.FullName)
+        .ToList();
 }
 
 <h1>Chi tiết hợp đồng thuê</h1>
@@ -20,7 +30,6 @@
 {
     <div class="alert alert-success" role="alert">@successMessage</div>
 }
-
 @if (TempData["ErrorMessage"] is string errorMessage)
 {
     <div class="alert alert-danger" role="alert">@errorMessage</div>
@@ -35,87 +44,87 @@
             <dt class="col-sm-4">Phòng</dt>
             <dd class="col-sm-8">@Model.Room.Building.BuildingName - @Model.Room.RoomCode</dd>
 
-            <dt class="col-sm-4">Người thuê</dt>
+            <dt class="col-sm-4">Người đứng tên hợp đồng</dt>
             <dd class="col-sm-8">
-                @{
-                    var primaryTenant = Model.ContractTenants
-                        .FirstOrDefault(item => item.IsPrimaryTenant);
-                    var otherTenants = Model.ContractTenants
-                        .Where(item => !item.IsPrimaryTenant)
-                        .OrderBy(item => item.Tenant.FullName)
-                        .ToList();
-                }
-
                 @if (primaryTenant is null)
                 {
-                    <span class="text-muted">Chưa có người đại diện</span>
+                    <span class="text-muted">Chưa có người đứng tên</span>
                 }
                 else
                 {
-                    <ul class="list-unstyled mb-0">
-                        <li>
-                            <div>
-                                <strong>@primaryTenant.Tenant.FullName</strong>
-                                <span class="badge bg-primary">Người đại diện</span>
-                            </div>
+                    <strong>@primaryTenant.Tenant.FullName</strong>
+                }
+            </dd>
 
-                            @if (otherTenants.Count > 0)
-                            {
-                                <ul class="list-unstyled ms-3 mt-2 mb-0 ps-3 border-start">
-                                    @foreach (var assignment in otherTenants)
-                                    {
-                                        <li class="mb-2">
-                                            <span class="text-muted me-1">↳</span>
-                                            <span>@assignment.Tenant.FullName</span>
-                                            @if (!string.IsNullOrWhiteSpace(assignment.RelationshipToPrimaryTenant))
-                                            {
-                                                <small class="text-muted ms-1">
-                                                    (Quan hệ: @assignment.RelationshipToPrimaryTenant)
-                                                </small>
-                                            }
-                                        </li>
-                                    }
-                                </ul>
-                            }
-                        </li>
+            <dt class="col-sm-4">Người ở cùng</dt>
+            <dd class="col-sm-8">
+                @if (otherTenants.Count == 0)
+                {
+                    <span class="text-muted">Chưa thêm người ở phụ</span>
+                }
+                else
+                {
+                    <ul class="mb-0">
+                        @foreach (var assignment in otherTenants)
+                        {
+                            <li>
+                                @assignment.Tenant.FullName
+                                @if (!string.IsNullOrWhiteSpace(assignment.RelationshipToPrimaryTenant))
+                                {
+                                    <small class="text-muted">(@assignment.RelationshipToPrimaryTenant)</small>
+                                }
+                            </li>
+                        }
                     </ul>
                 }
             </dd>
 
+            @if (formerTenants.Count > 0)
+            {
+                <dt class="col-sm-4">Người ở phụ đã rời đi</dt>
+                <dd class="col-sm-8">
+                    <ul class="mb-0">
+                        @foreach (var assignment in formerTenants)
+                        {
+                            <li>
+                                @assignment.Tenant.FullName
+                                <small class="text-muted"> — Rời đi: @(assignment.LeftAt?.ToString("dd/MM/yyyy") ?? "Chưa ghi nhận")</small>
+                            </li>
+                        }
+                    </ul>
+                </dd>
+            }
+
             <dt class="col-sm-4">Ngày bắt đầu</dt>
             <dd class="col-sm-8">@Model.StartDate.ToString("dd/MM/yyyy")</dd>
-
             <dt class="col-sm-4">Ngày kết thúc theo hợp đồng</dt>
             <dd class="col-sm-8">@Model.EndDate.ToString("dd/MM/yyyy")</dd>
-
             @if (Model.ActualEndDate.HasValue)
             {
                 <dt class="col-sm-4">Ngày chấm dứt thực tế</dt>
                 <dd class="col-sm-8">@Model.ActualEndDate.Value.ToString("dd/MM/yyyy")</dd>
             }
-
             <dt class="col-sm-4">Giá thuê thỏa thuận hàng tháng</dt>
             <dd class="col-sm-8">@Model.MonthlyRent.ToString("N0")</dd>
-
             <dt class="col-sm-4">Tiền đặt cọc</dt>
             <dd class="col-sm-8">@Model.Deposit.ToString("N0")</dd>
-
             <dt class="col-sm-4">Trạng thái</dt>
             <dd class="col-sm-8">@statusText</dd>
-
             <dt class="col-sm-4">Điều khoản</dt>
             <dd class="col-sm-8">@(string.IsNullOrWhiteSpace(Model.Terms) ? "Chưa có" : Model.Terms)</dd>
         </dl>
     </div>
 </div>
 
+
 <div class="d-flex gap-2 flex-wrap">
-    <a asp-action="Edit" asp-route-id="@Model.ContractId" class="btn btn-primary">Sửa thông tin</a>
     @if (Model.Status == "Draft")
     {
+        <a asp-action="Edit" asp-route-id="@Model.ContractId" class="btn btn-primary">Sửa thông tin</a>
         <form asp-action="Activate" asp-route-id="@Model.ContractId" method="post" class="d-inline">
+            @Html.AntiForgeryToken()
             <button type="submit" class="btn btn-success"
-                    onclick="return confirm('Kích hoạt hợp đồng này? Chỉ kích hoạt khi ngày hiện tại nằm trong thời hạn hợp đồng.');">
+                    onclick="return confirm('Kích hoạt hợp đồng với duy nhất người đứng tên đã chọn? Có thể bổ sung người ở phụ sau khi kích hoạt.');">
                 Kích hoạt hợp đồng
             </button>
         </form>
@@ -123,12 +132,19 @@
     }
     @if (Model.Status == "Active")
     {
-        <form asp-action="EndContract" asp-route-id="@Model.ContractId" method="post" class="d-inline">
-            <button type="submit" class="btn btn-warning"
-                    onclick="return confirm('Xác nhận người thuê đã trả phòng và chấm dứt hợp đồng trước hạn? Ngày kết thúc theo hợp đồng sẽ được giữ nguyên.');">
-                Kết thúc hợp đồng
-            </button>
-        </form>
+        <a asp-action="Edit" asp-route-id="@Model.ContractId" class="btn btn-outline-primary">Sửa thông tin hợp đồng</a>
+        <a asp-controller="MoveOut" asp-action="Create" asp-route-contractId="@Model.ContractId"
+           class="btn btn-warning">Lập phiếu quyết toán trả phòng</a>
+    }
+    @if (Model.Status == "Expired")
+    {
+        <a asp-controller="MoveOut" asp-action="Create" asp-route-contractId="@Model.ContractId"
+           class="btn btn-warning">Lập phiếu quyết toán trả phòng</a>
+    }
+    @if (Model.Status == "Terminated" && ViewBag.MoveOutSettlementId is int settlementId)
+    {
+        <a asp-controller="MoveOut" asp-action="Details" asp-route-id="@settlementId"
+           class="btn btn-outline-primary">Xem phiếu quyết toán</a>
     }
     <a asp-action="Index" class="btn btn-secondary">Quay lại danh sách</a>
 </div>

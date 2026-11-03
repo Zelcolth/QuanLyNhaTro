@@ -1,10 +1,13 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QuanLyNhaTro.Data;
 using QuanLyNhaTro.Models;
+using QuanLyNhaTro.ViewModels;
 
 namespace QuanLyNhaTro.Controllers;
 
+[Authorize]
 public class RentalContractController : Controller
 {
     private readonly ApplicationDbContext _context;
@@ -57,6 +60,11 @@ public class RentalContractController : Controller
         {
             return NotFound();
         }
+
+        ViewBag.MoveOutSettlementId = await _context.MoveOutSettlements
+            .Where(item => item.ContractId == contract.ContractId)
+            .Select(item => (int?)item.SettlementId)
+            .FirstOrDefaultAsync();
 
         return View(contract);
     }
@@ -174,7 +182,23 @@ public class RentalContractController : Controller
         }
 
         NormalizeContract(model);
+        model.ContractStatus = existingContract.Status;
+        if (existingContract.Status != "Draft")
+        {
+            model.PrimaryTenantId = existingContract.ContractTenants
+                .Where(item => item.IsPrimaryTenant)
+                .Select(item => (int?)item.TenantId)
+                .FirstOrDefault();
+            ModelState.Remove(nameof(model.PrimaryTenantId));
+        }
         await ValidateContractAsync(model, model.ContractId, existingContract.Status);
+
+        if (existingContract.Status != "Draft"
+            && model.StartDate.Date != existingContract.StartDate.Date)
+        {
+            ModelState.AddModelError(nameof(model.StartDate),
+                "Không thể thay đổi ngày bắt đầu sau khi hợp đồng đã được kích hoạt.");
+        }
 
         if (!ModelState.IsValid)
         {
@@ -204,8 +228,22 @@ public class RentalContractController : Controller
         existingContract.MonthlyRent = model.MonthlyRent;
         existingContract.Deposit = model.Deposit;
         existingContract.Terms = model.Terms;
-        // Status is deliberately preserved: status transitions use dedicated actions.
-        SynchronizeTenantAssignments(existingContract, model);
+        // Draft readings can be corrected; legacy active contracts may fill missing handover readings once.
+        if (existingContract.Status == "Draft")
+        {
+            existingContract.MoveInElectricityReading = model.MoveInElectricityReading;
+            existingContract.MoveInWaterReading = model.MoveInWaterReading;
+        }
+        else
+        {
+            existingContract.MoveInElectricityReading ??= model.MoveInElectricityReading;
+            existingContract.MoveInWaterReading ??= model.MoveInWaterReading;
+        }
+        // Only a draft contract may change its single primary tenant.
+        if (existingContract.Status == "Draft")
+        {
+            SynchronizePrimaryTenant(existingContract, model.PrimaryTenantId!.Value);
+        }
 
         await using var transaction = await _context.Database.BeginTransactionAsync();
 
@@ -250,11 +288,48 @@ public class RentalContractController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SetMoveOutDate(int id, DateTime? expectedMoveOutDate)
+    {
+        var contract = await _context.RentalContracts
+            .Include(item => item.ContractTenants)
+            .FirstOrDefaultAsync(item => item.ContractId == id);
+
+        if (contract is null)
+        {
+            return NotFound();
+        }
+
+        if (contract.Status != "Active")
+        {
+            TempData["ErrorMessage"] = "Chỉ có thể cập nhật ngày hẹn trả phòng cho hợp đồng đang hiệu lực.";
+            return RedirectToAction("Details", "Room", new { id = contract.RoomId });
+        }
+
+        if (expectedMoveOutDate.HasValue
+            && (expectedMoveOutDate.Value.Date < DateTime.Today
+                || expectedMoveOutDate.Value.Date > contract.EndDate.Date))
+        {
+            TempData["ErrorMessage"] = "Ngày hẹn trả phòng phải nằm từ hôm nay đến ngày kết thúc hợp đồng.";
+            return RedirectToAction("Details", "Room", new { id = contract.RoomId });
+        }
+
+        contract.ExpectedMoveOutDate = expectedMoveOutDate?.Date;
+        await _context.SaveChangesAsync();
+
+        TempData["SuccessMessage"] = expectedMoveOutDate.HasValue
+            ? "Đã cập nhật ngày khách hẹn trả phòng."
+            : "Đã xóa thông tin hẹn trả phòng.";
+        return RedirectToAction("Details", "Room", new { id = contract.RoomId });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Activate(int id)
     {
         await SynchronizeExpiredContractsAsync();
 
         var contract = await _context.RentalContracts
+            .Include(item => item.ContractTenants)
             .FirstOrDefaultAsync(item => item.ContractId == id);
 
         if (contract is null)
@@ -268,6 +343,12 @@ public class RentalContractController : Controller
             return RedirectToAction(nameof(Details), new { id });
         }
 
+        if (contract.ContractTenants.Count(item => item.IsPrimaryTenant) != 1)
+        {
+            TempData["ErrorMessage"] = "Hợp đồng bản nháp phải có duy nhất một người đứng tên trước khi kích hoạt.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
         var room = await _context.Rooms.AsNoTracking()
             .FirstOrDefaultAsync(item => item.RoomId == contract.RoomId);
 
@@ -277,9 +358,9 @@ public class RentalContractController : Controller
             return RedirectToAction(nameof(Details), new { id });
         }
 
-        if (room.Status == "Maintenance")
+        if (room.Status is "Maintenance" or "Cleaning")
         {
-            TempData["ErrorMessage"] = "Không thể kích hoạt hợp đồng khi phòng đang bảo trì.";
+            TempData["ErrorMessage"] = "Không thể kích hoạt hợp đồng khi phòng đang bảo trì hoặc chờ xử lý.";
             return RedirectToAction(nameof(Details), new { id });
         }
 
@@ -302,6 +383,12 @@ public class RentalContractController : Controller
             return RedirectToAction(nameof(Details), new { id });
         }
 
+        if (!contract.MoveInElectricityReading.HasValue || !contract.MoveInWaterReading.HasValue)
+        {
+            TempData["ErrorMessage"] = "Vui lòng nhập chỉ số điện và nước tại thời điểm bàn giao phòng trước khi kích hoạt hợp đồng.";
+            return RedirectToAction(nameof(Edit), new { id });
+        }
+
         contract.Status = "Active";
 
         await using var transaction = await _context.Database.BeginTransactionAsync();
@@ -322,50 +409,6 @@ public class RentalContractController : Controller
         }
 
         TempData["SuccessMessage"] = "Đã kích hoạt hợp đồng thuê.";
-        return RedirectToAction(nameof(Details), new { id });
-    }
-
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> EndContract(int id)
-    {
-        await SynchronizeExpiredContractsAsync();
-
-        var contract = await _context.RentalContracts.FindAsync(id);
-
-        if (contract is null)
-        {
-            return NotFound();
-        }
-
-        if (contract.Status != "Active")
-        {
-            TempData["ErrorMessage"] = "Chỉ có thể kết thúc hợp đồng đang hiệu lực.";
-            return RedirectToAction(nameof(Details), new { id });
-        }
-
-        contract.Status = "Terminated";
-        contract.ActualEndDate = DateTime.Now;
-        // Keep EndDate as the contractual end date; ActualEndDate records early termination.
-
-        await using var transaction = await _context.Database.BeginTransactionAsync();
-
-        try
-        {
-            await _context.SaveChangesAsync();
-            await SynchronizeRoomStatusAsync(contract.RoomId);
-            await _context.SaveChangesAsync();
-            await transaction.CommitAsync();
-        }
-        catch (DbUpdateException)
-        {
-            await transaction.RollbackAsync();
-
-            TempData["ErrorMessage"] = "Không thể kết thúc hợp đồng. Vui lòng thử lại.";
-            return RedirectToAction(nameof(Details), new { id });
-        }
-
-        TempData["SuccessMessage"] = "Đã ghi nhận ngày chấm dứt thực tế của hợp đồng.";
         return RedirectToAction(nameof(Details), new { id });
     }
 
@@ -447,6 +490,7 @@ public class RentalContractController : Controller
         var endDate = model.EndDate.Date;
         var today = DateTime.Today;
 
+        LocalizeContractBindingErrors();
         ModelState.Remove(nameof(RentalContractFormViewModel.ContractCode));
 
         if (string.IsNullOrWhiteSpace(model.ContractCode))
@@ -462,12 +506,12 @@ public class RentalContractController : Controller
 
         if (model.StartDate == default)
         {
-            ModelState.AddModelError(nameof(model.StartDate), "Vui lòng nhập ngày bắt đầu.");
+            SetSingleFieldError(nameof(model.StartDate), "Vui lòng nhập ngày bắt đầu.");
         }
 
         if (model.EndDate == default)
         {
-            ModelState.AddModelError(nameof(model.EndDate), "Vui lòng nhập ngày kết thúc.");
+            SetSingleFieldError(nameof(model.EndDate), "Vui lòng nhập ngày kết thúc.");
         }
 
         if (model.StartDate != default
@@ -477,69 +521,34 @@ public class RentalContractController : Controller
             ModelState.AddModelError(nameof(model.EndDate), "Ngày bắt đầu phải sớm hơn ngày kết thúc.");
         }
 
-        if (model.MonthlyRent <= 0)
-        {
-            ModelState.AddModelError(nameof(model.MonthlyRent), "Giá thuê thỏa thuận phải lớn hơn 0.");
-        }
-
-        if (model.Deposit < 0)
-        {
-            ModelState.AddModelError(nameof(model.Deposit), "Tiền đặt cọc không được âm.");
-        }
-
         var room = await _context.Rooms
             .AsNoTracking()
             .Where(item => item.RoomId == model.RoomId)
-            .Select(item => new { item.RoomId, item.MaxOccupants, item.Status })
+            .Select(item => new { item.RoomId, item.Status })
             .FirstOrDefaultAsync();
 
         if (room is null)
         {
-            ModelState.AddModelError(nameof(model.RoomId), "Vui lòng chọn một phòng tồn tại.");
-        }
-        else if (room.Status == "Maintenance")
-        {
-            ModelState.AddModelError(nameof(model.RoomId), "Không thể lập hợp đồng cho phòng đang bảo trì.");
-        }
-
-        var selectedTenantIds = (model.TenantOptions ?? new List<ContractTenantOptionInput>())
-            .Where(option => option.IsSelected)
-            .Select(option => option.TenantId)
-            .ToList();
-        var distinctTenantIds = selectedTenantIds.Distinct().ToList();
-
-        if (distinctTenantIds.Count == 0)
-        {
-            ModelState.AddModelError(nameof(model.TenantOptions), "Hãy thêm ít nhất một người thuê vào hợp đồng.");
-        }
-
-        if (selectedTenantIds.Count != distinctTenantIds.Count)
-        {
-            ModelState.AddModelError(nameof(model.TenantOptions), "Danh sách người thuê bị trùng. Vui lòng tải lại trang và chọn lại.");
-        }
-
-        if (distinctTenantIds.Count > 0)
-        {
-            var existingTenantIds = await _context.TenantProfiles
-                .AsNoTracking()
-                .Where(tenant => distinctTenantIds.Contains(tenant.TenantId))
-                .Select(tenant => tenant.TenantId)
-                .ToListAsync();
-
-            if (existingTenantIds.Count != distinctTenantIds.Count)
+            if (model.RoomId > 0)
             {
-                ModelState.AddModelError(nameof(model.TenantOptions), "Một hoặc nhiều hồ sơ người thuê không còn tồn tại. Vui lòng tải lại trang.");
+                ModelState.AddModelError(nameof(model.RoomId), "Phòng được chọn không tồn tại.");
             }
         }
-
-        if (!model.PrimaryTenantId.HasValue || !distinctTenantIds.Contains(model.PrimaryTenantId.Value))
+        else if (room.Status is "Maintenance" or "Cleaning")
         {
-            ModelState.AddModelError(nameof(model.PrimaryTenantId), "Hãy chọn một người đại diện trong số những người đã thêm vào hợp đồng.");
+            ModelState.AddModelError(nameof(model.RoomId), "Không thể lập hợp đồng cho phòng đang bảo trì hoặc chờ xử lý.");
         }
 
-        if (room is not null && distinctTenantIds.Count > room.MaxOccupants)
+        if (contractStatus == "Draft")
         {
-            ModelState.AddModelError(nameof(model.TenantOptions), $"Phòng này chỉ cho phép tối đa {room.MaxOccupants} người.");
+            if (!model.PrimaryTenantId.HasValue || model.PrimaryTenantId.Value <= 0)
+            {
+                ModelState.AddModelError(nameof(model.PrimaryTenantId), "Vui lòng chọn người đứng tên hợp đồng.");
+            }
+            else if (!await _context.TenantProfiles.AnyAsync(tenant => tenant.TenantId == model.PrimaryTenantId.Value))
+            {
+                ModelState.AddModelError(nameof(model.PrimaryTenantId), "Hồ sơ người đứng tên không tồn tại. Vui lòng tải lại trang.");
+            }
         }
 
         if (contractStatus == "Active")
@@ -565,6 +574,53 @@ public class RentalContractController : Controller
                 ModelState.AddModelError(nameof(model.RoomId), "Phòng đã có hợp đồng đang hiệu lực bị chồng lấn thời gian.");
             }
         }
+    }
+
+    private void LocalizeContractBindingErrors()
+    {
+        LocalizeBindingError(nameof(RentalContractFormViewModel.RoomId),
+            "Vui lòng chọn phòng.", "Phòng được chọn không hợp lệ.");
+        LocalizeBindingError(nameof(RentalContractFormViewModel.MonthlyRent),
+            "Vui lòng nhập giá thuê thỏa thuận.", "Giá thuê thỏa thuận phải là số hợp lệ.");
+        LocalizeBindingError(nameof(RentalContractFormViewModel.Deposit),
+            "Vui lòng nhập tiền đặt cọc. Có thể nhập 0.", "Tiền đặt cọc phải là số hợp lệ.");
+        LocalizeBindingError(nameof(RentalContractFormViewModel.StartDate),
+            "Vui lòng nhập ngày bắt đầu.", "Ngày bắt đầu không hợp lệ.");
+        LocalizeBindingError(nameof(RentalContractFormViewModel.EndDate),
+            "Vui lòng nhập ngày kết thúc.", "Ngày kết thúc không hợp lệ.");
+    }
+
+    private void LocalizeBindingError(string field, string emptyMessage, string invalidMessage)
+    {
+        if (!ModelState.TryGetValue(field, out var entry)
+            || !entry.Errors.Any(error => error.Exception is not null))
+        {
+            return;
+        }
+
+        var rawValue = entry.RawValue;
+        var attemptedValue = entry.AttemptedValue;
+        ModelState.Remove(field);
+        ModelState.SetModelValue(field, rawValue, attemptedValue);
+        ModelState.AddModelError(
+            field,
+            string.IsNullOrWhiteSpace(attemptedValue) ? emptyMessage : invalidMessage);
+    }
+
+    private void SetSingleFieldError(string field, string message)
+    {
+        object? rawValue = null;
+        string? attemptedValue = null;
+
+        if (ModelState.TryGetValue(field, out var entry))
+        {
+            rawValue = entry.RawValue;
+            attemptedValue = entry.AttemptedValue;
+        }
+
+        ModelState.Remove(field);
+        ModelState.SetModelValue(field, rawValue, attemptedValue);
+        ModelState.AddModelError(field, message);
     }
 
     private async Task<bool> HasOverlappingActiveContractAsync(
@@ -614,7 +670,7 @@ public class RentalContractController : Controller
     {
         var room = await _context.Rooms.FindAsync(roomId);
 
-        if (room is null || room.Status == "Maintenance")
+        if (room is null || room.Status is "Maintenance" or "Cleaning")
         {
             return;
         }
@@ -649,30 +705,16 @@ public class RentalContractController : Controller
             })
             .ToList();
 
-        var submittedOptions = preserveTenantOptions
-            ? (model.TenantOptions ?? new List<ContractTenantOptionInput>())
-                .Where(option => option.TenantId > 0)
-                .GroupBy(option => option.TenantId)
-                .ToDictionary(group => group.Key, group => group.First())
-            : new Dictionary<int, ContractTenantOptionInput>();
-
-        var tenants = await _context.TenantProfiles
+        model.TenantOptions = await _context.TenantProfiles
             .AsNoTracking()
             .OrderBy(tenant => tenant.FullName)
-            .ToListAsync();
-
-        model.TenantOptions = tenants.Select(tenant =>
-        {
-            submittedOptions.TryGetValue(tenant.TenantId, out var submitted);
-            return new ContractTenantOptionInput
+            .Select(tenant => new ContractTenantOptionInput
             {
                 TenantId = tenant.TenantId,
                 FullName = tenant.FullName,
-                Phone = tenant.Phone ?? string.Empty,
-                IsSelected = submitted?.IsSelected ?? false,
-                RelationshipToPrimaryTenant = submitted?.RelationshipToPrimaryTenant
-            };
-        }).ToList();
+                Phone = tenant.Phone ?? string.Empty
+            })
+            .ToListAsync();
     }
 
     private static RentalContract MapContract(RentalContractFormViewModel model)
@@ -683,6 +725,8 @@ public class RentalContractController : Controller
             RoomId = model.RoomId,
             StartDate = model.StartDate,
             EndDate = model.EndDate,
+            MoveInElectricityReading = model.MoveInElectricityReading,
+            MoveInWaterReading = model.MoveInWaterReading,
             MonthlyRent = model.MonthlyRent,
             Deposit = model.Deposit,
             Status = "Draft",
@@ -699,19 +743,16 @@ public class RentalContractController : Controller
             ContractCode = contract.ContractCode,
             StartDate = contract.StartDate,
             EndDate = contract.EndDate,
+            MoveInElectricityReading = contract.MoveInElectricityReading,
+            MoveInWaterReading = contract.MoveInWaterReading,
             MonthlyRent = contract.MonthlyRent,
             Deposit = contract.Deposit,
             Terms = contract.Terms,
+            ContractStatus = contract.Status,
             PrimaryTenantId = contract.ContractTenants
                 .Where(assignment => assignment.IsPrimaryTenant)
                 .Select(assignment => (int?)assignment.TenantId)
                 .FirstOrDefault(),
-            TenantOptions = contract.ContractTenants.Select(assignment => new ContractTenantOptionInput
-            {
-                TenantId = assignment.TenantId,
-                IsSelected = true,
-                RelationshipToPrimaryTenant = assignment.RelationshipToPrimaryTenant
-            }).ToList()
         };
     }
 
@@ -719,58 +760,42 @@ public class RentalContractController : Controller
         RentalContract contract,
         RentalContractFormViewModel model)
     {
-        foreach (var option in model.TenantOptions.Where(option => option.IsSelected))
+        contract.ContractTenants.Add(new ContractTenant
         {
-            var isPrimary = option.TenantId == model.PrimaryTenantId;
-            contract.ContractTenants.Add(new ContractTenant
-            {
-                TenantId = option.TenantId,
-                IsPrimaryTenant = isPrimary,
-                RelationshipToPrimaryTenant = isPrimary
-                    ? null
-                    : NormalizeOptionalText(option.RelationshipToPrimaryTenant),
-                Contract = contract
-            });
-        }
+            TenantId = model.PrimaryTenantId!.Value,
+            IsPrimaryTenant = true,
+            JoinedAt = contract.StartDate.Date,
+            Contract = contract
+        });
     }
 
-    private void SynchronizeTenantAssignments(
-        RentalContract contract,
-        RentalContractFormViewModel model)
+    private void SynchronizePrimaryTenant(RentalContract contract, int primaryTenantId)
     {
-        var selectedOptions = model.TenantOptions
-            .Where(option => option.IsSelected)
-            .ToDictionary(option => option.TenantId);
-        var existingAssignments = contract.ContractTenants.ToDictionary(item => item.TenantId);
-
-        var removedAssignments = contract.ContractTenants
-            .Where(item => !selectedOptions.ContainsKey(item.TenantId))
+        var oldAssignments = contract.ContractTenants
+            .Where(item => item.TenantId != primaryTenantId)
             .ToList();
+        _context.ContractTenants.RemoveRange(oldAssignments);
 
-        _context.ContractTenants.RemoveRange(removedAssignments);
+        var primary = contract.ContractTenants
+            .FirstOrDefault(item => item.TenantId == primaryTenantId);
 
-        foreach (var option in selectedOptions.Values)
+        if (primary is null)
         {
-            var isPrimary = option.TenantId == model.PrimaryTenantId;
-            if (existingAssignments.TryGetValue(option.TenantId, out var existingAssignment))
+            contract.ContractTenants.Add(new ContractTenant
             {
-                existingAssignment.IsPrimaryTenant = isPrimary;
-                existingAssignment.RelationshipToPrimaryTenant = isPrimary
-                    ? null
-                    : NormalizeOptionalText(option.RelationshipToPrimaryTenant);
-            }
-            else
-            {
-                _context.ContractTenants.Add(new ContractTenant
-                {
-                    ContractId = contract.ContractId,
-                    TenantId = option.TenantId,
-                    IsPrimaryTenant = isPrimary,
-                    RelationshipToPrimaryTenant = isPrimary
-                        ? null
-                        : NormalizeOptionalText(option.RelationshipToPrimaryTenant)
-                });
-            }
+                ContractId = contract.ContractId,
+                TenantId = primaryTenantId,
+                IsPrimaryTenant = true,
+                JoinedAt = contract.StartDate.Date
+            });
+        }
+        else
+        {
+            primary.IsPrimaryTenant = true;
+            primary.RelationshipToPrimaryTenant = null;
+            primary.JoinedAt = contract.StartDate.Date;
+            primary.LeftAt = null;
+            primary.IsActive = true;
         }
     }
 
@@ -778,11 +803,6 @@ public class RentalContractController : Controller
     {
         model.ContractCode = model.ContractCode?.Trim() ?? string.Empty;
         model.Terms = NormalizeOptionalText(model.Terms);
-
-        foreach (var option in model.TenantOptions ?? new List<ContractTenantOptionInput>())
-        {
-            option.RelationshipToPrimaryTenant = NormalizeOptionalText(option.RelationshipToPrimaryTenant);
-        }
     }
 
     private static string? NormalizeOptionalText(string? value)

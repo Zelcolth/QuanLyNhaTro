@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QuanLyNhaTro.Data;
@@ -5,6 +6,7 @@ using QuanLyNhaTro.Models;
 
 namespace QuanLyNhaTro.Controllers;
 
+[Authorize]
 public class TenantController : Controller
 {
     private readonly ApplicationDbContext _context;
@@ -22,17 +24,38 @@ public class TenantController : Controller
             .ToListAsync();
 
         var today = DateTime.Today;
-        var currentlyRentingTenantCount = await _context.ContractTenants
-            .Where(assignment => assignment.Contract.Status == "Active"
+        var linkedTenantIds = await _context.ContractTenants
+            .AsNoTracking()
+            .Select(assignment => assignment.TenantId)
+            .Distinct()
+            .ToListAsync();
+        var currentlyRentingTenantIds = await _context.ContractTenants
+            .AsNoTracking()
+            .Where(assignment => assignment.IsActive
+                && assignment.Contract.Status == "Active"
                 && assignment.Contract.StartDate.Date <= today
                 && assignment.Contract.EndDate.Date >= today)
             .Select(assignment => assignment.TenantId)
             .Distinct()
-            .CountAsync();
+            .ToListAsync();
+        var previouslyRentedTenantIds = await _context.ContractTenants
+            .AsNoTracking()
+            .Where(assignment => assignment.Contract.Status != "Draft"
+                && assignment.Contract.Status != "Cancelled")
+            .Select(assignment => assignment.TenantId)
+            .Distinct()
+            .ToListAsync();
+
+        var formerTenantIds = previouslyRentedTenantIds
+            .Except(currentlyRentingTenantIds)
+            .ToHashSet();
 
         ViewBag.TotalTenants = tenants.Count;
-        ViewBag.CurrentlyRentingTenants = currentlyRentingTenantCount;
-        ViewBag.NotCurrentlyRentingTenants = tenants.Count - currentlyRentingTenantCount;
+        ViewBag.CurrentlyRentingTenants = currentlyRentingTenantIds.Count;
+        ViewBag.FormerTenants = formerTenantIds.Count;
+        ViewBag.FormerTenantIds = formerTenantIds;
+        ViewBag.LinkedTenantIds = linkedTenantIds.ToHashSet();
+        ViewBag.CurrentlyRentingTenantIds = currentlyRentingTenantIds.ToHashSet();
 
         return View(tenants);
     }
@@ -45,6 +68,10 @@ public class TenantController : Controller
         }
 
         var tenant = await _context.TenantProfiles
+            .Include(item => item.ContractTenants)
+                .ThenInclude(assignment => assignment.Contract)
+                    .ThenInclude(contract => contract.Room)
+                        .ThenInclude(room => room.Building)
             .AsNoTracking()
             .FirstOrDefaultAsync(item => item.TenantId == id);
 
@@ -52,6 +79,10 @@ public class TenantController : Controller
         {
             return NotFound();
         }
+
+        ViewBag.ContractHistory = tenant.ContractTenants
+            .OrderByDescending(assignment => assignment.Contract.StartDate)
+            .ToList();
 
         return View(tenant);
     }

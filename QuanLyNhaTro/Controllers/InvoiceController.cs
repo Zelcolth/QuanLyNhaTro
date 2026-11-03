@@ -1,0 +1,943 @@
+using System.Data;
+using System.Globalization;
+using System.Text;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using QuanLyNhaTro.Data;
+using QuanLyNhaTro.Models;
+using QuanLyNhaTro.ViewModels;
+
+namespace QuanLyNhaTro.Controllers;
+
+[Authorize]
+public class InvoiceController : Controller
+{
+    private readonly ApplicationDbContext _context;
+
+    public InvoiceController(ApplicationDbContext context)
+    {
+        _context = context;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Index(string? billingMonth)
+    {
+        if (!TryParseBillingMonth(billingMonth, out var period))
+        {
+            period = CurrentMonth();
+        }
+
+        var currentMonth = CurrentMonth();
+        if (period > currentMonth)
+        {
+            period = currentMonth;
+            TempData["ErrorMessage"] = "Chưa thể lập hóa đơn cho kỳ trong tương lai.";
+        }
+
+        var invoices = await _context.Invoices
+            .Where(invoice => invoice.BillingMonth == period)
+            .Include(invoice => invoice.Contract)
+                .ThenInclude(contract => contract.Room)
+                    .ThenInclude(room => room.Building)
+            .Include(invoice => invoice.Receipts)
+            .Include(invoice => invoice.Contract)
+                .ThenInclude(contract => contract.ContractTenants)
+                    .ThenInclude(assignment => assignment.Tenant)
+            .AsNoTracking()
+            .OrderBy(invoice => invoice.RoomLabelSnapshot)
+            .ThenBy(invoice => invoice.InvoiceCode)
+            .ToListAsync();
+
+        var model = new InvoiceIndexViewModel
+        {
+            BillingMonth = period.ToString("yyyy-MM", CultureInfo.InvariantCulture),
+            CurrentMonth = currentMonth.ToString("yyyy-MM", CultureInfo.InvariantCulture),
+            BillingMonthLabel = $"T{period.Month} {period.Year}",
+            PreviousMonthLabel = period.AddMonths(-1).ToString("MM/yyyy", CultureInfo.InvariantCulture),
+            Invoices = invoices.Select(InvoiceItemViewModel.FromInvoice).ToList()
+        };
+
+        return View(model);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpdateAmounts(
+        int id,
+        decimal rentAmount,
+        decimal garbageFee,
+        decimal discountAmount,
+        string? billingMonth)
+    {
+        var wantsJson = string.Equals(
+            Request.Headers["X-Requested-With"].ToString(),
+            "XMLHttpRequest",
+            StringComparison.OrdinalIgnoreCase);
+
+        if (!ModelState.IsValid)
+        {
+            const string message = "Dữ liệu khoản tiền không hợp lệ. Vui lòng kiểm tra lại.";
+            if (wantsJson)
+            {
+                return BadRequest(new { success = false, message });
+            }
+
+            TempData["ErrorMessage"] = message;
+            return RedirectToAction(nameof(Index), new { billingMonth });
+        }
+
+        var invoice = await _context.Invoices
+            .Include(item => item.Receipts)
+            .FirstOrDefaultAsync(item => item.InvoiceId == id);
+
+        if (invoice is null)
+        {
+            if (wantsJson)
+            {
+                return NotFound(new { success = false, message = "Không tìm thấy hóa đơn." });
+            }
+
+            return NotFound();
+        }
+
+        var returnPeriod = TryParseBillingMonth(billingMonth, out var parsedPeriod)
+            ? parsedPeriod
+            : new DateTime(invoice.BillingMonth.Year, invoice.BillingMonth.Month, 1);
+        var returnMonth = returnPeriod.ToString("yyyy-MM", CultureInfo.InvariantCulture);
+
+        if (invoice.Status == "Paid" || invoice.Receipts.Count > 0)
+        {
+            const string message = "Không thể sửa khoản tiền sau khi hóa đơn đã phát sinh phiếu thu.";
+            if (wantsJson)
+            {
+                return BadRequest(new { success = false, message });
+            }
+
+            TempData["ErrorMessage"] = message;
+            return RedirectToAction(nameof(Index), new { billingMonth = returnMonth });
+        }
+
+        if (rentAmount < 0m || garbageFee < 0m || discountAmount < 0m)
+        {
+            const string message = "Các khoản tiền không được nhỏ hơn 0.";
+            if (wantsJson)
+            {
+                return BadRequest(new { success = false, message });
+            }
+
+            TempData["ErrorMessage"] = message;
+            return RedirectToAction(nameof(Index), new { billingMonth = returnMonth });
+        }
+
+        var amountBeforeDiscount = rentAmount
+            + invoice.ElectricityAmount
+            + invoice.WaterAmount
+            + garbageFee
+            + invoice.WifiFee;
+
+        if (discountAmount > amountBeforeDiscount)
+        {
+            const string message = "Tiền giảm trừ không được lớn hơn tổng tiền trước khi giảm.";
+            if (wantsJson)
+            {
+                return BadRequest(new { success = false, message });
+            }
+
+            TempData["ErrorMessage"] = message;
+            return RedirectToAction(nameof(Index), new { billingMonth = returnMonth });
+        }
+
+        invoice.RentAmount = rentAmount;
+        invoice.GarbageFee = garbageFee;
+        invoice.DiscountAmount = discountAmount;
+        invoice.TotalAmount = amountBeforeDiscount - discountAmount;
+
+        try
+        {
+            await _context.SaveChangesAsync();
+            var message = $"Đã tự động lưu thay đổi hóa đơn {invoice.InvoiceCode}.";
+
+            if (wantsJson)
+            {
+                return Json(new
+                {
+                    success = true,
+                    invoiceId = invoice.InvoiceId,
+                    totalAmount = invoice.TotalAmount,
+                    message
+                });
+            }
+
+            TempData["SuccessMessage"] = message;
+        }
+        catch (DbUpdateException)
+        {
+            const string message = "Không thể lưu các khoản tiền. Vui lòng thử lại.";
+            if (wantsJson)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { success = false, message });
+            }
+
+            TempData["ErrorMessage"] = message;
+        }
+
+        return RedirectToAction(nameof(Index), new { billingMonth = returnMonth });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> GenerateMonth(string? billingMonth)
+    {
+        if (!TryParseBillingMonth(billingMonth, out var period))
+        {
+            TempData["ErrorMessage"] = "Vui lòng chọn kỳ hóa đơn hợp lệ.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var currentMonth = CurrentMonth();
+        if (period > currentMonth)
+        {
+            TempData["ErrorMessage"] = "Chưa thể lập hóa đơn cho kỳ trong tương lai.";
+            return RedirectToAction(nameof(Index), new
+            {
+                billingMonth = currentMonth.ToString("yyyy-MM", CultureInfo.InvariantCulture)
+            });
+        }
+
+        var periodEnd = period.AddMonths(1).AddDays(-1);
+        var periodConfig = await _context.InvoicePeriodConfigs
+            .FirstOrDefaultAsync(item => item.BillingMonth == period);
+        var currentConfig = await _context.SystemConfigs
+            .AsNoTracking()
+            .OrderBy(item => item.ConfigId)
+            .FirstOrDefaultAsync();
+
+        // Include every non-draft contract whose effective rental dates overlap this calendar month.
+        var contracts = await _context.RentalContracts
+            .Where(contract =>
+                contract.Status != "Draft"
+                && contract.Status != "Cancelled"
+                && contract.StartDate.Date <= periodEnd
+                && (contract.ActualEndDate ?? contract.EndDate).Date >= period)
+            .Include(contract => contract.Room)
+                .ThenInclude(room => room.Building)
+            .Include(contract => contract.ContractTenants)
+                .ThenInclude(assignment => assignment.Tenant)
+            .AsNoTracking()
+            .OrderBy(contract => contract.Room.Building.BuildingName)
+            .ThenBy(contract => contract.Room.RoomCode)
+            .ThenBy(contract => contract.StartDate)
+            .ToListAsync();
+
+        if (contracts.Count == 0)
+        {
+            TempData["ErrorMessage"] = "Không tìm thấy hợp đồng có thời gian thuê giao với tháng này.";
+            return RedirectToAction(nameof(Index), new
+            {
+                billingMonth = period.ToString("yyyy-MM", CultureInfo.InvariantCulture)
+            });
+        }
+
+        var contractIds = contracts.Select(contract => contract.ContractId).ToList();
+        var roomIds = contracts.Select(contract => contract.RoomId).Distinct().ToList();
+
+        var settlements = await _context.MoveOutSettlements
+            .AsNoTracking()
+            .Where(item => contractIds.Contains(item.ContractId))
+            .ToDictionaryAsync(item => item.ContractId);
+
+        var existingInvoices = await _context.Invoices
+            .Where(invoice => invoice.BillingMonth == period)
+            .ToListAsync();
+        var existingSet = existingInvoices
+            .Select(invoice => invoice.ContractId)
+            .ToHashSet();
+
+        var isNewPeriodConfig = false;
+        string? legacyPriceWarning = null;
+
+        if (periodConfig is null)
+        {
+            if (existingInvoices.Count > 0)
+            {
+                periodConfig = CreatePeriodConfigFromExistingInvoices(period, existingInvoices);
+                isNewPeriodConfig = true;
+
+                if (existingInvoices.Select(invoice => invoice.ElectricityUnitPrice).Distinct().Count() > 1
+                    || existingInvoices.Select(invoice => invoice.WaterUnitPrice).Distinct().Count() > 1)
+                {
+                    legacyPriceWarning = $"Kỳ {period:MM/yyyy} đã có hóa đơn với đơn giá điện hoặc nước không đồng nhất. Hệ thống dùng mức xuất hiện nhiều nhất làm bộ giá tham chiếu cho hóa đơn còn thiếu; vui lòng kiểm tra hóa đơn cũ.";
+                }
+            }
+            else if (currentConfig is not null)
+            {
+                periodConfig = CreatePeriodConfigFromSystemConfig(period, currentConfig);
+                isNewPeriodConfig = true;
+            }
+            else
+            {
+                TempData["ErrorMessage"] = "Chưa có cấu hình đơn giá. Hãy hoàn tất mục Cấu hình trước khi lập hóa đơn.";
+                return RedirectToAction(nameof(Index), new
+                {
+                    billingMonth = period.ToString("yyyy-MM", CultureInfo.InvariantCulture)
+                });
+            }
+        }
+
+        // A room may have multiple contracts in one month, provided their occupied dates do not overlap.
+        var occupiedPeriods = new Dictionary<int, (DateTime Start, DateTime End)>();
+        foreach (var contract in contracts)
+        {
+            var effectiveEnd = (contract.ActualEndDate ?? contract.EndDate).Date;
+            if (settlements.TryGetValue(contract.ContractId, out var settlement)
+                && settlement.MoveOutDate.Date < effectiveEnd)
+            {
+                effectiveEnd = settlement.MoveOutDate.Date;
+            }
+
+            var start = contract.StartDate.Date > period ? contract.StartDate.Date : period;
+            var end = effectiveEnd < periodEnd ? effectiveEnd : periodEnd;
+
+            if (start <= end)
+            {
+                occupiedPeriods[contract.ContractId] = (start, end);
+            }
+        }
+
+        if (occupiedPeriods.Count == 0)
+        {
+            TempData["ErrorMessage"] = "Không có hợp đồng nào còn thời gian thuê trong tháng đã chọn.";
+            return RedirectToAction(nameof(Index), new
+            {
+                billingMonth = period.ToString("yyyy-MM", CultureInfo.InvariantCulture)
+            });
+        }
+
+        var conflictingRoomIds = new HashSet<int>();
+        foreach (var roomGroup in contracts
+            .Where(contract => occupiedPeriods.ContainsKey(contract.ContractId))
+            .GroupBy(contract => contract.RoomId))
+        {
+            var ordered = roomGroup
+                .Select(contract => occupiedPeriods[contract.ContractId])
+                .OrderBy(item => item.Start)
+                .ToList();
+
+            DateTime? previousEnd = null;
+            foreach (var item in ordered)
+            {
+                if (previousEnd.HasValue && item.Start <= previousEnd.Value)
+                {
+                    conflictingRoomIds.Add(roomGroup.Key);
+                    break;
+                }
+
+                if (!previousEnd.HasValue || item.End > previousEnd.Value)
+                {
+                    previousEnd = item.End;
+                }
+            }
+        }
+
+        var priorReadings = await _context.UtilityReadings
+            .AsNoTracking()
+            .Where(reading => roomIds.Contains(reading.RoomId) && reading.ReadingMonth < period)
+            .OrderByDescending(reading => reading.ReadingMonth)
+            .ThenByDescending(reading => reading.RecordedAt)
+            .ToListAsync();
+        var previousReadingsByRoom = priorReadings
+            .GroupBy(reading => reading.RoomId)
+            .ToDictionary(group => group.Key, group => group.First());
+
+        var currentReadings = await _context.UtilityReadings
+            .AsNoTracking()
+            .Where(reading => roomIds.Contains(reading.RoomId) && reading.ReadingMonth == period)
+            .ToDictionaryAsync(reading => reading.RoomId);
+
+        var newInvoices = new List<Invoice>();
+        var errors = new List<string>();
+        var alreadyCreatedCount = 0;
+        var repairedTenantSnapshotCount = 0;
+
+        foreach (var contract in contracts)
+        {
+            var roomLabel = $"{contract.Room.Building.BuildingName} - Phòng {contract.Room.RoomCode}";
+
+            if (!occupiedPeriods.TryGetValue(contract.ContractId, out var occupiedPeriod))
+            {
+                continue;
+            }
+
+            if (conflictingRoomIds.Contains(contract.RoomId))
+            {
+                errors.Add($"{roomLabel}: thời gian thuê của các hợp đồng trong tháng đang bị chồng lấn; hãy kiểm tra lại ngày bắt đầu và ngày trả phòng.");
+                continue;
+            }
+
+            if (existingSet.Contains(contract.ContractId))
+            {
+                var existingInvoice = existingInvoices.First(invoice => invoice.ContractId == contract.ContractId);
+                if (string.IsNullOrWhiteSpace(existingInvoice.TenantNamesSnapshot)
+                    || string.Equals(
+                        existingInvoice.TenantNamesSnapshot,
+                        "Chưa có thông tin người thuê",
+                        StringComparison.Ordinal))
+                {
+                    var recoveredTenantNames = BuildTenantNames(
+                        contract,
+                        occupiedPeriod.Start,
+                        occupiedPeriod.End);
+                    if (!string.Equals(
+                        recoveredTenantNames,
+                        "Chưa có thông tin người thuê",
+                        StringComparison.Ordinal))
+                    {
+                        existingInvoice.TenantNamesSnapshot = recoveredTenantNames;
+                        repairedTenantSnapshotCount++;
+                    }
+                }
+
+                alreadyCreatedCount++;
+                continue;
+            }
+
+            var hasSettlement = settlements.TryGetValue(contract.ContractId, out var moveOutSettlement);
+            var endsBeforeMonthEnd = occupiedPeriod.End < periodEnd;
+            var hasFinalSettlementReading = hasSettlement
+                && moveOutSettlement!.MoveOutDate.Date == occupiedPeriod.End;
+
+            if (endsBeforeMonthEnd && !hasFinalSettlementReading)
+            {
+                errors.Add($"{roomLabel}: hợp đồng kết thúc giữa tháng nhưng chưa có phiếu quyết toán với chỉ số điện nước cuối cùng.");
+                continue;
+            }
+
+            decimal previousElectricity;
+            decimal previousWater;
+            if (contract.StartDate.Date >= period)
+            {
+                if (!contract.MoveInElectricityReading.HasValue || !contract.MoveInWaterReading.HasValue)
+                {
+                    errors.Add($"{roomLabel}: hợp đồng bắt đầu trong tháng nhưng chưa có chỉ số điện nước bàn giao. Hãy bổ sung tại chi tiết hợp đồng.");
+                    continue;
+                }
+
+                previousElectricity = contract.MoveInElectricityReading.Value;
+                previousWater = contract.MoveInWaterReading.Value;
+            }
+            else if (previousReadingsByRoom.TryGetValue(contract.RoomId, out var previousReading))
+            {
+                previousElectricity = previousReading.ElectricityReading;
+                previousWater = previousReading.WaterReading;
+            }
+            else
+            {
+                errors.Add($"{roomLabel}: không tìm thấy chỉ số điện nước kỳ trước để xác định mức tiêu thụ đầu tháng.");
+                continue;
+            }
+
+            decimal currentElectricity;
+            decimal currentWater;
+            if (hasFinalSettlementReading)
+            {
+                currentElectricity = moveOutSettlement!.FinalElectricityReading;
+                currentWater = moveOutSettlement.FinalWaterReading;
+            }
+            else if (currentReadings.TryGetValue(contract.RoomId, out var currentReading))
+            {
+                currentElectricity = currentReading.ElectricityReading;
+                currentWater = currentReading.WaterReading;
+            }
+            else
+            {
+                errors.Add($"{roomLabel}: chưa có chỉ số điện nước tháng {period:MM/yyyy}.");
+                continue;
+            }
+
+            var electricityConsumption = currentElectricity - previousElectricity;
+            var waterConsumption = currentWater - previousWater;
+            if (electricityConsumption < 0m || waterConsumption < 0m)
+            {
+                errors.Add($"{roomLabel}: chỉ số điện hoặc nước cuối kỳ nhỏ hơn chỉ số đầu kỳ; chưa thể lập hóa đơn.");
+                continue;
+            }
+
+            var tenantNames = BuildTenantNames(
+                contract,
+                occupiedPeriod.Start,
+                occupiedPeriod.End);
+
+            var daysInMonth = DateTime.DaysInMonth(period.Year, period.Month);
+            var occupiedDays = (occupiedPeriod.End - occupiedPeriod.Start).Days + 1;
+            var rentAmount = ProrateMonthlyAmount(contract.MonthlyRent, occupiedDays, daysInMonth);
+            var garbageFee = ProrateMonthlyAmount(periodConfig!.GarbageFee, occupiedDays, daysInMonth);
+            var wifiFee = ProrateMonthlyAmount(periodConfig.WifiFee, occupiedDays, daysInMonth);
+            var electricityAmount = decimal.Round(
+                electricityConsumption * periodConfig.ElectricityPrice,
+                0,
+                MidpointRounding.AwayFromZero);
+            var waterAmount = decimal.Round(
+                waterConsumption * periodConfig.WaterPrice,
+                0,
+                MidpointRounding.AwayFromZero);
+            const decimal discountAmount = 0m;
+            var totalAmount = rentAmount
+                + electricityAmount
+                + waterAmount
+                + garbageFee
+                + wifiFee
+                - discountAmount;
+
+            newInvoices.Add(new Invoice
+            {
+                InvoiceCode = $"HD-{period:yyyyMM}-{contract.ContractId:D4}",
+                ContractId = contract.ContractId,
+                BillingMonth = period,
+                BillingStartDate = occupiedPeriod.Start,
+                BillingEndDate = occupiedPeriod.End,
+                IssuedAt = DateTime.Now,
+                RoomLabelSnapshot = roomLabel,
+                TenantNamesSnapshot = tenantNames,
+                ContractCodeSnapshot = contract.ContractCode,
+                RentAmount = rentAmount,
+                PreviousElectricityReading = previousElectricity,
+                CurrentElectricityReading = currentElectricity,
+                ElectricityConsumption = electricityConsumption,
+                ElectricityUnitPrice = periodConfig.ElectricityPrice,
+                ElectricityAmount = electricityAmount,
+                PreviousWaterReading = previousWater,
+                CurrentWaterReading = currentWater,
+                WaterConsumption = waterConsumption,
+                WaterUnitPrice = periodConfig.WaterPrice,
+                WaterAmount = waterAmount,
+                GarbageFee = garbageFee,
+                WifiFee = wifiFee,
+                DiscountAmount = discountAmount,
+                TotalAmount = totalAmount,
+                Status = "Unpaid"
+            });
+        }
+
+        var shouldSavePeriodConfig = isNewPeriodConfig
+            && (existingInvoices.Count > 0 || newInvoices.Count > 0);
+
+        if (newInvoices.Count > 0)
+        {
+            _context.Invoices.AddRange(newInvoices);
+        }
+
+        if (shouldSavePeriodConfig)
+        {
+            _context.InvoicePeriodConfigs.Add(periodConfig!);
+        }
+
+        if (newInvoices.Count > 0 || shouldSavePeriodConfig || repairedTenantSnapshotCount > 0)
+        {
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                TempData["ErrorMessage"] = "Không thể lưu hóa đơn hoặc bộ đơn giá của kỳ. Có thể dữ liệu đã được thay đổi hoặc hóa đơn đã được lập ở phiên khác; hãy tải lại trang và kiểm tra.";
+                return RedirectToAction(nameof(Index), new
+                {
+                    billingMonth = period.ToString("yyyy-MM", CultureInfo.InvariantCulture)
+                });
+            }
+        }
+
+        if (newInvoices.Count > 0)
+        {
+            TempData["SuccessMessage"] = $"Đã lập {newInvoices.Count} hóa đơn cho kỳ {period:MM/yyyy}. Tổng giá trị: {newInvoices.Sum(invoice => invoice.TotalAmount):N0} VNĐ."
+                + (alreadyCreatedCount > 0 ? $" Bỏ qua {alreadyCreatedCount} hóa đơn đã tồn tại." : string.Empty)
+                + (repairedTenantSnapshotCount > 0 ? $" Đã bổ sung thông tin người thuê cho {repairedTenantSnapshotCount} hóa đơn đã có." : string.Empty);
+        }
+        else if (alreadyCreatedCount > 0 && errors.Count == 0)
+        {
+            TempData["SuccessMessage"] = $"Các hóa đơn hợp lệ cho kỳ {period:MM/yyyy} đã tồn tại; không phát sinh hóa đơn trùng."
+                + (repairedTenantSnapshotCount > 0 ? $" Đã bổ sung thông tin người thuê cho {repairedTenantSnapshotCount} hóa đơn." : string.Empty);
+        }
+        else
+        {
+            TempData["ErrorMessage"] = "Không tạo được hóa đơn mới cho kỳ này.";
+        }
+
+        var generationWarnings = new List<string>();
+        if (!string.IsNullOrWhiteSpace(legacyPriceWarning))
+        {
+            generationWarnings.Add(legacyPriceWarning);
+        }
+
+        generationWarnings.AddRange(errors.Take(5));
+        if (errors.Count > 5)
+        {
+            generationWarnings.Add($"Còn {errors.Count - 5} phòng cần kiểm tra.");
+        }
+
+        if (generationWarnings.Count > 0)
+        {
+            TempData["GenerationWarnings"] = string.Join(" | ", generationWarnings);
+        }
+
+        return RedirectToAction(nameof(Index), new
+        {
+            billingMonth = period.ToString("yyyy-MM", CultureInfo.InvariantCulture)
+        });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> CreateReceipt(int invoiceId)
+    {
+        var invoice = await _context.Invoices
+            .Include(item => item.Receipts)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.InvoiceId == invoiceId);
+
+        if (invoice is null)
+        {
+            return NotFound();
+        }
+
+        var paidAmount = CalculatePaidAmount(invoice);
+        var remainingAmount = Math.Max(invoice.TotalAmount - paidAmount, 0m);
+        if (remainingAmount <= 0m)
+        {
+            TempData["ErrorMessage"] = "Hóa đơn này đã được thanh toán đủ.";
+            return RedirectToAction(nameof(Details), new { id = invoiceId });
+        }
+
+        var model = new ReceiptCreateViewModel
+        {
+            InvoiceId = invoice.InvoiceId,
+            InvoiceCode = invoice.InvoiceCode,
+            RoomLabel = invoice.RoomLabelSnapshot,
+            TenantNames = invoice.TenantNamesSnapshot,
+            BillingMonth = invoice.BillingMonth,
+            TotalAmount = invoice.TotalAmount,
+            PaidAmount = paidAmount,
+            RemainingAmount = remainingAmount,
+            Amount = remainingAmount,
+            ReceivedAt = DateTime.Now,
+            PaymentMethod = "Cash",
+            PayerName = GetDefaultPayerName(invoice)
+        };
+
+        return View(model);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateReceipt(ReceiptCreateViewModel model)
+    {
+        await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+
+        var invoice = await _context.Invoices
+            .Include(item => item.Receipts)
+            .FirstOrDefaultAsync(item => item.InvoiceId == model.InvoiceId);
+
+        if (invoice is null)
+        {
+            return NotFound();
+        }
+
+        var paidAmount = CalculatePaidAmount(invoice);
+        var remainingAmount = Math.Max(invoice.TotalAmount - paidAmount, 0m);
+
+        model.InvoiceCode = invoice.InvoiceCode;
+        model.RoomLabel = invoice.RoomLabelSnapshot;
+        model.TenantNames = invoice.TenantNamesSnapshot;
+        model.BillingMonth = invoice.BillingMonth;
+        model.TotalAmount = invoice.TotalAmount;
+        model.PaidAmount = paidAmount;
+        model.RemainingAmount = remainingAmount;
+
+        if (remainingAmount <= 0m)
+        {
+            await transaction.RollbackAsync();
+            TempData["ErrorMessage"] = "Hóa đơn này đã được thanh toán đủ.";
+            return RedirectToAction(nameof(Details), new { id = invoice.InvoiceId });
+        }
+
+        if (model.PaymentMethod is not ("Cash" or "BankTransfer"))
+        {
+            ModelState.AddModelError(nameof(model.PaymentMethod), "Vui lòng chọn phương thức nhận tiền hợp lệ.");
+        }
+
+        if (string.IsNullOrWhiteSpace(model.PayerName))
+        {
+            ModelState.AddModelError(nameof(model.PayerName), "Vui lòng nhập họ tên người nộp hoặc chuyển tiền.");
+        }
+
+        if (model.ReceivedAt > DateTime.Now.AddMinutes(1))
+        {
+            ModelState.AddModelError(nameof(model.ReceivedAt), "Thời điểm nhận tiền không được ở tương lai.");
+        }
+
+        if (model.Amount > remainingAmount)
+        {
+            ModelState.AddModelError(nameof(model.Amount), "Số tiền nhận không được vượt quá số tiền hóa đơn còn nợ.");
+        }
+
+        if (!ModelState.IsValid)
+        {
+            await transaction.RollbackAsync();
+            return View(model);
+        }
+
+        var suffix = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var receipt = new Receipt
+        {
+            ReceiptCode = $"PT-{DateTime.Now:yyyyMMdd}-{suffix}",
+            InvoiceId = invoice.InvoiceId,
+            PaymentMethod = model.PaymentMethod,
+            PayerName = model.PayerName.Trim(),
+            CollectorName = User.Identity?.Name?.Trim(),
+            ReceivedAt = model.ReceivedAt,
+            Amount = model.Amount,
+            Notes = string.IsNullOrWhiteSpace(model.Notes) ? null : model.Notes.Trim()
+        };
+
+        _context.Receipts.Add(receipt);
+        invoice.Status = paidAmount + model.Amount >= invoice.TotalAmount
+            ? "Paid"
+            : "PartiallyPaid";
+
+        try
+        {
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+            TempData["SuccessMessage"] = $"Đã lập phiếu thu {receipt.ReceiptCode} với số tiền {receipt.Amount:N0} VNĐ.";
+            return RedirectToAction(nameof(Details), new { id = invoice.InvoiceId });
+        }
+        catch (DbUpdateException)
+        {
+            await transaction.RollbackAsync();
+            ModelState.AddModelError(string.Empty, "Không thể lưu phiếu thu. Vui lòng tải lại trang và thử lại.");
+            return View(model);
+        }
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> PrintReceipt(int id)
+    {
+        var receipt = await _context.Receipts
+            .Include(item => item.Invoice)
+                .ThenInclude(invoice => invoice.Receipts)
+            .FirstOrDefaultAsync(item => item.ReceiptId == id);
+
+        return receipt is null ? NotFound() : View(receipt);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> PrintInvoice(int id)
+    {
+        var invoice = await _context.Invoices
+            .Include(item => item.Receipts)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.InvoiceId == id);
+
+        if (invoice is null)
+        {
+            return NotFound();
+        }
+
+        var bankConfig = await _context.SystemConfigs
+            .AsNoTracking()
+            .OrderBy(item => item.ConfigId)
+            .FirstOrDefaultAsync();
+
+        ViewBag.BankCode = bankConfig?.BankCode;
+        ViewBag.BankAccount = bankConfig?.BankAccount;
+        ViewBag.AccountName = bankConfig?.AccountName;
+        ViewBag.TransferContent = BuildTransferContent(invoice);
+
+        return View(invoice);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Details(int id)
+    {
+        var invoice = await _context.Invoices
+            .Include(item => item.Contract)
+            .Include(item => item.Receipts)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.InvoiceId == id);
+
+        if (invoice is null)
+        {
+            return NotFound();
+        }
+
+        return View(invoice);
+    }
+
+    private static InvoicePeriodConfig CreatePeriodConfigFromSystemConfig(
+        DateTime period,
+        SystemConfig config)
+    {
+        return new InvoicePeriodConfig
+        {
+            BillingMonth = period,
+            ElectricityPrice = config.ElectricityPrice,
+            WaterPrice = config.WaterPrice,
+            GarbageFee = config.GarbageFee,
+            WifiFee = config.WifiFee
+        };
+    }
+
+    private static InvoicePeriodConfig CreatePeriodConfigFromExistingInvoices(
+        DateTime period,
+        IReadOnlyCollection<Invoice> invoices)
+    {
+        return new InvoicePeriodConfig
+        {
+            BillingMonth = period,
+            ElectricityPrice = MostCommonAmount(invoices.Select(invoice => invoice.ElectricityUnitPrice)),
+            WaterPrice = MostCommonAmount(invoices.Select(invoice => invoice.WaterUnitPrice)),
+            GarbageFee = MostCommonAmount(invoices.Select(invoice => invoice.GarbageFee)),
+            WifiFee = MostCommonAmount(invoices.Select(invoice => invoice.WifiFee))
+        };
+    }
+
+    private static decimal MostCommonAmount(IEnumerable<decimal> amounts)
+    {
+        return amounts
+            .GroupBy(amount => amount)
+            .OrderByDescending(group => group.Count())
+            .ThenBy(group => group.Key)
+            .First()
+            .Key;
+    }
+
+    private static decimal CalculatePaidAmount(Invoice invoice)
+    {
+        var paidAmount = invoice.Receipts.Sum(receipt => receipt.Amount);
+
+        // Preserve older invoices that were marked Paid before receipt tracking existed.
+        if (paidAmount == 0m && invoice.Status == "Paid")
+        {
+            return invoice.TotalAmount;
+        }
+
+        return Math.Min(paidAmount, invoice.TotalAmount);
+    }
+
+    private static string GetDefaultPayerName(Invoice invoice)
+    {
+        return invoice.TenantNamesSnapshot
+            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .FirstOrDefault() ?? string.Empty;
+    }
+
+    private static string BuildTransferContent(Invoice invoice)
+    {
+        var invoiceCode = new string(invoice.InvoiceCode
+            .Where(char.IsLetterOrDigit)
+            .ToArray())
+            .ToUpperInvariant();
+
+        var tenantName = GetDefaultPayerName(invoice);
+        var roomLabel = invoice.RoomLabelSnapshot;
+        var roomIndex = roomLabel.LastIndexOf("Phòng ", StringComparison.OrdinalIgnoreCase);
+        if (roomIndex >= 0)
+        {
+            roomLabel = roomLabel[roomIndex..];
+        }
+
+        var purpose = $"Đóng tiền trọ tháng {invoice.BillingMonth:MM/yyyy}";
+        return string.Join(" ", new[]
+        {
+            invoiceCode,
+            NormalizeTransferText(tenantName),
+            NormalizeTransferText(roomLabel),
+            NormalizeTransferText(purpose)
+        }.Where(value => !string.IsNullOrWhiteSpace(value)));
+    }
+
+    private static string NormalizeTransferText(string value)
+    {
+        var normalized = value
+            .Replace('đ', 'd')
+            .Replace('Đ', 'D')
+            .Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder();
+
+        foreach (var character in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(character) == UnicodeCategory.NonSpacingMark)
+            {
+                continue;
+            }
+
+            if (char.IsLetterOrDigit(character) || character == '/')
+            {
+                builder.Append(char.ToUpperInvariant(character));
+            }
+            else if (builder.Length > 0 && builder[^1] != ' ')
+            {
+                builder.Append(' ');
+            }
+        }
+
+        return builder.ToString().Trim();
+    }
+
+    private static string BuildTenantNames(
+        RentalContract contract,
+        DateTime occupiedStart,
+        DateTime occupiedEnd)
+    {
+        var tenantNames = string.Join(", ", contract.ContractTenants
+            .Where(assignment =>
+                (assignment.IsPrimaryTenant
+                    || !assignment.JoinedAt.HasValue
+                    || assignment.JoinedAt.Value.Date <= occupiedEnd)
+                && (!assignment.LeftAt.HasValue || assignment.LeftAt.Value.Date >= occupiedStart))
+            .OrderByDescending(assignment => assignment.IsPrimaryTenant)
+            .ThenBy(assignment => assignment.Tenant.FullName)
+            .Select(assignment => assignment.Tenant.FullName.Trim())
+            .Where(name => !string.IsNullOrWhiteSpace(name)));
+
+        return string.IsNullOrWhiteSpace(tenantNames)
+            ? "Chưa có thông tin người thuê"
+            : tenantNames;
+    }
+
+    private static decimal ProrateMonthlyAmount(decimal monthlyAmount, int occupiedDays, int daysInMonth)
+    {
+        if (monthlyAmount <= 0m || occupiedDays <= 0 || daysInMonth <= 0)
+        {
+            return 0m;
+        }
+
+        return decimal.Round(
+            monthlyAmount * occupiedDays / daysInMonth,
+            0,
+            MidpointRounding.AwayFromZero);
+    }
+
+    private static DateTime CurrentMonth()
+    {
+        var today = DateTime.Today;
+        return new DateTime(today.Year, today.Month, 1);
+    }
+
+    private static bool TryParseBillingMonth(string? value, out DateTime period)
+    {
+        if (DateTime.TryParseExact(
+            value,
+            "yyyy-MM",
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.None,
+            out var parsed))
+        {
+            period = new DateTime(parsed.Year, parsed.Month, 1);
+            return true;
+        }
+
+        period = default;
+        return false;
+    }
+}

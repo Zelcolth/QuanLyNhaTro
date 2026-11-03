@@ -1,0 +1,137 @@
+@model QuanLyNhaTro.ViewModels.MoveOutSettlementViewModel
+
+@{
+    Layout = null;
+    var isConfirmed = Model.Status == "Confirmed";
+}
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Phiếu quyết toán tiền đặt cọc</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <style>
+        body { background: #f3f4f6; color: #212529; }
+        .invoice-paper { max-width: 850px; margin: 32px auto; padding: 42px; background: #fff; }
+        .invoice-table th, .invoice-table td { padding: 11px 12px; }
+        .amount { white-space: nowrap; text-align: right; }
+        .signature-space { height: 80px; }
+        @@media print {
+            @@page { size: A5 portrait; margin: 10mm; }
+            body { background: #fff; }
+            .invoice-paper { max-width: none; margin: 0; padding: 0; }
+            .no-print { display: none !important; }
+            .table { --bs-table-bg: #fff; }
+        }
+    </style>
+</head>
+<body>
+    <div class="no-print text-center py-3">
+        <button type="button" class="btn btn-primary" onclick="window.print()">In phiếu</button>
+        <a class="btn btn-outline-secondary" href="@Url.Action("Details", "MoveOut", new { id = Model.SettlementId })">Quay lại</a>
+    </div>
+
+    <main class="invoice-paper border rounded">
+        <div class="d-flex justify-content-between align-items-start gap-3 mb-4">
+            <div>
+                <h1 class="h3 fw-bold mb-1">PHIẾU QUYẾT TOÁN TIỀN ĐẶT CỌC</h1>
+                <div class="text-muted">Ngày trả phòng: @Model.MoveOutDate.ToString("dd/MM/yyyy")</div>
+            </div>
+            <div class="text-end">
+                <div><strong>Mã hợp đồng:</strong> @Model.ContractCode</div>
+                <div><strong>Ngày lập:</strong> @DateTime.Today.ToString("dd/MM/yyyy")</div>
+                <div><strong>Trạng thái:</strong> @(isConfirmed ? "Đã xác nhận" : "Bản nháp")</div>
+            </div>
+        </div>
+
+        <hr />
+
+        <div class="row g-3 mb-4">
+            <div class="col-12">
+                <div class="text-muted small">Khu nhà / phòng</div>
+                <strong>@Model.RoomLabel</strong>
+            </div>
+            <div class="col-md-7">
+                <div class="text-muted small">Người thuê</div>
+                <strong>@Model.TenantNames</strong>
+            </div>
+            <div class="col-md-5">
+                <div class="text-muted small">Ngày trả phòng</div>
+                <strong>@Model.MoveOutDate.ToString("dd/MM/yyyy")</strong>
+            </div>
+        </div>
+
+        <table class="table table-bordered invoice-table align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Khoản mục</th>
+                    <th>Diễn giải</th>
+                    <th class="amount">Số tiền</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>Tiền đặt cọc</td><td>Khoản tiền đặt cọc theo hợp đồng</td><td class="amount">@Model.DepositAmount.ToString("N0") đ</td></tr>
+                <tr><td>Công nợ hóa đơn</td><td>Công nợ chưa thanh toán</td><td class="amount">@Model.OutstandingInvoiceAmount.ToString("N0") đ</td></tr>
+                @if (isConfirmed && !Model.IsInvoiceReconciled)
+                {
+                    <tr><td>Tiền điện</td><td>@Model.PreviousElectricityReading.ToString("N2") → @Model.FinalElectricityReading.ToString("N2") kWh</td><td class="amount">@Model.ElectricityAmount.ToString("N0") đ</td></tr>
+                    <tr><td>Tiền nước</td><td>@Model.PreviousWaterReading.ToString("N2") → @Model.FinalWaterReading.ToString("N2") m³</td><td class="amount">@Model.WaterAmount.ToString("N0") đ</td></tr>
+                    <tr><td>Phí rác</td><td>Phí định kỳ của kỳ trả phòng</td><td class="amount">@Model.GarbageFee.ToString("N0") đ</td></tr>
+                }
+                else
+                {
+                    <tr><td>Tiền điện đối chiếu</td><td>@Model.PreviousElectricityReading.ToString("N2") → @Model.FinalElectricityReading.ToString("N2") kWh (đã tính trong hóa đơn)</td><td class="amount">@Model.ElectricityAmount.ToString("N0") đ</td></tr>
+                    <tr><td>Tiền nước đối chiếu</td><td>@Model.PreviousWaterReading.ToString("N2") → @Model.FinalWaterReading.ToString("N2") m³ (đã tính trong hóa đơn)</td><td class="amount">@Model.WaterAmount.ToString("N0") đ</td></tr>
+                    <tr><td>Điều chỉnh hóa đơn tháng trả phòng</td><td>Chênh lệch sau khi đối soát thời gian thuê và chỉ số chốt</td><td class="amount">@(Model.InvoiceAdjustmentAmount > 0 ? "+" : "")@Model.InvoiceAdjustmentAmount.ToString("N0") đ</td></tr>
+                }
+                <tr><td>Phí vệ sinh</td><td>Phí phát sinh khi trả phòng</td><td class="amount">@Model.CleaningFee.ToString("N0") đ</td></tr>
+                <tr><td>Phí sửa chữa</td><td>Chi phí sửa chữa, khắc phục</td><td class="amount">@Model.RepairFee.ToString("N0") đ</td></tr>
+                <tr><td>Chi phí khác</td><td>Khoản chi phí khác</td><td class="amount">@Model.OtherFee.ToString("N0") đ</td></tr>
+            </tbody>
+            <tfoot class="table-light">
+                <tr><th colspan="2" class="text-end">Tổng khấu trừ</th><th class="amount">@Model.TotalDeductions.ToString("N0") đ</th></tr>
+                <tr><th colspan="2" class="text-end">Tiền cọc được hoàn trả</th><th class="amount">@Model.RefundAmount.ToString("N0") đ</th></tr>
+                <tr><th colspan="2" class="text-end">Người thuê cần thanh toán thêm</th><th class="amount">@Model.AdditionalAmountDue.ToString("N0") đ</th></tr>
+            </tfoot>
+        </table>
+
+        @if (!string.IsNullOrWhiteSpace(Model.Notes))
+        {
+            <div class="mt-3"><strong>Ghi chú:</strong> @Model.Notes</div>
+        }
+
+        <div class="alert alert-light border mt-4 mb-0">
+            @if (isConfirmed && !Model.IsInvoiceReconciled)
+            {
+                <span>Phiếu quyết toán này được lập theo cách tính cũ trước khi hệ thống đối soát hóa đơn tháng trả phòng.</span>
+            }
+            else if (!Model.HasCurrentMonthInvoice)
+            {
+                <span>Tiền phòng, điện nước và phí định kỳ tháng trả phòng sẽ được đưa vào hóa đơn.</span>
+            }
+            else
+            {
+                <span>Tiền phòng, điện nước và phí định kỳ tháng trả phòng đã được đối soát qua hóa đơn.</span>
+            }
+            Phiếu này không thay thế chứng từ xác nhận giao dịch hoàn tiền hoặc thu thêm.
+        </div>
+
+        <div class="row text-center mt-5 pt-3">
+            <div class="col-6">
+                <strong>Người thuê</strong>
+                <div class="signature-space"></div>
+                <div class="fw-semibold">@Model.TenantNames</div>
+            </div>
+            <div class="col-6">
+                <strong>Người quản lý</strong>
+                <div class="signature-space"></div>
+                <div class="fw-semibold">Quản lý nhà trọ</div>
+            </div>
+        </div>
+
+        <div class="text-end small text-muted mt-4">Lập lúc @DateTime.Now.ToString("HH:mm dd/MM/yyyy")</div>
+    </main>
+</body>
+</html>

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QuanLyNhaTro.Data;
@@ -5,6 +6,7 @@ using QuanLyNhaTro.Models;
 
 namespace QuanLyNhaTro.Controllers;
 
+[Authorize]
 public class BuildingController : Controller
 {
     private readonly ApplicationDbContext _context;
@@ -57,8 +59,6 @@ public class BuildingController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(Building building)
     {
-        ValidateBuildingForModelState(building);
-
         if (!ModelState.IsValid)
         {
             return View(building);
@@ -96,8 +96,6 @@ public class BuildingController : Controller
         {
             return NotFound();
         }
-
-        ValidateBuildingForModelState(building);
 
         if (!ModelState.IsValid)
         {
@@ -178,15 +176,6 @@ public class BuildingController : Controller
 
         TempData["SuccessMessage"] = "Đã xóa tòa nhà thành công.";
         return RedirectToAction(nameof(Index));
-    }
-
-    private void ValidateBuildingForModelState(Building building)
-    {
-        if (string.IsNullOrWhiteSpace(building.BuildingName))
-        {
-            ModelState.AddModelError(nameof(Building.BuildingName), "Vui lòng nhập tên tòa nhà.");
-        }
-
     }
 
     private async Task<bool> BuildingExistsAsync(int id)

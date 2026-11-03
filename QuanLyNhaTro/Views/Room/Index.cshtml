@@ -2,6 +2,11 @@
 
 @{
     ViewData["Title"] = "Quản lý phòng";
+    var invoicedRoomIds = ViewBag.InvoicedRoomIds as HashSet<int> ?? new HashSet<int>();
+    var billableRoomIds = ViewBag.BillableRoomIds as HashSet<int> ?? new HashSet<int>();
+    var invoiceBillingMonthLabel = ViewBag.InvoiceBillingMonthLabel as string ?? "";
+    var moveOutDatesByRoom = ViewBag.MoveOutDatesByRoom as Dictionary<int, DateTime> ?? new Dictionary<int, DateTime>();
+    var expiringDatesByRoom = ViewBag.ExpiringDatesByRoom as Dictionary<int, DateTime> ?? new Dictionary<int, DateTime>();
 }
 
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -42,6 +47,14 @@
             </div>
         </div>
     </div>
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="small text-secondary mb-1">Chờ xử lý</div>
+                <div class="fs-3 fw-semibold">@ViewBag.CleaningRooms</div>
+            </div>
+        </div>
+    </div>
 </div>
 
 @if (TempData["SuccessMessage"] is string successMessage)
@@ -60,15 +73,15 @@
 }
 else
 {
-    <div class="table-responsive">
-        <table class="table table-striped table-bordered align-middle">
+    <table class="table table-striped table-bordered align-middle">
             <thead class="table-light">
                 <tr>
                     <th>Tòa nhà</th>
                     <th>Mã phòng</th>
                     <th>Giá thuê niêm yết/tháng</th>
                     <th>Số người tối đa</th>
-                    <th>Trạng thái</th>
+                    <th>Trạng thái phòng</th>
+                    <th>Trạng thái hóa đơn (@invoiceBillingMonthLabel)</th>
                     <th class="text-end">Thao tác</th>
                 </tr>
             </thead>
@@ -80,16 +93,52 @@ else
                     "Available" => "Trống",
                     "Occupied" => "Đang thuê",
                     "Maintenance" => "Bảo trì",
+                    "Cleaning" => "Chờ xử lý",
                     _ => room.Status
                 };
+                var hasInvoiceForCurrentMonth = invoicedRoomIds.Contains(room.RoomId);
+                var hasBillableContractForCurrentMonth = billableRoomIds.Contains(room.RoomId);
                 <tr>
                     <td>@room.Building.BuildingName</td>
                     <td>@room.RoomCode</td>
                     <td>@room.MonthlyRent.ToString("N0")</td>
                     <td>@room.MaxOccupants</td>
-                    <td>@statusText</td>
+                    <td>
+                        <div>@statusText</div>
+                        @if (moveOutDatesByRoom.TryGetValue(room.RoomId, out var moveOutDate))
+                        {
+                            <div class="mt-1">
+                                <span class="badge text-bg-warning text-dark">Khách hẹn trả phòng</span>
+                                <small class="d-block text-dark">Dự kiến @moveOutDate.ToString("dd/MM/yyyy")</small>
+                            </div>
+                        }
+                        @if (expiringDatesByRoom.TryGetValue(room.RoomId, out var expiringDate))
+                        {
+                            <div class="mt-1">
+                                <span class="badge text-bg-danger text-dark">Hợp đồng sắp hết hiệu lực</span>
+                                <small class="d-block text-dark">Kết thúc @expiringDate.ToString("dd/MM/yyyy")</small>
+                            </div>
+                        }
+                    </td>
+                    <td>
+                        @if (hasInvoiceForCurrentMonth)
+                        {
+                            <span class="badge text-bg-success text-dark">Đã có HĐ</span>
+                        }
+                        else if (hasBillableContractForCurrentMonth)
+                        {
+                            <span class="badge text-bg-warning text-dark">Chưa lập HĐ</span>
+                        }
+                        else
+                        {
+                            <span class="badge text-bg-secondary text-dark">Không phát sinh</span>
+                        }
+                    </td>
                     <td class="text-end">
                         <a asp-action="Details" asp-route-id="@room.RoomId" class="btn btn-sm btn-outline-info">Chi tiết</a>
+                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                data-bs-toggle="modal" data-bs-target="#occupantsModal"
+                                data-room-id="@room.RoomId">Người ở</button>
                         <a asp-action="Edit" asp-route-id="@room.RoomId" class="btn btn-sm btn-outline-primary">Sửa</a>
                         <a asp-action="Delete" asp-route-id="@room.RoomId" class="btn btn-sm btn-outline-danger">Xóa</a>
                     </td>
@@ -97,5 +146,67 @@ else
             }
             </tbody>
         </table>
+}
+
+
+<div class="modal fade" id="occupantsModal" tabindex="-1" aria-labelledby="occupantsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content" id="occupantsModalContent">
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Đang tải...</span>
+                </div>
+            </div>
+        </div>
     </div>
+</div>
+
+@section Scripts {
+    <script>
+        const occupantsModal = document.getElementById("occupantsModal");
+        const occupantsModalContent = document.getElementById("occupantsModalContent");
+        const occupantsUrl = '@Url.Action("Occupants", "Room")';
+
+        occupantsModal.addEventListener("show.bs.modal", async function (event) {
+            const trigger = event.relatedTarget;
+            const roomId = trigger ? trigger.getAttribute("data-room-id") : occupantsModal.dataset.roomId;
+
+            if (!roomId) {
+                occupantsModalContent.innerHTML =
+                    '<div class="modal-body"><div class="alert alert-danger mb-0">Không xác định được phòng.</div></div>';
+                return;
+            }
+
+            occupantsModal.dataset.roomId = roomId;
+            occupantsModalContent.innerHTML =
+                '<div class="modal-body text-center py-5"><div class="spinner-border" role="status"><span class="visually-hidden">Đang tải...</span></div></div>';
+
+            try {
+                const response = await fetch(occupantsUrl + "?id=" + encodeURIComponent(roomId), {
+                    credentials: "same-origin",
+                    headers: { "X-Requested-With": "XMLHttpRequest" }
+                });
+
+                if (!response.ok) {
+                    throw new Error("Request failed");
+                }
+
+                occupantsModalContent.innerHTML = await response.text();
+            } catch {
+                occupantsModalContent.innerHTML =
+                    '<div class="modal-header"><h5 class="modal-title">Người ở</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button></div><div class="modal-body"><div class="alert alert-danger mb-0">Không tải được thông tin người ở. Vui lòng thử lại.</div></div>';
+            }
+        });
+    </script>
+    @if (ViewBag.OpenOccupantsRoomId is int openOccupantsRoomId)
+    {
+        <script>
+            document.addEventListener("DOMContentLoaded", function () {
+                const trigger = document.querySelector('[data-room-id="@openOccupantsRoomId"]');
+                if (trigger) {
+                    bootstrap.Modal.getOrCreateInstance(occupantsModal).show(trigger);
+                }
+            });
+        </script>
+    }
 }

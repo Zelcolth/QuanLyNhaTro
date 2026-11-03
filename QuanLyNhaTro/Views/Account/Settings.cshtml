@@ -1,0 +1,89 @@
+@model QuanLyNhaTro.ViewModels.AccountSettingsViewModel
+
+@{
+    ViewData["Title"] = "Thông tin tài khoản";
+}
+
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-8 col-xl-7">
+        <h1 class="h3 mb-1">Thông tin tài khoản</h1>
+        <p class="text-muted mb-4">Cập nhật thông tin cá nhân và bảo mật tài khoản quản lý.</p>
+
+        @if (TempData["ProfileStatusMessage"] is string profileStatusMessage)
+        {
+            <div class="alert alert-success" role="alert">@profileStatusMessage</div>
+        }
+        @if (TempData["PasswordStatusMessage"] is string passwordStatusMessage)
+        {
+            <div class="alert alert-success" role="alert">@passwordStatusMessage</div>
+        }
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white">
+                <strong>Thông tin cá nhân</strong>
+            </div>
+            <div class="card-body p-4">
+                <form asp-controller="Account" asp-action="UpdateProfile" method="post">
+                    @Html.AntiForgeryToken()
+                    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Tên đăng nhập</label>
+                        <input class="form-control" value="@Model.Username" readonly />
+                        <div class="form-text">Tên đăng nhập không thể thay đổi.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Profile.FullName" class="form-label"></label>
+                        <input asp-for="Profile.FullName" class="form-control" maxlength="150"
+                               autocomplete="name" />
+                        <span asp-validation-for="Profile.FullName" class="text-danger small"></span>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Lưu thông tin</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white">
+                <strong>Bảo mật tài khoản</strong>
+            </div>
+            <div class="card-body p-4">
+                <p class="text-muted small mb-3">Nên sử dụng mật khẩu mới có ít nhất 8 ký tự và không trùng với mật khẩu hiện tại.</p>
+
+                <form asp-controller="Account" asp-action="ChangePassword" method="post">
+                    @Html.AntiForgeryToken()
+                    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+                    <div class="mb-3">
+                        <label asp-for="Password.CurrentPassword" class="form-label"></label>
+                        <input asp-for="Password.CurrentPassword" class="form-control"
+                               autocomplete="current-password" />
+                        <span asp-validation-for="Password.CurrentPassword" class="text-danger small"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Password.NewPassword" class="form-label"></label>
+                        <input asp-for="Password.NewPassword" class="form-control"
+                               autocomplete="new-password" />
+                        <span asp-validation-for="Password.NewPassword" class="text-danger small"></span>
+                    </div>
+
+                    <div class="mb-4">
+                        <label asp-for="Password.ConfirmNewPassword" class="form-label"></label>
+                        <input asp-for="Password.ConfirmNewPassword" class="form-control"
+                               autocomplete="new-password" />
+                        <span asp-validation-for="Password.ConfirmNewPassword" class="text-danger small"></span>
+                    </div>
+
+                    <button type="submit" class="btn btn-outline-primary">Đổi mật khẩu</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
