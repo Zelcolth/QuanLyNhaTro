@@ -40,15 +40,15 @@
                 <strong>Trạng thái thu:</strong>
                 @if (isPaid)
                 {
-                    <span class="badge text-bg-success">Đã thanh toán</span>
+                    <span class="badge text-bg-success text-dark">Đã thanh toán</span>
                 }
                 else if (paidAmount > 0m)
                 {
-                    <span class="badge text-bg-warning">Thanh toán một phần</span>
+                    <span class="badge text-bg-warning text-dark">Thanh toán một phần</span>
                 }
                 else
                 {
-                    <span class="badge text-bg-secondary">Chưa thanh toán</span>
+                    <span class="badge text-bg-secondary text-dark">Chưa thanh toán</span>
                 }
             </div>
             <div class="col-md-6"><strong>Khu nhà / phòng:</strong> @Model.RoomLabelSnapshot</div>

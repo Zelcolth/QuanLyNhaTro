@@ -202,7 +202,7 @@ else
                         <div class="text-muted small">@invoice.BillingStartDate.ToString("dd/MM") – @invoice.BillingEndDate.ToString("dd/MM/yyyy")</div>
                     </td>
                     <td class="text-nowrap">
-                        <span class="badge @invoice.PaymentBadgeClass">@invoice.PaymentStatusLabel</span>
+                        <span class="badge text-dark @invoice.PaymentBadgeClass">@invoice.PaymentStatusLabel</span>
                         <div class="small text-muted mt-1">Đã thu: @invoice.PaidAmount.ToString("N0") đ</div>
                         @if (invoice.RemainingAmount > 0m)
                         {
