@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace QuanLyNhaTro.Models;
 
@@ -41,7 +42,8 @@ public class Invoice
 
     public decimal CurrentElectricityReading { get; set; }
 
-    public decimal ElectricityConsumption { get; set; }
+    [NotMapped]
+    public decimal ElectricityConsumption => CurrentElectricityReading - PreviousElectricityReading;
 
     public decimal ElectricityUnitPrice { get; set; }
 
@@ -51,7 +53,8 @@ public class Invoice
 
     public decimal CurrentWaterReading { get; set; }
 
-    public decimal WaterConsumption { get; set; }
+    [NotMapped]
+    public decimal WaterConsumption => CurrentWaterReading - PreviousWaterReading;
 
     public decimal WaterUnitPrice { get; set; }
 

@@ -38,6 +38,10 @@ public class ApplicationDbContext : DbContext
             .HasIndex(room => new { room.BuildingId, room.RoomCode })
             .IsUnique();
 
+        modelBuilder.Entity<Room>()
+            .Property(room => room.MonthlyRent)
+            .HasColumnType("decimal(18,2)");
+
         modelBuilder.Entity<RentalContract>()
             .HasOne(contract => contract.Room)
             .WithMany()
@@ -91,6 +95,10 @@ public class ApplicationDbContext : DbContext
 
         modelBuilder.Entity<RentalContract>(entity =>
         {
+            entity.Property(contract => contract.MonthlyRent)
+                .HasColumnType("decimal(18,2)");
+            entity.Property(contract => contract.Deposit)
+                .HasColumnType("decimal(18,2)");
             entity.Property(contract => contract.MoveInElectricityReading)
                 .HasColumnType("decimal(18,2)");
             entity.Property(contract => contract.MoveInWaterReading)
@@ -226,8 +234,8 @@ public class ApplicationDbContext : DbContext
             entity.Property(settlement => settlement.RepairFee).HasColumnType("decimal(18,2)");
             entity.Property(settlement => settlement.OtherFee).HasColumnType("decimal(18,2)");
             entity.HasIndex(settlement => settlement.ContractId).IsUnique();
-            entity.HasOne(settlement => settlement.Contract).WithMany()
-                .HasForeignKey(settlement => settlement.ContractId)
+            entity.HasOne(settlement => settlement.Contract).WithOne()
+                .HasForeignKey<MoveOutSettlement>(settlement => settlement.ContractId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -268,12 +276,10 @@ public class ApplicationDbContext : DbContext
             entity.Property(invoice => invoice.RentAmount).HasColumnType("decimal(18,2)");
             entity.Property(invoice => invoice.PreviousElectricityReading).HasColumnType("decimal(18,2)");
             entity.Property(invoice => invoice.CurrentElectricityReading).HasColumnType("decimal(18,2)");
-            entity.Property(invoice => invoice.ElectricityConsumption).HasColumnType("decimal(18,2)");
             entity.Property(invoice => invoice.ElectricityUnitPrice).HasColumnType("decimal(18,2)");
             entity.Property(invoice => invoice.ElectricityAmount).HasColumnType("decimal(18,2)");
             entity.Property(invoice => invoice.PreviousWaterReading).HasColumnType("decimal(18,2)");
             entity.Property(invoice => invoice.CurrentWaterReading).HasColumnType("decimal(18,2)");
-            entity.Property(invoice => invoice.WaterConsumption).HasColumnType("decimal(18,2)");
             entity.Property(invoice => invoice.WaterUnitPrice).HasColumnType("decimal(18,2)");
             entity.Property(invoice => invoice.WaterAmount).HasColumnType("decimal(18,2)");
             entity.Property(invoice => invoice.GarbageFee).HasColumnType("decimal(18,2)");

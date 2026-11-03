@@ -50,23 +50,23 @@ namespace QuanLyNhaTro.Migrations
                     b.Property<int>("TenantId")
                         .HasColumnType("int");
 
-                    b.Property<bool>("IsPrimaryTenant")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("RelationshipToPrimaryTenant")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
+
+                    b.Property<bool>("IsPrimaryTenant")
+                        .HasColumnType("bit");
 
                     b.Property<DateTime?>("JoinedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("LeftAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("RelationshipToPrimaryTenant")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.HasKey("ContractId", "TenantId");
 
@@ -83,13 +83,13 @@ namespace QuanLyNhaTro.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("InvoiceId"));
 
-                    b.Property<DateTime?>("BillingStartDate")
-                        .HasColumnType("date");
-
                     b.Property<DateTime?>("BillingEndDate")
                         .HasColumnType("date");
 
                     b.Property<DateTime>("BillingMonth")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("BillingStartDate")
                         .HasColumnType("date");
 
                     b.Property<string>("ContractCodeSnapshot")
@@ -110,9 +110,6 @@ namespace QuanLyNhaTro.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("ElectricityAmount")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("ElectricityConsumption")
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("ElectricityUnitPrice")
@@ -161,9 +158,6 @@ namespace QuanLyNhaTro.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("WaterAmount")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("WaterConsumption")
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("WaterUnitPrice")
@@ -218,35 +212,103 @@ namespace QuanLyNhaTro.Migrations
 
             modelBuilder.Entity("QuanLyNhaTro.Models.MoveOutSettlement", b =>
                 {
-                    b.Property<int>("SettlementId").ValueGeneratedOnAdd().HasColumnType("int");
+                    b.Property<int>("SettlementId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("SettlementId"));
-                    b.Property<int>("ContractId").HasColumnType("int");
-                    b.Property<string>("ContractCodeSnapshot").IsRequired().HasMaxLength(100).HasColumnType("nvarchar(100)");
-                    b.Property<string>("RoomLabelSnapshot").IsRequired().HasMaxLength(250).HasColumnType("nvarchar(250)");
-                    b.Property<string>("TenantNamesSnapshot").IsRequired().HasMaxLength(1000).HasColumnType("nvarchar(1000)");
-                    b.Property<DateTime>("MoveOutDate").HasColumnType("date");
-                    b.Property<decimal>("DepositAmount").HasColumnType("decimal(18,2)");
-                    b.Property<decimal>("OutstandingInvoiceAmount").HasColumnType("decimal(18,2)");
-                    b.Property<decimal>("InvoiceAdjustmentAmount").HasColumnType("decimal(18,2)");
-                    b.Property<bool>("IsInvoiceReconciled").HasColumnType("bit").HasDefaultValue(false);
-                    b.Property<decimal>("PreviousElectricityReading").HasColumnType("decimal(18,2)");
-                    b.Property<decimal>("FinalElectricityReading").HasColumnType("decimal(18,2)");
-                    b.Property<decimal>("ElectricityUnitPrice").HasColumnType("decimal(18,2)");
-                    b.Property<decimal>("ElectricityAmount").HasColumnType("decimal(18,2)");
-                    b.Property<decimal>("PreviousWaterReading").HasColumnType("decimal(18,2)");
-                    b.Property<decimal>("FinalWaterReading").HasColumnType("decimal(18,2)");
-                    b.Property<decimal>("WaterUnitPrice").HasColumnType("decimal(18,2)");
-                    b.Property<decimal>("WaterAmount").HasColumnType("decimal(18,2)");
-                    b.Property<decimal>("GarbageFee").HasColumnType("decimal(18,2)");
-                    b.Property<decimal>("CleaningFee").HasColumnType("decimal(18,2)");
-                    b.Property<decimal>("RepairFee").HasColumnType("decimal(18,2)");
-                    b.Property<decimal>("OtherFee").HasColumnType("decimal(18,2)");
-                    b.Property<string>("Notes").HasMaxLength(1000).HasColumnType("nvarchar(1000)");
-                    b.Property<string>("Status").IsRequired().HasMaxLength(20).HasColumnType("nvarchar(20)");
-                    b.Property<DateTime>("CreatedAt").HasColumnType("datetime2");
-                    b.Property<DateTime?>("ConfirmedAt").HasColumnType("datetime2");
+
+                    b.Property<decimal>("CleaningFee")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("ConfirmedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ContractCodeSnapshot")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("ContractId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("DepositAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("ElectricityAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("ElectricityUnitPrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("FinalElectricityReading")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("FinalWaterReading")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("GarbageFee")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("InvoiceAdjustmentAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<bool>("IsInvoiceReconciled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<DateTime>("MoveOutDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<decimal>("OtherFee")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("OutstandingInvoiceAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("PreviousElectricityReading")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("PreviousWaterReading")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("RepairFee")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("RoomLabelSnapshot")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("TenantNamesSnapshot")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<decimal>("WaterAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("WaterUnitPrice")
+                        .HasColumnType("decimal(18,2)");
+
                     b.HasKey("SettlementId");
-                    b.HasIndex("ContractId").IsUnique();
+
+                    b.HasIndex("ContractId")
+                        .IsUnique();
+
                     b.ToTable("MoveOutSettlements");
                 });
 
@@ -261,8 +323,20 @@ namespace QuanLyNhaTro.Migrations
                     b.Property<decimal>("Amount")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<string>("CollectorName")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
                     b.Property<int>("InvoiceId")
                         .HasColumnType("int");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("PayerName")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
 
                     b.Property<string>("PaymentMethod")
                         .IsRequired()
@@ -271,25 +345,13 @@ namespace QuanLyNhaTro.Migrations
                         .HasColumnType("nvarchar(20)")
                         .HasDefaultValue("Unknown");
 
-                    b.Property<string>("PayerName")
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
-
-                    b.Property<string>("CollectorName")
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
-
-                    b.Property<DateTime>("ReceivedAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<string>("ReceiptCode")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<string>("Notes")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
+                    b.Property<DateTime>("ReceivedAt")
+                        .HasColumnType("datetime2");
 
                     b.HasKey("ReceiptId");
 
@@ -312,9 +374,6 @@ namespace QuanLyNhaTro.Migrations
                     b.Property<DateTime?>("ActualEndDate")
                         .HasColumnType("datetime2");
 
-                    b.Property<DateTime?>("ExpectedMoveOutDate")
-                        .HasColumnType("datetime2");
-
                     b.Property<string>("ContractCode")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
@@ -325,13 +384,16 @@ namespace QuanLyNhaTro.Migrations
                     b.Property<DateTime>("EndDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("ExpectedMoveOutDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("MonthlyRent")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<decimal?>("MoveInElectricityReading")
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal?>("MoveInWaterReading")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("MonthlyRent")
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("RoomId")
@@ -567,10 +629,11 @@ namespace QuanLyNhaTro.Migrations
             modelBuilder.Entity("QuanLyNhaTro.Models.MoveOutSettlement", b =>
                 {
                     b.HasOne("QuanLyNhaTro.Models.RentalContract", "Contract")
-                        .WithMany()
-                        .HasForeignKey("ContractId")
+                        .WithOne()
+                        .HasForeignKey("QuanLyNhaTro.Models.MoveOutSettlement", "ContractId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
                     b.Navigation("Contract");
                 });
 
@@ -583,11 +646,6 @@ namespace QuanLyNhaTro.Migrations
                         .IsRequired();
 
                     b.Navigation("Invoice");
-                });
-
-            modelBuilder.Entity("QuanLyNhaTro.Models.Invoice", b =>
-                {
-                    b.Navigation("Receipts");
                 });
 
             modelBuilder.Entity("QuanLyNhaTro.Models.RentalContract", b =>
@@ -636,6 +694,11 @@ namespace QuanLyNhaTro.Migrations
             modelBuilder.Entity("QuanLyNhaTro.Models.Building", b =>
                 {
                     b.Navigation("Rooms");
+                });
+
+            modelBuilder.Entity("QuanLyNhaTro.Models.Invoice", b =>
+                {
+                    b.Navigation("Receipts");
                 });
 
             modelBuilder.Entity("QuanLyNhaTro.Models.RentalContract", b =>
