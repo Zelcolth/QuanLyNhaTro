@@ -33,8 +33,9 @@
         .invoice-paper { max-width: 850px; margin: 32px auto; padding: 42px; background: #fff; }
         .invoice-table th, .invoice-table td { padding: 11px 12px; }
         .amount { white-space: nowrap; text-align: right; }
+        .signature-space { height: 80px; }
         @@media print {
-            @@page { size: A4; margin: 16mm; }
+            @@page { size: A5 portrait; margin: 10mm; }
             body { background: #fff; }
             .invoice-paper { max-width: none; margin: 0; padding: 0; }
             .no-print { display: none !important; }
@@ -163,11 +164,6 @@
             </section>
         }
 
-        <div class="mt-4">
-            <strong>Lưu ý:</strong> Hóa đơn này thông báo các khoản cần thanh toán trong kỳ.
-            Việc thanh toán chỉ được xác nhận khi người quản lý ghi nhận khoản tiền đã nhận.
-        </div>
-
         @if (!string.IsNullOrWhiteSpace(Model.Notes))
         {
             <div class="mt-3"><strong>Ghi chú:</strong> @Model.Notes</div>
@@ -176,11 +172,13 @@
         <div class="row text-center mt-5 pt-3">
             <div class="col-6">
                 <strong>Người thuê</strong>
-                <div class="text-muted small mt-5">(Ký và ghi rõ họ tên nếu cần)</div>
+                <div class="signature-space"></div>
+                <div class="fw-semibold">@Model.TenantNamesSnapshot</div>
             </div>
             <div class="col-6">
                 <strong>Người quản lý</strong>
-                <div class="text-muted small mt-5">(Ký và ghi rõ họ tên)</div>
+                <div class="signature-space"></div>
+                <div class="fw-semibold">Quản lý nhà trọ</div>
             </div>
         </div>
     </main>
