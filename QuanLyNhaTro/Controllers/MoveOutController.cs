@@ -31,9 +31,15 @@ public class MoveOutController : Controller
         if (existing?.Status == "Confirmed")
             return RedirectToAction(nameof(Details), new { id = existing.SettlementId });
 
-        return View(existing is null
+        var model = existing is null
             ? await BuildNewViewModelAsync(contract)
-            : MapViewModel(existing));
+            : MapViewModel(existing);
+        model.OutstandingInvoiceAmount = await CalculateOutstandingInvoiceDebtAsync(contract.ContractId);
+        model.HasCurrentMonthInvoice = await HasCurrentMonthInvoiceAsync(contract.ContractId);
+        if (model.HasCurrentMonthInvoice)
+            model.GarbageFee = 0m;
+
+        return View(model);
     }
 
     [HttpPost]
@@ -67,6 +73,12 @@ public class MoveOutController : Controller
         model.ElectricityUnitPrice = config?.ElectricityPrice ?? latestInvoice?.ElectricityUnitPrice ?? 0m;
         model.WaterUnitPrice = config?.WaterPrice ?? latestInvoice?.WaterUnitPrice ?? 0m;
         model.HasPreviousReading = await _context.UtilityReadings.AnyAsync(item => item.RoomId == contract.RoomId);
+        model.HasCurrentMonthInvoice = await HasCurrentMonthInvoiceAsync(contract.ContractId);
+        if (model.HasCurrentMonthInvoice)
+        {
+            model.GarbageFee = 0m;
+            ModelState.Remove(nameof(model.GarbageFee));
+        }
 
         if (model.MoveOutDate == default || model.MoveOutDate.Date < contract.StartDate.Date
             || model.MoveOutDate.Date > DateTime.Today)
@@ -154,6 +166,24 @@ public class MoveOutController : Controller
         await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
         try
         {
+            var currentDebt = await CalculateOutstandingInvoiceDebtAsync(settlement.ContractId);
+            var hasCurrentMonthInvoice = await HasCurrentMonthInvoiceAsync(settlement.ContractId);
+            var financialDataChanged = currentDebt != settlement.OutstandingInvoiceAmount
+                || settlement.DepositAmount != settlement.Contract.Deposit
+                || (hasCurrentMonthInvoice && settlement.GarbageFee != 0m);
+
+            if (financialDataChanged)
+            {
+                settlement.OutstandingInvoiceAmount = currentDebt;
+                settlement.DepositAmount = settlement.Contract.Deposit;
+                if (hasCurrentMonthInvoice)
+                    settlement.GarbageFee = 0m;
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+                TempData["ErrorMessage"] = "Công nợ, tiền cọc hoặc hóa đơn tháng hiện tại đã thay đổi. Phiếu đã được cập nhật; vui lòng kiểm tra lại trước khi xác nhận.";
+                return RedirectToAction(nameof(Details), new { id });
+            }
+
             var moveOutDate = settlement.MoveOutDate.Date;
             settlement.Contract.Status = "Terminated";
             settlement.Contract.ActualEndDate = moveOutDate;
@@ -209,6 +239,7 @@ public class MoveOutController : Controller
         var latestInvoice = await _context.Invoices.AsNoTracking()
             .Where(item => item.ContractId == contract.ContractId)
             .OrderByDescending(item => item.BillingMonth).FirstOrDefaultAsync();
+        var hasCurrentMonthInvoice = await HasCurrentMonthInvoiceAsync(contract.ContractId);
 
         return new MoveOutSettlementViewModel
         {
@@ -225,9 +256,18 @@ public class MoveOutController : Controller
             FinalWaterReading = reading?.WaterReading ?? 0m,
             ElectricityUnitPrice = config?.ElectricityPrice ?? latestInvoice?.ElectricityUnitPrice ?? 0m,
             WaterUnitPrice = config?.WaterPrice ?? latestInvoice?.WaterUnitPrice ?? 0m,
-            GarbageFee = config?.GarbageFee ?? 0m,
-            HasPreviousReading = reading is not null
+            GarbageFee = hasCurrentMonthInvoice ? 0m : config?.GarbageFee ?? 0m,
+            HasPreviousReading = reading is not null,
+            HasCurrentMonthInvoice = hasCurrentMonthInvoice
         };
+    }
+
+    private async Task<bool> HasCurrentMonthInvoiceAsync(int contractId)
+    {
+        var today = DateTime.Today;
+        var currentMonth = new DateTime(today.Year, today.Month, 1);
+        return await _context.Invoices.AnyAsync(item =>
+            item.ContractId == contractId && item.BillingMonth == currentMonth);
     }
 
     private async Task<decimal> CalculateOutstandingInvoiceDebtAsync(int contractId)

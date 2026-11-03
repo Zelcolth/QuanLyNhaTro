@@ -41,6 +41,7 @@ public sealed class MoveOutSettlementViewModel
     public string? Notes { get; set; }
     public string Status { get; set; } = "Draft";
     public bool HasPreviousReading { get; set; }
+    public bool HasCurrentMonthInvoice { get; set; }
     public decimal TotalDeductions => OutstandingInvoiceAmount + ElectricityAmount + WaterAmount
         + GarbageFee + CleaningFee + RepairFee + OtherFee;
     public decimal RefundAmount => Math.Max(DepositAmount - TotalDeductions, 0m);
