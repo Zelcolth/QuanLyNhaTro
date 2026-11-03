@@ -104,22 +104,22 @@
             <div class="row g-3">
                 <div class="col-md-3">
                     <label asp-for="GarbageFee" class="form-label">Phí rác</label>
-                    <input asp-for="GarbageFee" type="number" min="0" step="1000" class="form-control fee-input" />
+                    <input asp-for="GarbageFee" type="number" min="0" step="0.01" class="form-control fee-input" />
                     <span asp-validation-for="GarbageFee" class="text-danger"></span>
                 </div>
                 <div class="col-md-3">
                     <label asp-for="CleaningFee" class="form-label">Phí vệ sinh</label>
-                    <input asp-for="CleaningFee" type="number" min="0" step="1000" class="form-control fee-input" />
+                    <input asp-for="CleaningFee" type="number" min="0" step="0.01" class="form-control fee-input" />
                     <span asp-validation-for="CleaningFee" class="text-danger"></span>
                 </div>
                 <div class="col-md-3">
                     <label asp-for="RepairFee" class="form-label">Phí sửa chữa</label>
-                    <input asp-for="RepairFee" type="number" min="0" step="1000" class="form-control fee-input" />
+                    <input asp-for="RepairFee" type="number" min="0" step="0.01" class="form-control fee-input" />
                     <span asp-validation-for="RepairFee" class="text-danger"></span>
                 </div>
                 <div class="col-md-3">
                     <label asp-for="OtherFee" class="form-label">Chi phí khác</label>
-                    <input asp-for="OtherFee" type="number" min="0" step="1000" class="form-control fee-input" />
+                    <input asp-for="OtherFee" type="number" min="0" step="0.01" class="form-control fee-input" />
                     <span asp-validation-for="OtherFee" class="text-danger"></span>
                 </div>
                 <div class="col-12">

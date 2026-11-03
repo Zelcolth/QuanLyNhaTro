@@ -11,8 +11,6 @@ using QuanLyNhaTro.Data;
 
 namespace QuanLyNhaTro.Migrations
 {
-    [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20261103100000_AddMoveOutSettlements")]
     partial class AddMoveOutSettlements
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
