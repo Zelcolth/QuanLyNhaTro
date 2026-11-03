@@ -295,7 +295,23 @@ public class RoomController : Controller
             return NotFound();
         }
 
-        return View(room);
+        var today = DateTime.Today;
+        var activeContract = await _context.RentalContracts
+            .Where(contract => contract.RoomId == room.RoomId
+                && contract.Status == "Active"
+                && contract.StartDate.Date <= today
+                && contract.EndDate.Date >= today)
+            .Include(contract => contract.ContractTenants)
+                .ThenInclude(assignment => assignment.Tenant)
+            .AsNoTracking()
+            .OrderByDescending(contract => contract.StartDate)
+            .FirstOrDefaultAsync();
+
+        return View(new RoomDetailsViewModel
+        {
+            Room = room,
+            ActiveContract = activeContract
+        });
     }
 
     public async Task<IActionResult> Create()

@@ -116,35 +116,6 @@
     </div>
 </div>
 
-@if (Model.Status == "Active")
-{
-    <div class="card mb-3">
-        <div class="card-header"><strong>Thông tin hẹn trả phòng</strong></div>
-        <div class="card-body">
-            <form asp-action="SetMoveOutDate" asp-route-id="@Model.ContractId" method="post" class="row g-2 align-items-end">
-                @Html.AntiForgeryToken()
-                <div class="col-md-5">
-                    <label for="expectedMoveOutDate" class="form-label">Ngày khách dự kiến trả phòng</label>
-                    <input type="date" name="expectedMoveOutDate" id="expectedMoveOutDate"
-                           class="form-control" min="@DateTime.Today.ToString("yyyy-MM-dd")"
-                           max="@Model.EndDate.ToString("yyyy-MM-dd")"
-                           value="@(Model.ExpectedMoveOutDate?.ToString("yyyy-MM-dd") ?? string.Empty)" />
-                </div>
-                <div class="col-md-3">
-                    <button type="submit" class="btn btn-outline-primary">Lưu ngày hẹn</button>
-                </div>
-                @if (Model.ExpectedMoveOutDate.HasValue)
-                {
-                    <div class="col-12 text-warning-emphasis">
-                        <span class="badge text-bg-warning">Khách hẹn trả phòng</span>
-                        Dự kiến: @Model.ExpectedMoveOutDate.Value.ToString("dd/MM/yyyy")
-                    </div>
-                }
-                <div class="col-12 small text-muted">Để trống ngày và lưu để xóa thông tin hẹn trả phòng.</div>
-            </form>
-        </div>
-    </div>
-}
 
 <div class="d-flex gap-2 flex-wrap">
     @if (Model.Status == "Draft")

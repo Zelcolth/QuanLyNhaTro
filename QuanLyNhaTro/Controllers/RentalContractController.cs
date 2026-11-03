@@ -284,7 +284,7 @@ public class RentalContractController : Controller
         if (contract.Status != "Active")
         {
             TempData["ErrorMessage"] = "Chỉ có thể cập nhật ngày hẹn trả phòng cho hợp đồng đang hiệu lực.";
-            return RedirectToAction(nameof(Details), new { id });
+            return RedirectToAction("Details", "Room", new { id = contract.RoomId });
         }
 
         if (expectedMoveOutDate.HasValue
@@ -292,7 +292,7 @@ public class RentalContractController : Controller
                 || expectedMoveOutDate.Value.Date > contract.EndDate.Date))
         {
             TempData["ErrorMessage"] = "Ngày hẹn trả phòng phải nằm từ hôm nay đến ngày kết thúc hợp đồng.";
-            return RedirectToAction(nameof(Details), new { id });
+            return RedirectToAction("Details", "Room", new { id = contract.RoomId });
         }
 
         contract.ExpectedMoveOutDate = expectedMoveOutDate?.Date;
@@ -301,7 +301,7 @@ public class RentalContractController : Controller
         TempData["SuccessMessage"] = expectedMoveOutDate.HasValue
             ? "Đã cập nhật ngày khách hẹn trả phòng."
             : "Đã xóa thông tin hẹn trả phòng.";
-        return RedirectToAction(nameof(Details), new { id });
+        return RedirectToAction("Details", "Room", new { id = contract.RoomId });
     }
 
     [HttpPost]
