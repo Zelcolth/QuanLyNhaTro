@@ -71,20 +71,7 @@ public class AccountController : Controller
             await _context.SaveChangesAsync();
         }
 
-        var claims = new List<Claim>
-        {
-            new(ClaimTypes.NameIdentifier, user.UserId.ToString()),
-            new(ClaimTypes.Name, user.FullName),
-            new("Username", user.Username)
-        };
-
-        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-        var principal = new ClaimsPrincipal(identity);
-
-        await HttpContext.SignInAsync(
-            CookieAuthenticationDefaults.AuthenticationScheme,
-            principal,
-            new AuthenticationProperties { IsPersistent = false });
+        await SignInUserAsync(user);
 
         if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
         {
@@ -96,33 +83,86 @@ public class AccountController : Controller
 
     [Authorize]
     [HttpGet]
+    public async Task<IActionResult> Settings()
+    {
+        var user = await GetSignedInUserAsync();
+        if (user is null)
+        {
+            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            return RedirectToAction(nameof(Login));
+        }
+
+        return View(new AccountSettingsViewModel
+        {
+            Username = user.Username,
+            Profile = new UpdateAccountProfileViewModel
+            {
+                FullName = user.FullName
+            }
+        });
+    }
+
+    // Keep the previous URL working for saved bookmarks.
+    [Authorize]
+    [HttpGet]
     public IActionResult ChangePassword()
     {
-        return View(new ChangePasswordViewModel());
+        return RedirectToAction(nameof(Settings));
     }
 
     [Authorize]
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> ChangePassword(ChangePasswordViewModel model)
+    public async Task<IActionResult> UpdateProfile(
+        [Bind(Prefix = "Profile")] UpdateAccountProfileViewModel model)
     {
-        if (!ModelState.IsValid)
-        {
-            return View(model);
-        }
-
-        var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (!int.TryParse(userIdValue, out var userId))
-        {
-            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-            return RedirectToAction(nameof(Login));
-        }
-
-        var user = await _context.Users.FindAsync(userId);
+        var user = await GetSignedInUserAsync();
         if (user is null)
         {
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
             return RedirectToAction(nameof(Login));
+        }
+
+        if (!ModelState.IsValid)
+        {
+            return View("Settings", new AccountSettingsViewModel
+            {
+                Username = user.Username,
+                Profile = model
+            });
+        }
+
+        user.FullName = model.FullName.Trim();
+        await _context.SaveChangesAsync();
+
+        // Refresh the authentication cookie so User.Identity.Name immediately reflects the new name.
+        await SignInUserAsync(user);
+
+        TempData["ProfileStatusMessage"] = "Đã cập nhật họ và tên tài khoản.";
+        return RedirectToAction(nameof(Settings));
+    }
+
+    [Authorize]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ChangePassword(
+        [Bind(Prefix = "Password")] ChangePasswordViewModel model)
+    {
+        var user = await GetSignedInUserAsync();
+        if (user is null)
+        {
+            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            return RedirectToAction(nameof(Login));
+        }
+
+        if (!ModelState.IsValid)
+        {
+            return View("Settings", new AccountSettingsViewModel
+            {
+                Username = user.Username,
+                Profile = new UpdateAccountProfileViewModel { FullName = user.FullName },
+                Password = model
+            });
         }
 
         var currentPasswordVerification = _passwordHasher.VerifyHashedPassword(
@@ -131,9 +171,14 @@ public class AccountController : Controller
         if (currentPasswordVerification == PasswordVerificationResult.Failed)
         {
             ModelState.AddModelError(
-                nameof(model.CurrentPassword),
+                "Password.CurrentPassword",
                 "Mật khẩu hiện tại không chính xác.");
-            return View(model);
+            return View("Settings", new AccountSettingsViewModel
+            {
+                Username = user.Username,
+                Profile = new UpdateAccountProfileViewModel { FullName = user.FullName },
+                Password = model
+            });
         }
 
         var newPasswordVerification = _passwordHasher.VerifyHashedPassword(
@@ -142,16 +187,21 @@ public class AccountController : Controller
         if (newPasswordVerification != PasswordVerificationResult.Failed)
         {
             ModelState.AddModelError(
-                nameof(model.NewPassword),
+                "Password.NewPassword",
                 "Mật khẩu mới phải khác mật khẩu hiện tại.");
-            return View(model);
+            return View("Settings", new AccountSettingsViewModel
+            {
+                Username = user.Username,
+                Profile = new UpdateAccountProfileViewModel { FullName = user.FullName },
+                Password = model
+            });
         }
 
         user.PasswordHash = _passwordHasher.HashPassword(user, model.NewPassword);
         await _context.SaveChangesAsync();
 
-        TempData["StatusMessage"] = "Đổi mật khẩu thành công.";
-        return RedirectToAction(nameof(ChangePassword));
+        TempData["PasswordStatusMessage"] = "Đổi mật khẩu thành công.";
+        return RedirectToAction(nameof(Settings));
     }
 
     [Authorize]
@@ -161,5 +211,36 @@ public class AccountController : Controller
     {
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         return RedirectToAction(nameof(Login));
+    }
+
+    private async Task<User?> GetSignedInUserAsync()
+    {
+        var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!int.TryParse(userIdValue, out var userId))
+        {
+            return null;
+        }
+
+        return await _context.Users.FindAsync(userId);
+    }
+
+    private async Task SignInUserAsync(User user)
+    {
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, user.UserId.ToString()),
+            new(ClaimTypes.Name, user.FullName),
+            new("Username", user.Username)
+        };
+
+        var identity = new ClaimsIdentity(
+            claims,
+            CookieAuthenticationDefaults.AuthenticationScheme);
+        var principal = new ClaimsPrincipal(identity);
+
+        await HttpContext.SignInAsync(
+            CookieAuthenticationDefaults.AuthenticationScheme,
+            principal,
+            new AuthenticationProperties { IsPersistent = false });
     }
 }
