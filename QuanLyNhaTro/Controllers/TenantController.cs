@@ -1,3 +1,4 @@
+using ClosedXML.Excel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -64,8 +65,250 @@ public class TenantController : Controller
         ViewBag.FormerTenantIds = formerTenantIds;
         ViewBag.LinkedTenantIds = linkedTenantIds.ToHashSet();
         ViewBag.CurrentlyRentingTenantIds = currentlyRentingTenantIds.ToHashSet();
+        ViewBag.ExportBuildings = await _context.Buildings
+            .AsNoTracking()
+            .OrderBy(building => building.BuildingName)
+            .ToListAsync();
 
         return View(tenants);
+    }
+
+
+    [HttpGet]
+    public async Task<IActionResult> ExportExcel(string? tenantStatus = "all", int? buildingId = null)
+    {
+        var normalizedStatus = tenantStatus?.Trim().ToLowerInvariant();
+        if (normalizedStatus is not ("current" or "former" or "all"))
+        {
+            return BadRequest();
+        }
+
+        Building? selectedBuilding = null;
+        if (buildingId.HasValue)
+        {
+            selectedBuilding = await _context.Buildings
+                .AsNoTracking()
+                .FirstOrDefaultAsync(building => building.BuildingId == buildingId.Value);
+
+            if (selectedBuilding is null)
+            {
+                return NotFound();
+            }
+        }
+
+        var today = DateTime.Today;
+        var assignmentsQuery = _context.ContractTenants
+            .AsNoTracking()
+            .Where(assignment =>
+                assignment.Contract.Status != "Draft"
+                && assignment.Contract.Status != "Cancelled"
+                && assignment.Contract.StartDate.Date <= today
+                && (!assignment.JoinedAt.HasValue || assignment.JoinedAt.Value.Date <= today));
+
+        if (buildingId.HasValue)
+        {
+            assignmentsQuery = assignmentsQuery
+                .Where(assignment => assignment.Contract.Room.BuildingId == buildingId.Value);
+        }
+
+        var rentalRecords = await assignmentsQuery
+            .OrderBy(assignment => assignment.Tenant.FullName)
+            .ThenBy(assignment => assignment.Contract.StartDate)
+            .Select(assignment => new
+            {
+                assignment.TenantId,
+                assignment.Tenant.FullName,
+                assignment.Tenant.IdentityNumber,
+                assignment.Tenant.Phone,
+                assignment.Tenant.DateOfBirth,
+                assignment.Tenant.BirthYear,
+                assignment.Tenant.PermanentAddress,
+                assignment.IsPrimaryTenant,
+                assignment.RelationshipToPrimaryTenant,
+                assignment.IsActive,
+                assignment.JoinedAt,
+                assignment.LeftAt,
+                assignment.Contract.ContractCode,
+                assignment.Contract.Status,
+                assignment.Contract.StartDate,
+                assignment.Contract.EndDate,
+                assignment.Contract.ActualEndDate,
+                BuildingName = assignment.Contract.Room.Building.BuildingName,
+                assignment.Contract.Room.RoomCode
+            })
+            .ToListAsync();
+
+        using var workbook = new XLWorkbook();
+        var worksheet = workbook.Worksheets.Add("DanhSachNguoiThue");
+
+        const int headerRow = 4;
+        const int columnCount = 15;
+        var headers = new[]
+        {
+            "STT",
+            "Quá trình thuê",
+            "Họ và tên",
+            "Số CCCD/CMND",
+            "Số điện thoại",
+            "Ngày sinh / Năm sinh",
+            "Địa chỉ thường trú",
+            "Dãy / Khu nhà",
+            "Phòng",
+            "Mã hợp đồng",
+            "Vai trò",
+            "Quan hệ với người đứng tên",
+            "Ngày bắt đầu thuê",
+            "Ngày kết thúc thuê",
+            "Trạng thái hợp đồng"
+        };
+
+        var statusLabel = normalizedStatus switch
+        {
+            "current" => "Người đang thuê",
+            "former" => "Người từng thuê",
+            _ => "Tất cả người đã thuê"
+        };
+        var buildingLabel = selectedBuilding?.BuildingName ?? "Tất cả dãy / khu nhà";
+
+        worksheet.Cell(1, 1).Value = "DANH SÁCH NGƯỜI THUÊ";
+        worksheet.Range(1, 1, 1, columnCount).Merge();
+        worksheet.Cell(1, 1).Style.Font.Bold = true;
+        worksheet.Cell(1, 1).Style.Font.FontSize = 16;
+        worksheet.Cell(1, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+        worksheet.Cell(2, 1).Value =
+            $"Phân loại: {statusLabel} | Dãy / khu nhà: {buildingLabel} | Ngày xuất: {DateTime.Now:dd/MM/yyyy HH:mm}";
+        worksheet.Range(2, 1, 2, columnCount).Merge();
+
+        worksheet.Cell(3, 1).Value =
+            "Mỗi dòng là một lượt thuê của một người. Người thuê nhiều lần sẽ xuất hiện ở nhiều dòng để giữ nguyên lịch sử phòng và thời gian.";
+        worksheet.Range(3, 1, 3, columnCount).Merge();
+        worksheet.Cell(3, 1).Style.Font.Italic = true;
+        worksheet.Cell(3, 1).Style.Alignment.WrapText = true;
+
+        for (var column = 1; column <= columnCount; column++)
+        {
+            worksheet.Cell(headerRow, column).Value = headers[column - 1];
+        }
+
+        var header = worksheet.Range(headerRow, 1, headerRow, columnCount);
+        header.Style.Font.Bold = true;
+        header.Style.Fill.BackgroundColor = XLColor.LightGray;
+        header.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        header.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+        header.Style.Alignment.WrapText = true;
+
+        var exportRow = headerRow + 1;
+        var sequence = 1;
+
+        foreach (var record in rentalRecords)
+        {
+            var isCurrentlyRenting = record.IsActive
+                && record.Status == "Active"
+                && record.StartDate.Date <= today
+                && record.EndDate.Date >= today;
+
+            if (normalizedStatus == "current" && !isCurrentlyRenting)
+            {
+                continue;
+            }
+
+            if (normalizedStatus == "former" && isCurrentlyRenting)
+            {
+                continue;
+            }
+
+            var moveOutDate = record.LeftAt ?? record.ActualEndDate;
+            if (!moveOutDate.HasValue && record.Status != "Active")
+            {
+                moveOutDate = record.EndDate;
+            }
+
+            worksheet.Cell(exportRow, 1).Value = sequence++;
+            worksheet.Cell(exportRow, 2).Value = isCurrentlyRenting ? "Đang cư trú" : "Đã từng thuê";
+            worksheet.Cell(exportRow, 3).Value = record.FullName;
+            worksheet.Cell(exportRow, 4).Value = record.IdentityNumber ?? string.Empty;
+            worksheet.Cell(exportRow, 5).Value = record.Phone ?? string.Empty;
+            worksheet.Cell(exportRow, 6).Value =
+                record.DateOfBirth?.ToString("dd/MM/yyyy")
+                ?? record.BirthYear?.ToString()
+                ?? string.Empty;
+            worksheet.Cell(exportRow, 7).Value = record.PermanentAddress ?? string.Empty;
+            worksheet.Cell(exportRow, 8).Value = record.BuildingName;
+            worksheet.Cell(exportRow, 9).Value = record.RoomCode;
+            worksheet.Cell(exportRow, 10).Value = record.ContractCode;
+            worksheet.Cell(exportRow, 11).Value = record.IsPrimaryTenant ? "Người đứng tên" : "Người ở phụ";
+            worksheet.Cell(exportRow, 12).Value = record.RelationshipToPrimaryTenant ?? string.Empty;
+
+            var moveInDate = record.JoinedAt ?? record.StartDate;
+            worksheet.Cell(exportRow, 13).Value = moveInDate;
+            if (moveOutDate.HasValue)
+            {
+                worksheet.Cell(exportRow, 14).Value = moveOutDate.Value;
+            }
+
+            worksheet.Cell(exportRow, 15).Value = record.Status switch
+            {
+                "Active" when isCurrentlyRenting => "Đang hiệu lực",
+                "Active" => "Chưa đến ngày thuê / Không còn cư trú",
+                "Expired" => "Đã hết hạn",
+                "Terminated" => "Đã chấm dứt",
+                "Completed" => "Đã hoàn thành",
+                _ => record.Status
+            };
+
+            exportRow++;
+        }
+
+        if (sequence == 1)
+        {
+            worksheet.Cell(headerRow + 1, 1).Value = "Không có dữ liệu phù hợp với điều kiện xuất.";
+            worksheet.Range(headerRow + 1, 1, headerRow + 1, columnCount).Merge();
+        }
+        else
+        {
+            worksheet.Range(headerRow, 1, exportRow - 1, columnCount).SetAutoFilter();
+        }
+
+        worksheet.SheetView.FreezeRows(headerRow);
+        worksheet.Row(headerRow).Height = 34;
+        worksheet.Columns(1, columnCount).AdjustToContents();
+        worksheet.Column(1).Width = 8;
+        worksheet.Column(2).Width = 20;
+        worksheet.Column(3).Width = Math.Max(worksheet.Column(3).Width, 25);
+        worksheet.Column(4).Width = 18;
+        worksheet.Column(5).Width = 16;
+        worksheet.Column(6).Width = 20;
+        worksheet.Column(7).Width = Math.Max(worksheet.Column(7).Width, 28);
+        worksheet.Column(8).Width = 20;
+        worksheet.Column(9).Width = 14;
+        worksheet.Column(10).Width = 18;
+        worksheet.Column(11).Width = 18;
+        worksheet.Column(12).Width = 25;
+        worksheet.Column(13).Width = 18;
+        worksheet.Column(14).Width = 18;
+        worksheet.Column(15).Width = 25;
+        worksheet.Column(4).Style.NumberFormat.Format = "@";
+        worksheet.Column(5).Style.NumberFormat.Format = "@";
+        worksheet.Column(13).Style.DateFormat.Format = "dd/mm/yyyy";
+        worksheet.Column(14).Style.DateFormat.Format = "dd/mm/yyyy";
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+
+        var statusFilePart = normalizedStatus switch
+        {
+            "current" => "NguoiDangThue",
+            "former" => "NguoiTungThue",
+            _ => "TatCaNguoiDaThue"
+        };
+        var buildingFilePart = buildingId.HasValue ? $"_Day{buildingId.Value}" : string.Empty;
+        var fileName = $"DanhSachNguoiThue_{statusFilePart}{buildingFilePart}_{DateTime.Now:yyyyMMdd_HHmm}.xlsx";
+
+        return File(
+            stream.ToArray(),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            fileName);
     }
 
     public async Task<IActionResult> Details(int? id)

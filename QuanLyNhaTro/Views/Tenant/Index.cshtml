@@ -5,6 +5,7 @@
     var linkedTenantIds = ViewBag.LinkedTenantIds as HashSet<int> ?? new HashSet<int>();
     var currentlyRentingTenantIds = ViewBag.CurrentlyRentingTenantIds as HashSet<int> ?? new HashSet<int>();
     var formerTenantIds = ViewBag.FormerTenantIds as HashSet<int> ?? new HashSet<int>();
+    var exportBuildings = ViewBag.ExportBuildings as List<QuanLyNhaTro.Models.Building> ?? new List<QuanLyNhaTro.Models.Building>();
 }
 
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -35,6 +36,40 @@
                 <div class="small text-secondary mb-1">Đã từng thuê / chưa thuê</div>
                 <div class="fs-3 fw-semibold">@ViewBag.FormerTenants</div>
             </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="card mb-3">
+    <div class="card-header"><strong>Xuất Excel thông tin người thuê</strong></div>
+    <div class="card-body">
+        <form asp-action="ExportExcel" method="get" class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label for="tenantExportStatus" class="form-label">Danh sách cần xuất</label>
+                <select id="tenantExportStatus" name="tenantStatus" class="form-select">
+                    <option value="current">Người đang thuê</option>
+                    <option value="former">Người từng thuê</option>
+                    <option value="all" selected>Tất cả người đã thuê</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label for="tenantExportBuilding" class="form-label">Dãy / Khu nhà</label>
+                <select id="tenantExportBuilding" name="buildingId" class="form-select">
+                    <option value="">Tất cả dãy / khu nhà</option>
+                    @foreach (var building in exportBuildings)
+                    {
+                        <option value="@building.BuildingId">@building.BuildingName</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-4">
+                <button type="submit" class="btn btn-outline-success">Xuất Excel</button>
+            </div>
+        </form>
+        <div class="form-text mt-2">
+            Mỗi dòng tương ứng một lượt thuê. Người thuê nhiều lần sẽ có nhiều dòng để giữ nguyên lịch sử.
+            Hồ sơ chưa từng có hợp đồng thuê không nằm trong file.
         </div>
     </div>
 </div>
