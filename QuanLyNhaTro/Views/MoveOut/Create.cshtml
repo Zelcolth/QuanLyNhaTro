@@ -69,7 +69,7 @@ else
                 </div>
                 <div class="col-md-3">
                     <label asp-for="FinalElectricityReading" class="form-label">Chỉ số điện khi trả (kWh)</label>
-                    <input asp-for="FinalElectricityReading" type="number" min="0" step="0.01" class="form-control meter-input" readonly="@(Model.IsFinalReadingLocked ? "readonly" : null)" />
+                    <input asp-for="FinalElectricityReading" type="number" min="0" step="0.01" class="form-control meter-input" oninput="updateMoveOutAmounts()" onchange="updateMoveOutAmounts()" readonly="@(Model.IsFinalReadingLocked ? "readonly" : null)" />
                     <span asp-validation-for="FinalElectricityReading" class="text-danger"></span>
                 </div>
                 <div class="col-md-3">
@@ -87,7 +87,7 @@ else
                 </div>
                 <div class="col-md-3">
                     <label asp-for="FinalWaterReading" class="form-label">Chỉ số nước khi trả (m³)</label>
-                    <input asp-for="FinalWaterReading" type="number" min="0" step="0.01" class="form-control meter-input" readonly="@(Model.IsFinalReadingLocked ? "readonly" : null)" />
+                    <input asp-for="FinalWaterReading" type="number" min="0" step="0.01" class="form-control meter-input" oninput="updateMoveOutAmounts()" onchange="updateMoveOutAmounts()" readonly="@(Model.IsFinalReadingLocked ? "readonly" : null)" />
                     <span asp-validation-for="FinalWaterReading" class="text-danger"></span>
                 </div>
                 <div class="col-md-3">
@@ -164,17 +164,21 @@ else
     <partial name="_ValidationScriptsPartial" />
     <script>
         (() => {
-            const form = document.querySelector("form");
-            const number = name => Number(form.querySelector('[name="' + name + '"]').value) || 0;
+            const form = document.querySelector('form');
+            const valueOf = id => {
+                const input = document.getElementById(id);
+                const value = Number.parseFloat(input?.value ?? "");
+                return Number.isFinite(value) ? value : 0;
+            };
             const money = value => new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(value) + " đ";
             const electricityRate = @Model.ElectricityUnitPrice.ToString(System.Globalization.CultureInfo.InvariantCulture);
             const waterRate = @Model.WaterUnitPrice.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            function update() {
-                const electricity = Math.round(Math.max(number("FinalElectricityReading") - number("PreviousElectricityReading"), 0) * electricityRate);
-                const water = Math.round(Math.max(number("FinalWaterReading") - number("PreviousWaterReading"), 0) * waterRate);
+            window.updateMoveOutAmounts = function () {
+                const electricity = Math.round(Math.max(valueOf("FinalElectricityReading") - valueOf("PreviousElectricityReading"), 0) * electricityRate);
+                const water = Math.round(Math.max(valueOf("FinalWaterReading") - valueOf("PreviousWaterReading"), 0) * waterRate);
                 const deductions = @Model.OutstandingInvoiceAmount.ToString(System.Globalization.CultureInfo.InvariantCulture)
                     + @Model.InvoiceAdjustmentAmount.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                    + number("CleaningFee") + number("RepairFee") + number("OtherFee");
+                    + valueOf("CleaningFee") + valueOf("RepairFee") + valueOf("OtherFee");
                 const deposit = @Model.DepositAmount.ToString(System.Globalization.CultureInfo.InvariantCulture);
                 document.getElementById("electricityAmount").value = money(electricity);
                 document.getElementById("waterAmount").value = money(water);
@@ -182,8 +186,11 @@ else
                 document.getElementById("refundAmount").textContent = money(Math.max(deposit - deductions, 0));
                 document.getElementById("additionalAmount").textContent = money(Math.max(deductions - deposit, 0));
             }
-            form.querySelectorAll(".meter-input, .fee-input").forEach(input => input.addEventListener("input", update));
-            update();
+            form.querySelectorAll(".meter-input, .fee-input").forEach(input => {
+                input.addEventListener("input", window.updateMoveOutAmounts);
+                input.addEventListener("change", window.updateMoveOutAmounts);
+            });
+            window.updateMoveOutAmounts();
         })();
     </script>
 }
