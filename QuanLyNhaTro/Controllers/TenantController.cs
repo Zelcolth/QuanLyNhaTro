@@ -776,11 +776,23 @@ public class TenantController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [RequestSizeLimit(3 * MaxDocumentFileSizeBytes + 64 * 1024)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 3 * MaxDocumentFileSizeBytes + 64 * 1024)]
     public async Task<IActionResult> Edit(
         int id,
-        [Bind("TenantId,FullName,Phone,IdentityNumber,DateOfBirth,BirthYear,PermanentAddress,Notes")] TenantProfile tenant)
+        [Bind("TenantId,FullName,Phone,IdentityNumber,DateOfBirth,BirthYear,PermanentAddress,Notes")] TenantProfile tenant,
+        IFormFile? identityCardFrontFile,
+        IFormFile? identityCardBackFile,
+        IFormFile? birthCertificateFile)
     {
         if (id != tenant.TenantId)
+        {
+            return NotFound();
+        }
+
+        var existingTenant = await _context.TenantProfiles.FindAsync(id);
+
+        if (existingTenant is null)
         {
             return NotFound();
         }
@@ -790,17 +802,45 @@ public class TenantController : Controller
         RemoveUnpostedModelStateEntries();
         ValidateTenant(tenant);
 
+        var documentUploads = new[]
+        {
+            (DocumentType: "IdentityCardFront", File: identityCardFrontFile, FieldName: "identityCardFrontFile"),
+            (DocumentType: "IdentityCardBack", File: identityCardBackFile, FieldName: "identityCardBackFile"),
+            (DocumentType: "BirthCertificate", File: birthCertificateFile, FieldName: "birthCertificateFile")
+        };
+
+        foreach (var upload in documentUploads)
+        {
+            if (upload.File is null)
+            {
+                continue;
+            }
+
+            if (upload.File.Length <= 0)
+            {
+                ModelState.AddModelError(upload.FieldName, "Vui lòng chọn ảnh cần tải lên.");
+            }
+            else if (upload.File.Length > MaxDocumentFileSizeBytes)
+            {
+                ModelState.AddModelError(upload.FieldName, "Dung lượng mỗi ảnh không được vượt quá 5 MB.");
+            }
+            else if (await ValidateDocumentImageAsync(upload.File) is null)
+            {
+                ModelState.AddModelError(upload.FieldName,
+                    "Ảnh phải đúng định dạng JPG, JPEG hoặc PNG. Không hỗ trợ file đổi đuôi giả ảnh.");
+            }
+        }
+
+        tenant.IdentityCardFrontFileName = existingTenant.IdentityCardFrontFileName;
+        tenant.IdentityCardBackFileName = existingTenant.IdentityCardBackFileName;
+        tenant.BirthCertificateFileName = existingTenant.BirthCertificateFileName;
+
         if (!ModelState.IsValid)
         {
             return View(tenant);
         }
 
-        var existingTenant = await _context.TenantProfiles.FindAsync(id);
-
-        if (existingTenant is null)
-        {
-            return NotFound();
-        }
+        var savedDocuments = new List<(string DocumentType, string NewFileName, string? OldFileName)>();
 
         existingTenant.FullName = tenant.FullName;
         existingTenant.Phone = tenant.Phone;
@@ -812,10 +852,64 @@ public class TenantController : Controller
 
         try
         {
+            foreach (var upload in documentUploads)
+            {
+                if (upload.File is null)
+                {
+                    continue;
+                }
+
+                var extension = await ValidateDocumentImageAsync(upload.File);
+                if (extension is null)
+                {
+                    throw new InvalidDataException("Ảnh giấy tờ không hợp lệ.");
+                }
+
+                var newFileName = await SaveTenantDocumentFileAsync(upload.File, extension);
+                var oldFileName = GetTenantDocumentFileName(existingTenant, upload.DocumentType);
+                SetTenantDocumentFileName(existingTenant, upload.DocumentType, newFileName);
+                savedDocuments.Add((upload.DocumentType, newFileName, oldFileName));
+            }
+
             await _context.SaveChangesAsync();
+        }
+        catch (InvalidDataException exception)
+        {
+            foreach (var document in savedDocuments)
+            {
+                TryDeleteTenantDocument(document.NewFileName);
+            }
+
+            ModelState.AddModelError(string.Empty, exception.Message);
+            return View(tenant);
+        }
+        catch (IOException)
+        {
+            foreach (var document in savedDocuments)
+            {
+                TryDeleteTenantDocument(document.NewFileName);
+            }
+
+            ModelState.AddModelError(string.Empty, "Không thể lưu ảnh vào máy chủ. Vui lòng thử lại.");
+            return View(tenant);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            foreach (var document in savedDocuments)
+            {
+                TryDeleteTenantDocument(document.NewFileName);
+            }
+
+            ModelState.AddModelError(string.Empty, "Ứng dụng không có quyền lưu ảnh. Vui lòng kiểm tra quyền truy cập thư mục lưu trữ.");
+            return View(tenant);
         }
         catch (DbUpdateConcurrencyException)
         {
+            foreach (var document in savedDocuments)
+            {
+                TryDeleteTenantDocument(document.NewFileName);
+            }
+
             if (!await TenantExistsAsync(id))
             {
                 return NotFound();
@@ -823,6 +917,21 @@ public class TenantController : Controller
 
             ModelState.AddModelError(string.Empty, "Dữ liệu người thuê đã được thay đổi bởi người khác. Vui lòng tải lại trang và thử lại.");
             return View(tenant);
+        }
+        catch (DbUpdateException)
+        {
+            foreach (var document in savedDocuments)
+            {
+                TryDeleteTenantDocument(document.NewFileName);
+            }
+
+            ModelState.AddModelError(string.Empty, "Không thể cập nhật hồ sơ người thuê. Vui lòng thử lại.");
+            return View(tenant);
+        }
+
+        foreach (var document in savedDocuments)
+        {
+            TryDeleteTenantDocument(document.OldFileName);
         }
 
         TempData["SuccessMessage"] = "Đã cập nhật người thuê thành công.";
@@ -1029,6 +1138,33 @@ public class TenantController : Controller
         }
 
         return null;
+    }
+
+    private async Task<string> SaveTenantDocumentFileAsync(IFormFile file, string extension)
+    {
+        var storageDirectory = GetTenantDocumentStorageDirectory();
+        var fileName = $"{Guid.NewGuid():N}{extension}";
+        var filePath = Path.Combine(storageDirectory, fileName);
+
+        try
+        {
+            Directory.CreateDirectory(storageDirectory);
+            await using var destination = new FileStream(
+                filePath,
+                FileMode.CreateNew,
+                FileAccess.Write,
+                FileShare.None,
+                bufferSize: 81920,
+                useAsync: true);
+            await file.CopyToAsync(destination);
+        }
+        catch
+        {
+            TryDeleteTenantDocument(fileName);
+            throw;
+        }
+
+        return fileName;
     }
 
     private void TryDeleteTenantDocument(string? fileName)
