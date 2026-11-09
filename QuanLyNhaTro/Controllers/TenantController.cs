@@ -185,6 +185,131 @@ public class TenantController : Controller
         return RedirectToAction(nameof(Details), new { id });
     }
 
+
+    [HttpGet]
+    public Task<IActionResult> ViewDocument(int id, string? documentType)
+    {
+        return GetTenantDocumentAsync(id, documentType, asAttachment: false);
+    }
+
+    [HttpGet]
+    public Task<IActionResult> DownloadDocument(int id, string? documentType)
+    {
+        return GetTenantDocumentAsync(id, documentType, asAttachment: true);
+    }
+
+    private async Task<IActionResult> GetTenantDocumentAsync(
+        int id,
+        string? documentType,
+        bool asAttachment)
+    {
+        var normalizedDocumentType = NormalizeDocumentType(documentType);
+        if (normalizedDocumentType is null)
+        {
+            return BadRequest();
+        }
+
+        var tenant = await _context.TenantProfiles
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.TenantId == id);
+
+        if (tenant is null)
+        {
+            return NotFound();
+        }
+
+        var fileName = GetTenantDocumentFileName(tenant, normalizedDocumentType);
+        if (!IsGeneratedTenantDocumentFileName(fileName))
+        {
+            return NotFound();
+        }
+
+        var filePath = Path.Combine(GetTenantDocumentStorageDirectory(), fileName!);
+        if (!System.IO.File.Exists(filePath))
+        {
+            return NotFound();
+        }
+
+        var extension = Path.GetExtension(fileName).ToLowerInvariant();
+        var contentType = extension == ".png" ? "image/png" : "image/jpeg";
+        var downloadName = GetTenantDocumentDownloadName(
+            id, normalizedDocumentType, extension);
+
+        Response.Headers["Cache-Control"] = "private, no-store, no-cache, must-revalidate";
+        Response.Headers["Pragma"] = "no-cache";
+        Response.Headers["Expires"] = "0";
+        Response.Headers["X-Content-Type-Options"] = "nosniff";
+
+        FileStream stream;
+        try
+        {
+            stream = new FileStream(
+                filePath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read,
+                bufferSize: 81920,
+                useAsync: true);
+        }
+        catch (FileNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (DirectoryNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError);
+        }
+
+        if (asAttachment)
+        {
+            return File(stream, contentType, downloadName);
+        }
+
+        Response.Headers["Content-Disposition"] = $"inline; filename=\"{downloadName}\"";
+        return new FileStreamResult(stream, contentType)
+        {
+            EnableRangeProcessing = false
+        };
+    }
+
+    private static bool IsGeneratedTenantDocumentFileName(string? fileName)
+    {
+        if (string.IsNullOrWhiteSpace(fileName)
+            || fileName != Path.GetFileName(fileName)
+            || fileName.Contains('/')
+            || fileName.Contains('\\')
+            || fileName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        {
+            return false;
+        }
+
+        var extension = Path.GetExtension(fileName).ToLowerInvariant();
+        var identifier = Path.GetFileNameWithoutExtension(fileName);
+
+        return (extension == ".jpg" || extension == ".png")
+            && Guid.TryParseExact(identifier, "N", out _);
+    }
+
+    private static string GetTenantDocumentDownloadName(
+        int tenantId,
+        string documentType,
+        string extension)
+    {
+        var documentLabel = documentType switch
+        {
+            "IdentityCardFront" => "CCCD-mat-truoc",
+            "IdentityCardBack" => "CCCD-mat-sau",
+            "BirthCertificate" => "Giay-khai-sinh",
+            _ => "Giay-to"
+        };
+
+        return $"{documentLabel}-{tenantId}{extension}";
+    }
+
     public IActionResult Create()
     {
         return View(new TenantProfile());

@@ -78,6 +78,24 @@
                           method="post" enctype="multipart/form-data">
                         @Html.AntiForgeryToken()
                         <input type="hidden" name="documentType" value="IdentityCardFront" />
+
+                        @if (!string.IsNullOrWhiteSpace(Model.IdentityCardFrontFileName))
+                        {
+                            <a asp-action="ViewDocument" asp-route-id="@Model.TenantId"
+                               asp-route-documentType="IdentityCardFront" target="_blank" rel="noopener"
+                               class="d-block text-center bg-light rounded p-2 mb-2">
+                                <img src="@Url.Action("ViewDocument", new { id = Model.TenantId, documentType = "IdentityCardFront" })"
+                                     alt="Ảnh CCCD mặt trước"
+                                     class="img-fluid"
+                                     style="max-height: 180px; width: 100%; object-fit: contain;"
+                                     loading="lazy" />
+                            </a>
+                            <a asp-action="DownloadDocument" asp-route-id="@Model.TenantId"
+                               asp-route-documentType="IdentityCardFront"
+                               class="btn btn-sm btn-outline-secondary w-100 mb-2">
+                                Tải ảnh về máy
+                            </a>
+                        }
                         <label for="identityCardFrontFile" class="form-label small">Chọn ảnh mặt trước</label>
                         <input id="identityCardFrontFile" class="form-control mb-2"
                                type="file" name="file"
@@ -105,6 +123,24 @@
                           method="post" enctype="multipart/form-data">
                         @Html.AntiForgeryToken()
                         <input type="hidden" name="documentType" value="IdentityCardBack" />
+
+                        @if (!string.IsNullOrWhiteSpace(Model.IdentityCardBackFileName))
+                        {
+                            <a asp-action="ViewDocument" asp-route-id="@Model.TenantId"
+                               asp-route-documentType="IdentityCardBack" target="_blank" rel="noopener"
+                               class="d-block text-center bg-light rounded p-2 mb-2">
+                                <img src="@Url.Action("ViewDocument", new { id = Model.TenantId, documentType = "IdentityCardBack" })"
+                                     alt="Ảnh CCCD mặt sau"
+                                     class="img-fluid"
+                                     style="max-height: 180px; width: 100%; object-fit: contain;"
+                                     loading="lazy" />
+                            </a>
+                            <a asp-action="DownloadDocument" asp-route-id="@Model.TenantId"
+                               asp-route-documentType="IdentityCardBack"
+                               class="btn btn-sm btn-outline-secondary w-100 mb-2">
+                                Tải ảnh về máy
+                            </a>
+                        }
                         <label for="identityCardBackFile" class="form-label small">Chọn ảnh mặt sau</label>
                         <input id="identityCardBackFile" class="form-control mb-2"
                                type="file" name="file"
@@ -132,6 +168,24 @@
                           method="post" enctype="multipart/form-data">
                         @Html.AntiForgeryToken()
                         <input type="hidden" name="documentType" value="BirthCertificate" />
+
+                        @if (!string.IsNullOrWhiteSpace(Model.BirthCertificateFileName))
+                        {
+                            <a asp-action="ViewDocument" asp-route-id="@Model.TenantId"
+                               asp-route-documentType="BirthCertificate" target="_blank" rel="noopener"
+                               class="d-block text-center bg-light rounded p-2 mb-2">
+                                <img src="@Url.Action("ViewDocument", new { id = Model.TenantId, documentType = "BirthCertificate" })"
+                                     alt="Ảnh giấy khai sinh"
+                                     class="img-fluid"
+                                     style="max-height: 180px; width: 100%; object-fit: contain;"
+                                     loading="lazy" />
+                            </a>
+                            <a asp-action="DownloadDocument" asp-route-id="@Model.TenantId"
+                               asp-route-documentType="BirthCertificate"
+                               class="btn btn-sm btn-outline-secondary w-100 mb-2">
+                                Tải ảnh về máy
+                            </a>
+                        }
                         <label for="birthCertificateFile" class="form-label small">Chọn ảnh giấy khai sinh</label>
                         <input id="birthCertificateFile" class="form-control mb-2"
                                type="file" name="file"
