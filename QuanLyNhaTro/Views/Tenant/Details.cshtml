@@ -9,6 +9,15 @@
 
 <h1>Chi tiết người thuê</h1>
 
+@if (TempData["SuccessMessage"] is string successMessage)
+{
+    <div class="alert alert-success" role="alert">@successMessage</div>
+}
+@if (TempData["ErrorMessage"] is string errorMessage)
+{
+    <div class="alert alert-danger" role="alert">@errorMessage</div>
+}
+
 <div class="card mb-3">
     <div class="card-body">
         <dl class="row mb-0">
@@ -41,6 +50,99 @@
             <dt class="col-sm-4">Ghi chú</dt>
             <dd class="col-sm-8">@(Model.Notes ?? "Chưa có")</dd>
         </dl>
+    </div>
+</div>
+
+
+<div class="card mb-3">
+    <div class="card-header"><strong>Giấy tờ cá nhân</strong></div>
+    <div class="card-body">
+        <p class="text-muted small mb-3">
+            Mỗi giấy tờ được tải lên riêng. Chỉ chấp nhận ảnh JPG/JPEG hoặc PNG, tối đa 5 MB mỗi ảnh.
+        </p>
+        <div class="row g-3">
+            <div class="col-lg-4">
+                <div class="border rounded p-3 h-100">
+                    <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                        <strong>CCCD mặt trước</strong>
+                        @if (!string.IsNullOrWhiteSpace(Model.IdentityCardFrontFileName))
+                        {
+                            <span class="badge text-bg-success">Đã tải lên</span>
+                        }
+                        else
+                        {
+                            <span class="badge text-bg-secondary">Chưa có ảnh</span>
+                        }
+                    </div>
+                    <form asp-action="UploadDocument" asp-route-id="@Model.TenantId"
+                          method="post" enctype="multipart/form-data">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="documentType" value="IdentityCardFront" />
+                        <label for="identityCardFrontFile" class="form-label small">Chọn ảnh mặt trước</label>
+                        <input id="identityCardFrontFile" class="form-control mb-2"
+                               type="file" name="file"
+                               accept=".jpg,.jpeg,.png,image/jpeg,image/png" required />
+                        <button type="submit" class="btn btn-outline-primary w-100">
+                            @(string.IsNullOrWhiteSpace(Model.IdentityCardFrontFileName) ? "Upload mặt trước" : "Thay ảnh mặt trước")
+                        </button>
+                    </form>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="border rounded p-3 h-100">
+                    <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                        <strong>CCCD mặt sau</strong>
+                        @if (!string.IsNullOrWhiteSpace(Model.IdentityCardBackFileName))
+                        {
+                            <span class="badge text-bg-success">Đã tải lên</span>
+                        }
+                        else
+                        {
+                            <span class="badge text-bg-secondary">Chưa có ảnh</span>
+                        }
+                    </div>
+                    <form asp-action="UploadDocument" asp-route-id="@Model.TenantId"
+                          method="post" enctype="multipart/form-data">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="documentType" value="IdentityCardBack" />
+                        <label for="identityCardBackFile" class="form-label small">Chọn ảnh mặt sau</label>
+                        <input id="identityCardBackFile" class="form-control mb-2"
+                               type="file" name="file"
+                               accept=".jpg,.jpeg,.png,image/jpeg,image/png" required />
+                        <button type="submit" class="btn btn-outline-primary w-100">
+                            @(string.IsNullOrWhiteSpace(Model.IdentityCardBackFileName) ? "Upload mặt sau" : "Thay ảnh mặt sau")
+                        </button>
+                    </form>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="border rounded p-3 h-100">
+                    <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                        <strong>Giấy khai sinh</strong>
+                        @if (!string.IsNullOrWhiteSpace(Model.BirthCertificateFileName))
+                        {
+                            <span class="badge text-bg-success">Đã tải lên</span>
+                        }
+                        else
+                        {
+                            <span class="badge text-bg-secondary">Chưa có ảnh</span>
+                        }
+                    </div>
+                    <form asp-action="UploadDocument" asp-route-id="@Model.TenantId"
+                          method="post" enctype="multipart/form-data">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="documentType" value="BirthCertificate" />
+                        <label for="birthCertificateFile" class="form-label small">Chọn ảnh giấy khai sinh</label>
+                        <input id="birthCertificateFile" class="form-control mb-2"
+                               type="file" name="file"
+                               accept=".jpg,.jpeg,.png,image/jpeg,image/png" required />
+                        <button type="submit" class="btn btn-outline-primary w-100">
+                            @(string.IsNullOrWhiteSpace(Model.BirthCertificateFileName) ? "Upload giấy khai sinh" : "Thay ảnh giấy khai sinh")
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 

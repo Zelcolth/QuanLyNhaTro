@@ -29,6 +29,13 @@ public class TenantProfile
 
     public string? Notes { get; set; }
 
+    // Server-generated filenames for private tenant document storage.
+    public string? IdentityCardFrontFileName { get; set; }
+
+    public string? IdentityCardBackFileName { get; set; }
+
+    public string? BirthCertificateFileName { get; set; }
+
     public ICollection<ContractTenant> ContractTenants { get; set; }
         = new List<ContractTenant>();
 }

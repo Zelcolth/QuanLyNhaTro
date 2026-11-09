@@ -361,3 +361,6 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Private tenant identity documents uploaded at runtime.
+**/App_Data/TenantDocuments/

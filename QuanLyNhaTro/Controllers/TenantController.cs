@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QuanLyNhaTro.Data;
@@ -9,11 +11,16 @@ namespace QuanLyNhaTro.Controllers;
 [Authorize]
 public class TenantController : Controller
 {
+    private const long MaxDocumentFileSizeBytes = 5 * 1024 * 1024;
     private readonly ApplicationDbContext _context;
+    private readonly IWebHostEnvironment _environment;
 
-    public TenantController(ApplicationDbContext context)
+    public TenantController(
+        ApplicationDbContext context,
+        IWebHostEnvironment environment)
     {
         _context = context;
+        _environment = environment;
     }
 
     public async Task<IActionResult> Index()
@@ -85,6 +92,97 @@ public class TenantController : Controller
             .ToList();
 
         return View(tenant);
+    }
+
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequestSizeLimit(MaxDocumentFileSizeBytes + 64 * 1024)]
+    [RequestFormLimits(MultipartBodyLengthLimit = MaxDocumentFileSizeBytes + 64 * 1024)]
+    public async Task<IActionResult> UploadDocument(
+        int id,
+        string? documentType,
+        IFormFile? file)
+    {
+        var normalizedDocumentType = NormalizeDocumentType(documentType);
+        if (normalizedDocumentType is null)
+        {
+            return BadRequest();
+        }
+
+        var tenant = await _context.TenantProfiles.FindAsync(id);
+        if (tenant is null)
+        {
+            return NotFound();
+        }
+
+        if (file is null || file.Length == 0)
+        {
+            TempData["ErrorMessage"] = "Vui lòng chọn ảnh cần tải lên.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
+        if (file.Length > MaxDocumentFileSizeBytes)
+        {
+            TempData["ErrorMessage"] = "Dung lượng mỗi ảnh không được vượt quá 5 MB.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
+        var extension = await ValidateDocumentImageAsync(file);
+        if (extension is null)
+        {
+            TempData["ErrorMessage"] = "Ảnh phải đúng định dạng JPG, JPEG hoặc PNG. Không hỗ trợ file đổi đuôi giả ảnh.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
+        var storageDirectory = GetTenantDocumentStorageDirectory();
+        var newFileName = $"{Guid.NewGuid():N}{extension}";
+        var newFilePath = Path.Combine(storageDirectory, newFileName);
+
+        try
+        {
+            Directory.CreateDirectory(storageDirectory);
+
+            await using var destination = new FileStream(
+                newFilePath,
+                FileMode.CreateNew,
+                FileAccess.Write,
+                FileShare.None,
+                bufferSize: 81920,
+                useAsync: true);
+
+            await file.CopyToAsync(destination);
+        }
+        catch (IOException)
+        {
+            TryDeleteTenantDocument(newFileName);
+            TempData["ErrorMessage"] = "Không thể lưu ảnh vào máy chủ. Vui lòng thử lại.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            TryDeleteTenantDocument(newFileName);
+            TempData["ErrorMessage"] = "Ứng dụng không có quyền lưu ảnh. Vui lòng kiểm tra quyền truy cập thư mục lưu trữ.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
+        var oldFileName = GetTenantDocumentFileName(tenant, normalizedDocumentType);
+        SetTenantDocumentFileName(tenant, normalizedDocumentType, newFileName);
+
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateException)
+        {
+            TryDeleteTenantDocument(newFileName);
+            TempData["ErrorMessage"] = "Không thể cập nhật hồ sơ giấy tờ. Ảnh cũ vẫn được giữ nguyên.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
+        TryDeleteTenantDocument(oldFileName);
+        TempData["SuccessMessage"] = "Đã tải ảnh giấy tờ lên thành công.";
+        return RedirectToAction(nameof(Details), new { id });
     }
 
     public IActionResult Create()
@@ -237,6 +335,10 @@ public class TenantController : Controller
             return RedirectToAction(nameof(Delete), new { id });
         }
 
+        TryDeleteTenantDocument(tenant.IdentityCardFrontFileName);
+        TryDeleteTenantDocument(tenant.IdentityCardBackFileName);
+        TryDeleteTenantDocument(tenant.BirthCertificateFileName);
+
         TempData["SuccessMessage"] = "Đã xóa người thuê thành công.";
         return RedirectToAction(nameof(Index));
     }
@@ -280,6 +382,137 @@ public class TenantController : Controller
     {
         var normalizedValue = value?.Trim();
         return string.IsNullOrWhiteSpace(normalizedValue) ? null : normalizedValue;
+    }
+
+
+    private string GetTenantDocumentStorageDirectory()
+    {
+        return Path.Combine(_environment.ContentRootPath, "App_Data", "TenantDocuments");
+    }
+
+    private static string? NormalizeDocumentType(string? documentType)
+    {
+        return documentType?.Trim().ToUpperInvariant() switch
+        {
+            "IDENTITYCARDFRONT" => "IdentityCardFront",
+            "IDENTITYCARDBACK" => "IdentityCardBack",
+            "BIRTHCERTIFICATE" => "BirthCertificate",
+            _ => null
+        };
+    }
+
+    private static string? GetTenantDocumentFileName(
+        TenantProfile tenant,
+        string documentType)
+    {
+        return documentType switch
+        {
+            "IdentityCardFront" => tenant.IdentityCardFrontFileName,
+            "IdentityCardBack" => tenant.IdentityCardBackFileName,
+            "BirthCertificate" => tenant.BirthCertificateFileName,
+            _ => null
+        };
+    }
+
+    private static void SetTenantDocumentFileName(
+        TenantProfile tenant,
+        string documentType,
+        string fileName)
+    {
+        switch (documentType)
+        {
+            case "IdentityCardFront":
+                tenant.IdentityCardFrontFileName = fileName;
+                break;
+            case "IdentityCardBack":
+                tenant.IdentityCardBackFileName = fileName;
+                break;
+            case "BirthCertificate":
+                tenant.BirthCertificateFileName = fileName;
+                break;
+        }
+    }
+
+    private static async Task<string?> ValidateDocumentImageAsync(IFormFile file)
+    {
+        if (file.Length <= 0 || file.Length > MaxDocumentFileSizeBytes)
+        {
+            return null;
+        }
+
+        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        var signature = new byte[8];
+        var totalRead = 0;
+
+        await using var stream = file.OpenReadStream();
+        while (totalRead < signature.Length)
+        {
+            var read = await stream.ReadAsync(
+                signature.AsMemory(totalRead, signature.Length - totalRead));
+
+            if (read == 0)
+            {
+                break;
+            }
+
+            totalRead += read;
+        }
+
+        var isJpeg = totalRead >= 3
+            && signature[0] == 0xFF
+            && signature[1] == 0xD8
+            && signature[2] == 0xFF;
+
+        var isPng = totalRead == 8
+            && signature[0] == 0x89
+            && signature[1] == 0x50
+            && signature[2] == 0x4E
+            && signature[3] == 0x47
+            && signature[4] == 0x0D
+            && signature[5] == 0x0A
+            && signature[6] == 0x1A
+            && signature[7] == 0x0A;
+
+        if (isJpeg && (extension == ".jpg" || extension == ".jpeg"))
+        {
+            return ".jpg";
+        }
+
+        if (isPng && extension == ".png")
+        {
+            return ".png";
+        }
+
+        return null;
+    }
+
+    private void TryDeleteTenantDocument(string? fileName)
+    {
+        if (string.IsNullOrWhiteSpace(fileName)
+            || fileName != Path.GetFileName(fileName)
+            || fileName.Contains('/')
+            || fileName.Contains('\\')
+            || fileName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        {
+            return;
+        }
+
+        try
+        {
+            var filePath = Path.Combine(GetTenantDocumentStorageDirectory(), fileName);
+            if (System.IO.File.Exists(filePath))
+            {
+                System.IO.File.Delete(filePath);
+            }
+        }
+        catch (IOException)
+        {
+            // A failed cleanup may leave an orphaned file, but must not undo a saved database change.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // A failed cleanup may leave an orphaned file, but must not undo a saved database change.
+        }
     }
 
     private async Task<bool> TenantExistsAsync(int id)
