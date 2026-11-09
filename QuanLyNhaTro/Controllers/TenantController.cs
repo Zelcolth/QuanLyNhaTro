@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QuanLyNhaTro.Data;
 using QuanLyNhaTro.Models;
+using QuanLyNhaTro.ViewModels;
 
 namespace QuanLyNhaTro.Controllers;
 
@@ -308,6 +309,178 @@ public class TenantController : Controller
         };
 
         return $"{documentLabel}-{tenantId}{extension}";
+    }
+
+
+    [HttpGet]
+    public async Task<IActionResult> PrintIdentityCards(
+        int? tenantId,
+        int? roomId,
+        int? buildingId)
+    {
+        var selectedScopes = (tenantId.HasValue ? 1 : 0)
+            + (roomId.HasValue ? 1 : 0)
+            + (buildingId.HasValue ? 1 : 0);
+
+        if (selectedScopes > 1)
+        {
+            return BadRequest();
+        }
+
+        var model = new TenantIdentityCardPrintViewModel();
+
+        if (tenantId.HasValue)
+        {
+            var tenant = await _context.TenantProfiles
+                .AsNoTracking()
+                .FirstOrDefaultAsync(item => item.TenantId == tenantId.Value);
+
+            if (tenant is null)
+            {
+                return NotFound();
+            }
+
+            model.Title = $"In CCCD - {tenant.FullName}";
+            AddIdentityCardPrintItem(model, tenant.TenantId, tenant.FullName,
+                tenant.IdentityCardFrontFileName, tenant.IdentityCardBackFileName, null);
+
+            return View("PrintIdentityCards", model);
+        }
+
+        string? scopeRoomLabel = null;
+
+        if (roomId.HasValue)
+        {
+            var room = await _context.Rooms
+                .Include(item => item.Building)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(item => item.RoomId == roomId.Value);
+
+            if (room is null)
+            {
+                return NotFound();
+            }
+
+            scopeRoomLabel = $"{room.Building.BuildingName} - Phòng {room.RoomCode}";
+            model.Title = $"In CCCD - {scopeRoomLabel}";
+        }
+        else if (buildingId.HasValue)
+        {
+            var building = await _context.Buildings
+                .AsNoTracking()
+                .FirstOrDefaultAsync(item => item.BuildingId == buildingId.Value);
+
+            if (building is null)
+            {
+                return NotFound();
+            }
+
+            model.Title = $"In CCCD - {building.BuildingName}";
+        }
+        else
+        {
+            model.Title = "In CCCD - Toàn bộ khu trọ";
+        }
+
+        var today = DateTime.Today;
+        var assignmentsQuery = _context.ContractTenants
+            .AsNoTracking()
+            .Where(assignment => assignment.IsActive
+                && assignment.Contract.Status == "Active"
+                && assignment.Contract.StartDate.Date <= today
+                && assignment.Contract.EndDate.Date >= today);
+
+        if (roomId.HasValue)
+        {
+            assignmentsQuery = assignmentsQuery
+                .Where(assignment => assignment.Contract.RoomId == roomId.Value);
+        }
+        else if (buildingId.HasValue)
+        {
+            assignmentsQuery = assignmentsQuery
+                .Where(assignment => assignment.Contract.Room.BuildingId == buildingId.Value);
+        }
+
+        var assignments = await assignmentsQuery
+            .OrderBy(assignment => assignment.Tenant.FullName)
+            .ThenByDescending(assignment => assignment.Contract.StartDate)
+            .Select(assignment => new
+            {
+                assignment.TenantId,
+                assignment.Tenant.FullName,
+                assignment.Tenant.IdentityCardFrontFileName,
+                assignment.Tenant.IdentityCardBackFileName,
+                assignment.Contract.StartDate,
+                BuildingName = assignment.Contract.Room.Building.BuildingName,
+                assignment.Contract.Room.RoomCode
+            })
+            .ToListAsync();
+
+        var uniqueTenants = assignments
+            .GroupBy(assignment => assignment.TenantId)
+            .Select(group => group
+                .OrderByDescending(assignment => assignment.StartDate)
+                .First())
+            .OrderBy(assignment => assignment.FullName)
+            .ToList();
+
+        foreach (var assignment in uniqueTenants)
+        {
+            var roomLabel = $"{assignment.BuildingName} - Phòng {assignment.RoomCode}";
+            AddIdentityCardPrintItem(
+                model,
+                assignment.TenantId,
+                assignment.FullName,
+                assignment.IdentityCardFrontFileName,
+                assignment.IdentityCardBackFileName,
+                roomId.HasValue ? scopeRoomLabel : roomLabel);
+        }
+
+        return View("PrintIdentityCards", model);
+    }
+
+    private void AddIdentityCardPrintItem(
+        TenantIdentityCardPrintViewModel model,
+        int tenantId,
+        string fullName,
+        string? frontFileName,
+        string? backFileName,
+        string? roomLabel)
+    {
+        var hasFrontImage = TenantDocumentExists(frontFileName);
+        var hasBackImage = TenantDocumentExists(backFileName);
+
+        var missingParts = new List<string>();
+        if (!hasFrontImage) missingParts.Add("mặt trước");
+        if (!hasBackImage) missingParts.Add("mặt sau");
+
+        var item = new TenantIdentityCardPrintItemViewModel
+        {
+            TenantId = tenantId,
+            FullName = fullName,
+            RoomLabel = roomLabel,
+            MissingDocuments = string.Join(" và ", missingParts)
+        };
+
+        if (hasFrontImage && hasBackImage)
+        {
+            model.PrintableTenants.Add(item);
+        }
+        else
+        {
+            model.IncompleteTenants.Add(item);
+        }
+    }
+
+    private bool TenantDocumentExists(string? fileName)
+    {
+        if (!IsGeneratedTenantDocumentFileName(fileName))
+        {
+            return false;
+        }
+
+        var filePath = Path.Combine(GetTenantDocumentStorageDirectory(), fileName!);
+        return System.IO.File.Exists(filePath);
     }
 
     public IActionResult Create()

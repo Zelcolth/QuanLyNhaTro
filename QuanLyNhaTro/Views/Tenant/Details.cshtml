@@ -257,6 +257,8 @@
 </div>
 
 <div>
+    <a asp-action="PrintIdentityCards" asp-route-tenantId="@Model.TenantId"
+       target="_blank" rel="noopener" class="btn btn-outline-primary">In CCCD</a>
     <a asp-action="Edit" asp-route-id="@Model.TenantId" class="btn btn-primary">Sửa</a>
     <a asp-action="Index" class="btn btn-secondary">Quay lại danh sách</a>
 </div>

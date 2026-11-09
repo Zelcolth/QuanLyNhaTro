@@ -7,11 +7,51 @@
     var invoiceBillingMonthLabel = ViewBag.InvoiceBillingMonthLabel as string ?? "";
     var moveOutDatesByRoom = ViewBag.MoveOutDatesByRoom as Dictionary<int, DateTime> ?? new Dictionary<int, DateTime>();
     var expiringDatesByRoom = ViewBag.ExpiringDatesByRoom as Dictionary<int, DateTime> ?? new Dictionary<int, DateTime>();
+    var buildings = ViewBag.Buildings as List<QuanLyNhaTro.Models.Building> ?? new List<QuanLyNhaTro.Models.Building>();
+    int? selectedBuildingId = ViewBag.SelectedBuildingId;
 }
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1>Quản lý phòng</h1>
     <a asp-action="Create" class="btn btn-primary">Thêm phòng</a>
+</div>
+
+
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-3">
+    <form asp-action="Index" method="get" class="d-flex flex-wrap align-items-end gap-2">
+        <div>
+            <label for="buildingFilter" class="form-label mb-1">Lọc theo dãy / khu nhà</label>
+            <select id="buildingFilter" name="buildingId" class="form-select">
+                <option value="">Tất cả dãy / khu nhà</option>
+                @foreach (var building in buildings)
+                {
+                    <option value="@building.BuildingId" selected="@(selectedBuildingId == building.BuildingId)">
+                        @building.BuildingName
+                    </option>
+                }
+            </select>
+        </div>
+        <button type="submit" class="btn btn-outline-secondary">Lọc</button>
+        @if (selectedBuildingId.HasValue)
+        {
+            <a asp-action="Index" class="btn btn-link">Bỏ lọc</a>
+        }
+    </form>
+
+    <div class="d-flex flex-wrap gap-2">
+        @if (selectedBuildingId.HasValue)
+        {
+            <a asp-controller="Tenant" asp-action="PrintIdentityCards"
+               asp-route-buildingId="@selectedBuildingId.Value"
+               target="_blank" rel="noopener" class="btn btn-outline-primary">
+                In CCCD dãy này
+            </a>
+        }
+        <a asp-controller="Tenant" asp-action="PrintIdentityCards"
+           target="_blank" rel="noopener" class="btn btn-primary">
+            In toàn bộ CCCD
+        </a>
+    </div>
 </div>
 
 <div class="row g-3 mb-4">

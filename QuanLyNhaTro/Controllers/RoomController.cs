@@ -26,13 +26,30 @@ public class RoomController : Controller
         _context = context;
     }
 
-    public async Task<IActionResult> Index(int? openOccupants = null)
+    public async Task<IActionResult> Index(int? openOccupants = null, int? buildingId = null)
     {
         await SynchronizeExpiredContractsAsync();
 
-        var rooms = await _context.Rooms
-            .Include(room => room.Building)
+        var buildings = await _context.Buildings
             .AsNoTracking()
+            .OrderBy(building => building.BuildingName)
+            .ToListAsync();
+
+        if (buildingId.HasValue && !buildings.Any(building => building.BuildingId == buildingId.Value))
+        {
+            return NotFound();
+        }
+
+        var roomsQuery = _context.Rooms
+            .Include(room => room.Building)
+            .AsNoTracking();
+
+        if (buildingId.HasValue)
+        {
+            roomsQuery = roomsQuery.Where(room => room.BuildingId == buildingId.Value);
+        }
+
+        var rooms = await roomsQuery
             .OrderBy(room => room.Building.BuildingName)
             .ThenBy(room => room.RoomCode)
             .ToListAsync();
@@ -100,6 +117,8 @@ public class RoomController : Controller
         ViewBag.BillableRoomIds = billableRoomIds.ToHashSet();
         ViewBag.InvoiceBillingMonthLabel = currentBillingMonth.ToString("MM/yyyy");
         ViewBag.OpenOccupantsRoomId = openOccupants;
+        ViewBag.Buildings = buildings;
+        ViewBag.SelectedBuildingId = buildingId;
 
         return View(rooms);
     }
