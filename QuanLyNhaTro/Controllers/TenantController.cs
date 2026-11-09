@@ -318,6 +318,10 @@ public class TenantController : Controller
         int? roomId,
         int? buildingId)
     {
+        Response.Headers["Cache-Control"] = "private, no-store, no-cache, must-revalidate";
+        Response.Headers["Pragma"] = "no-cache";
+        Response.Headers["Expires"] = "0";
+
         var selectedScopes = (tenantId.HasValue ? 1 : 0)
             + (roomId.HasValue ? 1 : 0)
             + (buildingId.HasValue ? 1 : 0);

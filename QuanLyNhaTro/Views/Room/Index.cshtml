@@ -25,7 +25,7 @@
                 <option value="">Tất cả dãy / khu nhà</option>
                 @foreach (var building in buildings)
                 {
-                    <option value="@building.BuildingId" selected="@(selectedBuildingId == building.BuildingId)">
+                    <option value="@building.BuildingId" selected="@(selectedBuildingId == building.BuildingId ? "selected" : null)">
                         @building.BuildingName
                     </option>
                 }
@@ -109,7 +109,9 @@
 
 @if (!Model.Any())
 {
-    <div class="alert alert-info">Chưa có phòng nào.</div>
+    <div class="alert alert-info">
+        @(selectedBuildingId.HasValue ? "Dãy / khu nhà đã chọn chưa có phòng nào." : "Chưa có phòng nào.")
+    </div>
 }
 else
 {

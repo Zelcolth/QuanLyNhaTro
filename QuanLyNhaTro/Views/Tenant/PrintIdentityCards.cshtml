@@ -112,11 +112,11 @@
             border: 1px solid #ced4da;
             background: #fff;
         }
-        @page {
+        @@page {
             size: A4 portrait;
             margin: 10mm;
         }
-        @media print {
+        @@media print {
             body { padding: 0; background: #fff; }
             .no-print { display: none !important; }
             .print-content {
@@ -141,7 +141,7 @@
         <div class="toolbar-actions">
             @if (Model.PrintableTenants.Count > 0)
             {
-                <button type="button" class="button button-primary" onclick="window.print()">In CCCD</button>
+                <button type="button" class="button button-primary" onclick="window.print()">@(Model.IncompleteTenants.Count > 0 ? "In những người đủ hai mặt" : "In CCCD")</button>
             }
             <button type="button" class="button" onclick="window.close()">Đóng</button>
         </div>
@@ -215,7 +215,8 @@
 
     <script>
         window.addEventListener("load", function () {
-            if (document.querySelector(".identity-card-pair")) {
+            if (document.querySelector(".identity-card-pair")
+                && !document.querySelector(".notice-warning")) {
                 window.setTimeout(function () { window.print(); }, 300);
             }
         });
