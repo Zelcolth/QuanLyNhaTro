@@ -9,6 +9,15 @@
 
 <h1>Chi tiết người thuê</h1>
 
+@if (TempData["SuccessMessage"] is string successMessage)
+{
+    <div class="alert alert-success" role="alert">@successMessage</div>
+}
+@if (TempData["ErrorMessage"] is string errorMessage)
+{
+    <div class="alert alert-danger" role="alert">@errorMessage</div>
+}
+
 <div class="card mb-3">
     <div class="card-body">
         <dl class="row mb-0">
@@ -41,6 +50,126 @@
             <dt class="col-sm-4">Ghi chú</dt>
             <dd class="col-sm-8">@(Model.Notes ?? "Chưa có")</dd>
         </dl>
+    </div>
+</div>
+
+
+<div class="card mb-3">
+    <div class="card-header"><strong>Giấy tờ cá nhân</strong></div>
+    <div class="card-body">
+        <p class="text-muted small mb-3">
+            Đây là phần xem giấy tờ cá nhân. Muốn upload hoặc thay đổi giấy tờ, hãy chọn nút <strong>Sửa</strong> ở cuối trang.
+        </p>
+        <div class="row g-3">
+            <div class="col-lg-4">
+                <div class="border rounded p-3 h-100">
+                    <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                        <strong>CCCD mặt trước</strong>
+                        @if (!string.IsNullOrWhiteSpace(Model.IdentityCardFrontFileName))
+                        {
+                            <span class="badge text-bg-success">Đã tải lên</span>
+                        }
+                        else
+                        {
+                            <span class="badge text-bg-secondary">Chưa có ảnh</span>
+                        }
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(Model.IdentityCardFrontFileName))
+                    {
+                        <a asp-action="ViewDocument" asp-route-id="@Model.TenantId"
+                           asp-route-documentType="IdentityCardFront" target="_blank" rel="noopener"
+                           class="d-block text-center bg-light rounded p-2 mb-2">
+                            <img src="@Url.Action("ViewDocument", new { id = Model.TenantId, documentType = "IdentityCardFront" })"
+                                 alt="Ảnh CCCD mặt trước"
+                                 class="img-fluid"
+                                 style="max-height: 180px; width: 100%; object-fit: contain;"
+                                 loading="lazy" />
+                        </a>
+                        <a asp-action="DownloadDocument" asp-route-id="@Model.TenantId"
+                           asp-route-documentType="IdentityCardFront"
+                           class="btn btn-sm btn-outline-secondary w-100">
+                            Tải ảnh về máy
+                        </a>
+                    }
+                    else
+                    {
+                        <div class="text-muted small">Chưa có ảnh để xem.</div>
+                    }
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="border rounded p-3 h-100">
+                    <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                        <strong>CCCD mặt sau</strong>
+                        @if (!string.IsNullOrWhiteSpace(Model.IdentityCardBackFileName))
+                        {
+                            <span class="badge text-bg-success">Đã tải lên</span>
+                        }
+                        else
+                        {
+                            <span class="badge text-bg-secondary">Chưa có ảnh</span>
+                        }
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(Model.IdentityCardBackFileName))
+                    {
+                        <a asp-action="ViewDocument" asp-route-id="@Model.TenantId"
+                           asp-route-documentType="IdentityCardBack" target="_blank" rel="noopener"
+                           class="d-block text-center bg-light rounded p-2 mb-2">
+                            <img src="@Url.Action("ViewDocument", new { id = Model.TenantId, documentType = "IdentityCardBack" })"
+                                 alt="Ảnh CCCD mặt sau"
+                                 class="img-fluid"
+                                 style="max-height: 180px; width: 100%; object-fit: contain;"
+                                 loading="lazy" />
+                        </a>
+                        <a asp-action="DownloadDocument" asp-route-id="@Model.TenantId"
+                           asp-route-documentType="IdentityCardBack"
+                           class="btn btn-sm btn-outline-secondary w-100">
+                            Tải ảnh về máy
+                        </a>
+                    }
+                    else
+                    {
+                        <div class="text-muted small">Chưa có ảnh để xem.</div>
+                    }
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="border rounded p-3 h-100">
+                    <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                        <strong>Giấy khai sinh</strong>
+                        @if (!string.IsNullOrWhiteSpace(Model.BirthCertificateFileName))
+                        {
+                            <span class="badge text-bg-success">Đã tải lên</span>
+                        }
+                        else
+                        {
+                            <span class="badge text-bg-secondary">Chưa có ảnh</span>
+                        }
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(Model.BirthCertificateFileName))
+                    {
+                        <a asp-action="ViewDocument" asp-route-id="@Model.TenantId"
+                           asp-route-documentType="BirthCertificate" target="_blank" rel="noopener"
+                           class="d-block text-center bg-light rounded p-2 mb-2">
+                            <img src="@Url.Action("ViewDocument", new { id = Model.TenantId, documentType = "BirthCertificate" })"
+                                 alt="Ảnh giấy khai sinh"
+                                 class="img-fluid"
+                                 style="max-height: 180px; width: 100%; object-fit: contain;"
+                                 loading="lazy" />
+                        </a>
+                        <a asp-action="DownloadDocument" asp-route-id="@Model.TenantId"
+                           asp-route-documentType="BirthCertificate"
+                           class="btn btn-sm btn-outline-secondary w-100">
+                            Tải ảnh về máy
+                        </a>
+                    }
+                    else
+                    {
+                        <div class="text-muted small">Chưa có ảnh để xem.</div>
+                    }
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -101,6 +230,8 @@
 </div>
 
 <div>
+    <a asp-action="PrintIdentityCards" asp-route-tenantId="@Model.TenantId"
+       target="_blank" rel="noopener" class="btn btn-outline-primary">In CCCD</a>
     <a asp-action="Edit" asp-route-id="@Model.TenantId" class="btn btn-primary">Sửa</a>
     <a asp-action="Index" class="btn btn-secondary">Quay lại danh sách</a>
 </div>

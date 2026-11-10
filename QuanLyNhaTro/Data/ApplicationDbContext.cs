@@ -72,6 +72,13 @@ public class ApplicationDbContext : DbContext
             .HasIndex(user => user.Username)
             .IsUnique();
 
+        modelBuilder.Entity<TenantProfile>(entity =>
+        {
+            entity.Property(tenant => tenant.IdentityCardFrontFileName).HasMaxLength(100);
+            entity.Property(tenant => tenant.IdentityCardBackFileName).HasMaxLength(100);
+            entity.Property(tenant => tenant.BirthCertificateFileName).HasMaxLength(100);
+        });
+
         modelBuilder.Entity<TenantProfile>()
             .HasOne(tenant => tenant.User)
             .WithOne()

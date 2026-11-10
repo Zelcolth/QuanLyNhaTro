@@ -500,6 +500,10 @@ namespace QuanLyNhaTro.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TenantId"));
 
+                    b.Property<string>("BirthCertificateFileName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<int?>("BirthYear")
                         .HasColumnType("int");
 
@@ -509,6 +513,14 @@ namespace QuanLyNhaTro.Migrations
                     b.Property<string>("FullName")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("IdentityCardBackFileName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("IdentityCardFrontFileName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("IdentityNumber")
                         .HasColumnType("nvarchar(max)");
