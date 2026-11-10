@@ -843,7 +843,7 @@ public class TenantController : Controller
         }
 
         TempData["SuccessMessage"] = "Đã cập nhật người thuê thành công.";
-        return RedirectToAction(nameof(Index));
+        return View(existingTenant);
     }
 
     public async Task<IActionResult> Delete(int? id)
