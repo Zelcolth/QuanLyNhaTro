@@ -21,6 +21,8 @@
         <div class="d-flex flex-wrap gap-2">
             <a asp-controller="UtilityReading" asp-action="Index" asp-route-readingMonth="@Model.BillingMonth"
                class="btn btn-outline-secondary">Nhập chỉ số điện nước</a>
+            <a asp-action="ExportExcel" asp-route-billingMonth="@Model.BillingMonth"
+               class="btn btn-outline-success">Xuất báo cáo Excel</a>
             <form asp-action="GenerateMonth" method="post" class="m-0">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="billingMonth" value="@Model.BillingMonth" />

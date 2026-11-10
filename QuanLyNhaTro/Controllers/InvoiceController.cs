@@ -1,6 +1,7 @@
 using System.Data;
 using System.Globalization;
 using System.Text;
+using ClosedXML.Excel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -59,6 +60,163 @@ public class InvoiceController : Controller
         };
 
         return View(model);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ExportExcel(string? billingMonth)
+    {
+        if (!TryParseBillingMonth(billingMonth, out var period))
+        {
+            period = CurrentMonth();
+        }
+
+        var currentMonth = CurrentMonth();
+        if (period > currentMonth)
+        {
+            period = currentMonth;
+        }
+
+        var invoices = await _context.Invoices
+            .Where(invoice => invoice.BillingMonth == period)
+            .Include(invoice => invoice.Contract)
+            .Include(invoice => invoice.Receipts)
+            .AsNoTracking()
+            .OrderBy(invoice => invoice.RoomLabelSnapshot)
+            .ThenBy(invoice => invoice.InvoiceCode)
+            .ToListAsync();
+
+        var reportRows = invoices.Select(invoice =>
+        {
+            var paidAmount = CalculatePaidAmount(invoice);
+            var remainingAmount = Math.Max(invoice.TotalAmount - paidAmount, 0m);
+            var paymentStatus = remainingAmount <= 0m
+                ? "Đã thanh toán"
+                : paidAmount > 0m ? "Thanh toán một phần" : "Chưa thanh toán";
+
+            return new
+            {
+                Invoice = invoice,
+                PaidAmount = paidAmount,
+                RemainingAmount = remainingAmount,
+                PaymentStatus = paymentStatus
+            };
+        }).ToList();
+
+        using var workbook = new XLWorkbook();
+        var worksheet = workbook.Worksheets.Add("BaoCaoDoanhThu");
+        var periodLabel = period.ToString("MM/yyyy", CultureInfo.InvariantCulture);
+
+        worksheet.Cell(1, 1).Value = $"BÁO CÁO CHI TIẾT DOANH THU - THÁNG {periodLabel}";
+        worksheet.Range(1, 1, 1, 18).Merge();
+        worksheet.Cell(1, 1).Style.Font.Bold = true;
+        worksheet.Cell(1, 1).Style.Font.FontSize = 14;
+        worksheet.Cell(1, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        worksheet.Cell(2, 1).Value = "Ngày xuất";
+        worksheet.Cell(2, 2).Value = DateTime.Now;
+        worksheet.Cell(2, 2).Style.DateFormat.Format = "dd/MM/yyyy HH:mm";
+
+        var summary = new[]
+        {
+            ("Tổng giá trị hóa đơn", reportRows.Sum(row => row.Invoice.TotalAmount)),
+            ("Tổng tiền đã thu", reportRows.Sum(row => row.PaidAmount)),
+            ("Tổng tiền còn nợ", reportRows.Sum(row => row.RemainingAmount)),
+            ("Tổng tiền điện", reportRows.Sum(row => row.Invoice.ElectricityAmount)),
+            ("Tổng tiền nước", reportRows.Sum(row => row.Invoice.WaterAmount))
+        };
+
+        for (var index = 0; index < summary.Length; index++)
+        {
+            var column = index * 2 + 1;
+            worksheet.Cell(4, column).Value = summary[index].Item1;
+            worksheet.Cell(5, column).Value = summary[index].Item2;
+            worksheet.Cell(4, column).Style.Font.Bold = true;
+            worksheet.Cell(5, column).Style.NumberFormat.Format = "#,##0";
+        }
+
+        var headers = new[]
+        {
+            "STT", "Mã hóa đơn", "Phòng", "Người thuê", "Mã hợp đồng",
+            "Từ ngày", "Đến ngày", "Tiền phòng", "Tiền điện", "Tiền nước",
+            "Phí rác", "Wi-Fi", "Giảm trừ", "Tổng hóa đơn", "Đã thu",
+            "Còn nợ", "Trạng thái hợp đồng", "Trạng thái thanh toán"
+        };
+
+        for (var column = 0; column < headers.Length; column++)
+        {
+            worksheet.Cell(7, column + 1).Value = headers[column];
+        }
+
+        var headerRange = worksheet.Range(7, 1, 7, headers.Length);
+        headerRange.Style.Font.Bold = true;
+        headerRange.Style.Fill.BackgroundColor = XLColor.LightBlue;
+        headerRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        headerRange.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+        headerRange.Style.Alignment.WrapText = true;
+
+        for (var index = 0; index < reportRows.Count; index++)
+        {
+            var row = reportRows[index];
+            var invoice = row.Invoice;
+            var excelRow = index + 8;
+            var startDate = invoice.BillingStartDate ?? invoice.BillingMonth;
+            var endDate = invoice.BillingEndDate ?? invoice.BillingMonth.AddMonths(1).AddDays(-1);
+
+            worksheet.Cell(excelRow, 1).Value = index + 1;
+            worksheet.Cell(excelRow, 2).Value = invoice.InvoiceCode;
+            worksheet.Cell(excelRow, 3).Value = invoice.RoomLabelSnapshot;
+            worksheet.Cell(excelRow, 4).Value = invoice.TenantNamesSnapshot;
+            worksheet.Cell(excelRow, 5).Value = invoice.ContractCodeSnapshot;
+            worksheet.Cell(excelRow, 6).Value = startDate;
+            worksheet.Cell(excelRow, 7).Value = endDate;
+            worksheet.Cell(excelRow, 8).Value = invoice.RentAmount;
+            worksheet.Cell(excelRow, 9).Value = invoice.ElectricityAmount;
+            worksheet.Cell(excelRow, 10).Value = invoice.WaterAmount;
+            worksheet.Cell(excelRow, 11).Value = invoice.GarbageFee;
+            worksheet.Cell(excelRow, 12).Value = invoice.WifiFee;
+            worksheet.Cell(excelRow, 13).Value = invoice.DiscountAmount;
+            worksheet.Cell(excelRow, 14).Value = invoice.TotalAmount;
+            worksheet.Cell(excelRow, 15).Value = row.PaidAmount;
+            worksheet.Cell(excelRow, 16).Value = row.RemainingAmount;
+            worksheet.Cell(excelRow, 17).Value = invoice.Contract?.Status switch
+            {
+                "Active" => "Đang hiệu lực",
+                "Expired" => "Hết hạn",
+                "Terminated" => "Đã chấm dứt",
+                "Completed" => "Đã hoàn thành",
+                "Cancelled" => "Đã hủy",
+                "Draft" => "Bản nháp",
+                _ => invoice.Contract?.Status ?? string.Empty
+            };
+            worksheet.Cell(excelRow, 18).Value = row.PaymentStatus;
+        }
+
+        if (reportRows.Count > 0)
+        {
+            var moneyRange = worksheet.Range(8, 8, reportRows.Count + 7, 16);
+            moneyRange.Style.NumberFormat.Format = "#,##0";
+            worksheet.Range(8, 6, reportRows.Count + 7, 7).Style.DateFormat.Format = "dd/MM/yyyy";
+        }
+
+        worksheet.SheetView.FreezeRows(7);
+        worksheet.Columns().AdjustToContents();
+        worksheet.Column(3).Width = Math.Min(Math.Max(worksheet.Column(3).Width, 18), 30);
+        worksheet.Column(4).Width = Math.Min(Math.Max(worksheet.Column(4).Width, 20), 35);
+        worksheet.Column(17).Width = 20;
+        worksheet.Column(18).Width = 22;
+        var usedRange = worksheet.RangeUsed();
+        if (usedRange is not null)
+        {
+            usedRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            usedRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+        }
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        var fileName = $"BaoCaoDoanhThu_{period:yyyyMM}.xlsx";
+        return File(
+            stream.ToArray(),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            fileName);
     }
 
     [HttpPost]
