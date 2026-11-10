@@ -91,7 +91,7 @@
 
 <div class="d-flex gap-2 flex-wrap">
     <a asp-action="Print" asp-route-id="@Model.SettlementId" target="_blank" class="btn btn-outline-primary">In phiếu</a>
-    @if (!isConfirmed)
+    @if (Model.Status == "Draft")
     {
         <a asp-action="Create" asp-route-contractId="@Model.ContractId" class="btn btn-outline-secondary">Chỉnh sửa phiếu</a>
         <form asp-action="Confirm" asp-route-id="@Model.SettlementId" method="post" class="d-inline">
@@ -99,6 +99,13 @@
             <button type="submit" class="btn btn-danger" disabled="@(!Model.HasCurrentMonthInvoice)"
                     onclick="return confirm('Xác nhận trả phòng? Hợp đồng sẽ chấm dứt và phòng chuyển sang trạng thái Chờ xử lý.');">
                 Xác nhận trả phòng
+            </button>
+        </form>
+        <form asp-action="CancelDraft" asp-route-id="@Model.SettlementId" method="post" class="d-inline">
+            @Html.AntiForgeryToken()
+            <button type="submit" class="btn btn-outline-danger"
+                    onclick="return confirm('Hủy phiếu quyết toán nháp? Phiếu sẽ bị xóa và ngày hẹn trả phòng được gỡ. Hợp đồng, người thuê, phòng, hóa đơn và biên nhận vẫn được giữ nguyên.');">
+                Hủy phiếu nháp
             </button>
         </form>
     }

@@ -283,6 +283,41 @@ public class MoveOutController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CancelDraft(int id)
+    {
+        var settlement = await _context.MoveOutSettlements
+            .Include(item => item.Contract)
+            .FirstOrDefaultAsync(item => item.SettlementId == id);
+
+        if (settlement is null) return NotFound();
+
+        if (settlement.Status != "Draft"
+            || settlement.Contract.Status is not ("Active" or "Expired"))
+        {
+            TempData["ErrorMessage"] = "Chỉ có thể hủy phiếu quyết toán nháp khi hợp đồng vẫn đang hiệu lực hoặc đã hết hạn.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
+        var contractId = settlement.ContractId;
+        settlement.Contract.ExpectedMoveOutDate = null;
+        _context.MoveOutSettlements.Remove(settlement);
+
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateException)
+        {
+            TempData["ErrorMessage"] = "Không thể hủy phiếu quyết toán. Vui lòng thử lại.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
+        TempData["SuccessMessage"] = "Đã hủy phiếu quyết toán nháp. Hợp đồng vẫn được giữ nguyên.";
+        return RedirectToAction("Details", "RentalContract", new { id = contractId });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Confirm(int id)
     {
         var settlement = await _context.MoveOutSettlements
