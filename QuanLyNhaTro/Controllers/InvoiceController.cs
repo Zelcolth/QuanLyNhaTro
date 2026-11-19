@@ -908,6 +908,7 @@ public class InvoiceController : Controller
         ViewBag.BankAccount = bankConfig?.BankAccount;
         ViewBag.AccountName = bankConfig?.AccountName;
         ViewBag.TransferContent = BuildTransferContent(invoice);
+        ViewBag.VietQrUrl = BuildStaticVietQrUrl(bankConfig);
 
         return View(invoice);
     }
@@ -925,6 +926,17 @@ public class InvoiceController : Controller
         {
             return NotFound();
         }
+
+        var bankConfig = await _context.SystemConfigs
+            .AsNoTracking()
+            .OrderBy(item => item.ConfigId)
+            .FirstOrDefaultAsync();
+
+        ViewBag.BankCode = bankConfig?.BankCode;
+        ViewBag.BankAccount = bankConfig?.BankAccount;
+        ViewBag.AccountName = bankConfig?.AccountName;
+        ViewBag.TransferContent = BuildTransferContent(invoice);
+        ViewBag.VietQrUrl = BuildStaticVietQrUrl(bankConfig);
 
         return View(invoice);
     }
