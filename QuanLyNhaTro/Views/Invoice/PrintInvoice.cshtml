@@ -16,6 +16,7 @@
     var bankAccount = ViewBag.BankAccount as string;
     var accountName = ViewBag.AccountName as string;
     var transferContent = ViewBag.TransferContent as string;
+    var vietQrUrl = ViewBag.VietQrUrl as string;
     var hasBankDetails = !string.IsNullOrWhiteSpace(bankCode)
         && !string.IsNullOrWhiteSpace(bankAccount)
         && !string.IsNullOrWhiteSpace(accountName);
@@ -160,7 +161,18 @@
                             <dd class="col-sm-8 fw-semibold text-break">@transferContent</dd>
                         </dl>
                     </div>
-                    <div class="col-md-4" aria-hidden="true" style="min-height: 140px;"></div>
+                    <div class="col-md-4 text-center">
+                        @if (!string.IsNullOrWhiteSpace(vietQrUrl))
+                        {
+                            <img src="@vietQrUrl" alt="Mã QR thanh toán VietQR"
+                                 class="img-fluid" style="max-width: 160px;" />
+                            <div class="small text-muted mt-2">Quét bằng ứng dụng ngân hàng</div>
+                        }
+                        else
+                        {
+                            <div class="small text-muted">Chưa cấu hình mã QR hợp lệ.</div>
+                        }
+                    </div>
                 </div>
             </section>
         }
