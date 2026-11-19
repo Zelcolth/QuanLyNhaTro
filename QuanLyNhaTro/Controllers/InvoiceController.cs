@@ -908,6 +908,7 @@ public class InvoiceController : Controller
         ViewBag.BankAccount = bankConfig?.BankAccount;
         ViewBag.AccountName = bankConfig?.AccountName;
         ViewBag.TransferContent = BuildTransferContent(invoice);
+        ViewBag.VietQrUrl = BuildStaticVietQrUrl(bankConfig);
 
         return View(invoice);
     }
@@ -925,6 +926,17 @@ public class InvoiceController : Controller
         {
             return NotFound();
         }
+
+        var bankConfig = await _context.SystemConfigs
+            .AsNoTracking()
+            .OrderBy(item => item.ConfigId)
+            .FirstOrDefaultAsync();
+
+        ViewBag.BankCode = bankConfig?.BankCode;
+        ViewBag.BankAccount = bankConfig?.BankAccount;
+        ViewBag.AccountName = bankConfig?.AccountName;
+        ViewBag.TransferContent = BuildTransferContent(invoice);
+        ViewBag.VietQrUrl = BuildStaticVietQrUrl(bankConfig);
 
         return View(invoice);
     }
@@ -985,6 +997,32 @@ public class InvoiceController : Controller
         return invoice.TenantNamesSnapshot
             .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
             .FirstOrDefault() ?? string.Empty;
+    }
+
+    private static string? BuildStaticVietQrUrl(SystemConfig? bankConfig)
+    {
+        if (bankConfig is null)
+        {
+            return null;
+        }
+
+        var bankCode = bankConfig.BankCode?.Trim();
+        var bankAccount = bankConfig.BankAccount?.Trim();
+
+        if (string.IsNullOrWhiteSpace(bankCode)
+            || string.IsNullOrWhiteSpace(bankAccount)
+            || bankCode.Length > 20
+            || bankAccount.Length > 19
+            || !bankCode.All(char.IsAsciiLetterOrDigit)
+            || !bankAccount.All(char.IsAsciiLetterOrDigit))
+        {
+            return null;
+        }
+
+        var encodedBankCode = Uri.EscapeDataString(bankCode);
+        var encodedBankAccount = Uri.EscapeDataString(bankAccount);
+
+        return $"https://img.vietqr.io/image/{encodedBankCode}-{encodedBankAccount}-qr_only.svg";
     }
 
     private static string BuildTransferContent(Invoice invoice)
